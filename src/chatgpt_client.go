@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	// go get github.com/sashabaranov/go-openai
 
@@ -17,7 +18,7 @@ const QUERY = "Tell me who is in this conversatiion: \"The more or less automati
 
 func main() {
 
-	client := openai.NewClient("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")
+	client := openai.NewClient(os.Getenv("API_KEY"))
 
 	resp, err := client.CreateChatCompletion(
 
