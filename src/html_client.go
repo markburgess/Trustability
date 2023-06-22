@@ -17,9 +17,9 @@ var CAPTURE bool = false
 
 func main() {
 
-	//response, err := http.Get("https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)")
+	response, err := http.Get("https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)")
 
-	response, err := http.Get("https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500")
+	//response, err := http.Get("https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500")
 
 	//response, err := http.Get("https://en.wikipedia.org/wiki/Talk:Mark_Burgess_(computer_scientist)")
 
