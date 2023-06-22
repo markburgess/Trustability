@@ -352,9 +352,9 @@ func FractionateThenRankSentence(s_idx int, sentence string) float64 {
 
 	for word := range clean_sentence {
 
-		// This will be too strong in general - ligatures in xhtml etc
+		// This will be too strong in general - ligatures and foreign languages etc
 
-		m := regexp.MustCompile("[^-a-zA-Z0-9. ]*") 
+		m := regexp.MustCompile("[/()?!]*") 
 		cleanjunk := m.ReplaceAllString(clean_sentence[word],"") 
 		cleanword := strings.Trim(strings.ToLower(cleanjunk)," ")
 		
@@ -414,10 +414,10 @@ func SearchInvariants(g TT.Analytics) {
 				// logarithmic like n / log (o1-o2) for occurrence separation
 				// Radius = 100 sentences, how many occurrences of this ngram close together?
 				
-				// Does meaning have an intrinsic radius. It doesn't make sense that it
+				// Does meaning have an intrinsic radius? It doesn't make sense that it
 				// depends on the length of the document. How could we measure this?	
 				
-				// two one relative to first occurrence (absolulte range), one to last occurrence??
+				// two one relative to first occurrence (absolute range), one to last occurrence??
 				// only the last is invariant on the scale of a story
 				
 				delta = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location] - last			
