@@ -56,7 +56,6 @@ var WORDCOUNT int = 0
 var LEGCOUNT int = 0
 var KEPT int = 0
 var SKIPPED int = 0
-var TOTAL_PARAGRAPHS int = 0
 var ALL_SENTENCE_INDEX int = 0
 
 var SELECTED_SENTENCES []Narrative
@@ -163,9 +162,9 @@ func main() {
 	SaveContext()
 
 	fmt.Println("\nKept = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
-	fmt.Println("\nAccepted",THRESH_ACCEPT/TOTAL_THRESH*100,"% into hubs")
 
-	fmt.Println("Average sentence length =")
+	fmt.Println("\nAccepted (average attention)",THRESH_ACCEPT/TOTAL_THRESH*100,"% into hubs")
+
 }
 
 //**************************************************************
@@ -180,37 +179,27 @@ func ReadSentenceStream(filename string) {
 	start := strings.ReplaceAll(path.Base(filename),"/",":")
 	TT.NextDataEvent(&G,start,start)
 
-	TOTAL_PARAGRAPHS = len(ReadAndSplitRawStream(filename))
+	ReadAndSplitRawStream(filename)
 }
 
 //**************************************************************
 
-func ReadAndSplitRawStream(filename string) []string {
+func ReadAndSplitRawStream(filename string) string {
 
 	// split each file into "paragraphs", or units of rhythm. 
         // These paragraphs aren't significant for processing, as
 	// styles use paragraphs in diff ways, so we use "legs" instead.
 
-	proto_paragraphs := CleanFile(string(filename))
+	proto_text := CleanFile(string(filename))
 	
-	// split each paragraph chunk into sentences
-
-	for para := range proto_paragraphs {
-
-		// emotion, take a breath
-
-		ParseChunk(para, proto_paragraphs[para])
-	}
-
-return proto_paragraphs
+	ParseChunk(proto_text)
+	
+	return proto_text
 }
 
 //**************************************************************
 
-func CleanFile(filename string) []string {
-
-	var cleaned []string
-	var datacheck = make(map[string]int)
+func CleanFile(filename string) string {
 
 	content, _ := ioutil.ReadFile(filename)
 
@@ -244,39 +233,24 @@ func CleanFile(filename string) []string {
 	m6 := regexp.MustCompile("[ ]+")
 	stripped6 := m6.ReplaceAllString(stripped5," ")
 
-	// Now we should have a standard paragraph format but
-        // this is format dependent, so add a maximum length limit.
-	
-	proto_paragraphs := strings.Split(string(stripped6),"\n\n")
-
-	for para := range proto_paragraphs {
-
-		// Remove trailing whitespace
-		r := strings.ReplaceAll(proto_paragraphs[para],"\n"," ")
-		p := strings.Trim(r,"\n ")
-
-		if len(p) > 0 {
-			cleaned = append(cleaned,p)
-			datacheck[p]++
-		}
-	}
+	cleaned := strings.ReplaceAll(stripped6,"\n"," ")
 
 	return cleaned
 }
 
 //**************************************************************
 
-func ParseChunk(p int, paragraph string){
+func ParseChunk(text string) {
 
 	var sentences []string
 
 	// Coordinatize the non-trivial sentences in terms of their ngrams
 
-	if len(paragraph) == 0 {
+	if len(text) == 0 {
 		return
 	}
 
-	sentences = SplitIntoSentences(paragraph)
+	sentences = SplitIntoSentences(text)
 
 	for s_idx := range sentences {
 		
@@ -529,7 +503,7 @@ func FilterAndAnnotateSelectedEvents(filename string) {
 	var imp_l float64 = 0
 	var imp_leg []float64
 	
-	// First, coarse grain the narrative into `legs', i.e. standardized "paragraphs" by meter not syntax
+	// First, coarse grain the narrative into `legs', i.e. standardized "texts" by meter not syntax
 
 	for s := range SELECTED_SENTENCES {
 
