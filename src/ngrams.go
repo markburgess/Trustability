@@ -221,7 +221,7 @@ func CleanFile(filename string) string {
 	m4 := regexp.MustCompile("[:;]+")
 	stripped4 := m4.ReplaceAllString(stripped3,".")
 
-	m5 := regexp.MustCompile("[^ a-zA-Z.,\n]*")
+	m5 := regexp.MustCompile("[^ a-zA-Z.,!?\n]*")
 	stripped5 := m5.ReplaceAllString(stripped4,"")
 
 	m6 := regexp.MustCompile("[?!.]+")
@@ -328,8 +328,7 @@ func SplitIntoSentences(text string) []string {
 	for sen := range sentences{
 
 		content := strings.Trim(sentences[sen]," ")
-		
-		fmt.Println("YYY",content,"\n\n")
+
 		if len(content) > 0 {			
 			cleaned = append(cleaned,content)
 		}
