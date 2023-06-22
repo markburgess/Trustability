@@ -154,7 +154,7 @@ func main() {
 			//SummarizeHistograms(G)
 			SearchInvariants(G)
 
-			FilterAndAnnotateSelectedEvents(args[i])
+			ReviewAndSelectEvents(args[i])
 
 		}
 	}
@@ -190,7 +190,7 @@ func ReadAndCleanRawStream(filename string) string {
 
 	proto_text := CleanFile(string(filename))
 	
-	CoordinatizeTextBySentences(proto_text)
+	PreSelectSentencesBySemanticImpact(proto_text)
 	
 	return proto_text
 }
@@ -235,7 +235,7 @@ func CleanFile(filename string) string {
 
 //**************************************************************
 
-func CoordinatizeTextBySentences(text string) {
+func PreSelectSentencesBySemanticImpact(text string) {
 
 	var sentences []string
 
@@ -465,7 +465,7 @@ func PlotClusteringGraph(n int) {
 
 // *****************************************************************
 
-func FilterAndAnnotateSelectedEvents(filename string) {
+func ReviewAndSelectEvents(filename string) {
 
 	// The importances have now all been measured in realtime, but we review them now...posthoc
 	// Now go through the history map chronologically, by sentence only reset the narrative  
@@ -480,22 +480,23 @@ func FilterAndAnnotateSelectedEvents(filename string) {
 
 	steps = 0
 
-	var imp_l float64 = 0
+	var imp_thisleg float64 = 0
 	var imp_leg []float64
 	
-	// First, coarse grain the narrative into `legs', i.e. standardized "texts" by meter not syntax
+	// First, coarse grain the narrative into `legs', 
+        // i.e. standardized "narrative regions" by meter not syntax
 
 	for s := range SELECTED_SENTENCES {
 
-		// Sum the importances of each selected sentence
+		// Make list of summed importances of each leg
 
-		imp_l += SELECTED_SENTENCES[s].rank
+		imp_thisleg += SELECTED_SENTENCES[s].rank
 
 		if steps > leg_reset {
 			steps = 0
-			leg_importance := imp_l / float64(LEG_WINDOW)
+			leg_importance := imp_thisleg / float64(LEG_WINDOW)
 			imp_leg = append(imp_leg,leg_importance)
-			imp_l = 0
+			imp_thisleg = 0
 		}
 
 		steps++	
@@ -503,25 +504,25 @@ func FilterAndAnnotateSelectedEvents(filename string) {
 
 	// Don't forget the final "short" leg
 
-	leg_importance := imp_l / float64(steps)
+	leg_importance := imp_thisleg / float64(steps)
 	imp_leg = append(imp_leg,leg_importance)
 
-	var max_leg float64 = 0
+	var max_thisleg float64 = 0
 
 	for l := range imp_leg {
 
-		if max_leg < imp_leg[l] {
+		if max_thisleg < imp_leg[l] {
 
-			max_leg = imp_leg[l]
+			max_thisleg = imp_leg[l]
 		}
 	}
 
-	// Select a sampling rate that's lazy (one sentence per leg) or busy (a few)
+	// Select a sampling rate that's lazy (> 1 sentence per leg) or busy ( <a few)
 	// for important legs
 
 	steps = 0
 	leg = 0
-	imp_l = imp_leg[0]
+	imp_thisleg = imp_leg[0]
 
 	var max_rank = make(map[int]map[float64]int)
 
@@ -533,11 +534,11 @@ func FilterAndAnnotateSelectedEvents(filename string) {
 
 		max_rank[leg][SELECTED_SENTENCES[s].rank] = s
 
-		if steps > leg_reset {
+		if steps > leg_reset { // foreach LEG of the journey
 
-			imp_l = imp_leg[leg]
+			imp_thisleg = imp_leg[leg]
 
-			AnnotateLeg(filename, leg, max_rank[leg], imp_l, max_leg)
+			AnnotateLeg(filename, leg, max_rank[leg], imp_thisleg, max_thisleg)
 
 			steps = 0
 			leg++
@@ -550,9 +551,9 @@ func FilterAndAnnotateSelectedEvents(filename string) {
 
 	// Don't forget the final remainder (catch leg++)
 
-	imp_l = imp_leg[leg]
+	imp_thisleg = imp_leg[leg]
 	
-	AnnotateLeg(filename, leg, max_rank[leg], imp_l, max_leg)
+	AnnotateLeg(filename, leg, max_rank[leg], imp_thisleg, max_thisleg)
 }
 
 //**************************************************************
@@ -620,7 +621,7 @@ func AnnotateLeg(filename string, leg int, random map[float64]int, leg_imp,max f
 
 		var start int
 
-		if len(imp) > 3 {
+		if len(imp) > 3 {             // Handle boundary condition in 3s
 			start = len(imp) - 3
 		} else {
 			start = 0
