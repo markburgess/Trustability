@@ -152,7 +152,7 @@ func main() {
 			ReadSentenceStream(args[i])  // Once for whole thing, reset and compare to realtime
 
 			//SummarizeHistograms(G)
-			//SearchInvariants(G)
+			SearchInvariants(G)
 
 			FilterAndAnnotateSelectedEvents(args[i])
 
@@ -179,20 +179,18 @@ func ReadSentenceStream(filename string) {
 	start := strings.ReplaceAll(path.Base(filename),"/",":")
 	TT.NextDataEvent(&G,start,start)
 
-	ReadAndSplitRawStream(filename)
+	ReadAndCleanRawStream(filename)
 }
 
 //**************************************************************
 
-func ReadAndSplitRawStream(filename string) string {
+func ReadAndCleanRawStream(filename string) string {
 
-	// split each file into "paragraphs", or units of rhythm. 
-        // These paragraphs aren't significant for processing, as
-	// styles use paragraphs in diff ways, so we use "legs" instead.
+	// Here we can provide different readers for different formats
 
 	proto_text := CleanFile(string(filename))
 	
-	ParseChunk(proto_text)
+	CoordinatizeTextBySentences(proto_text)
 	
 	return proto_text
 }
@@ -204,43 +202,39 @@ func CleanFile(filename string) string {
 	content, _ := ioutil.ReadFile(filename)
 
 	// Start by stripping HTML / XML tags before para-split
+	// if they haven't been removed already
 
 	m1 := regexp.MustCompile("<[^>]*>") 
 	stripped1 := m1.ReplaceAllString(string(content),"") 
 
-	//Strip and \begin \latex commands
+	//Strip and \begin \latex type commands
 
 	m2 := regexp.MustCompile("\\\\[^ \n]*") 
-	stripped2 := m2.ReplaceAllString(stripped1,"") 
+	stripped2 := m2.ReplaceAllString(stripped1," ") 
 
-	// Non-English alphabet (tricky)
+	// Non-English alphabet (tricky), but leave ?!:;
 
 	m3 := regexp.MustCompile("[–{&}“#%^+_#”=$’~‘/()<>\"&]*") 
 	stripped3 := m3.ReplaceAllString(stripped2,"") 
 
-	// Treat ? and ! as end of sentence
-	m3a := regexp.MustCompile("[?!]+") 
-	stripped3a := m3a.ReplaceAllString(stripped3,".") 
-
 	// Strip digits, this is probably wrong in general
-	m4 := regexp.MustCompile("[0-9]*")
-	stripped4 := m4.ReplaceAllString(stripped3a,"")
+	m4 := regexp.MustCompile("[:;]+")
+	stripped4 := m4.ReplaceAllString(stripped3,".")
 
-	m5 := regexp.MustCompile("[^ a-zA-Z.,]*")
+	m5 := regexp.MustCompile("[^ a-zA-Z.,\n]*")
 	stripped5 := m5.ReplaceAllString(stripped4,"")
 
-	// Close multiple redundant spaces
-	m6 := regexp.MustCompile("[ ]+")
-	stripped6 := m6.ReplaceAllString(stripped5," ")
+	m6 := regexp.MustCompile("[?!.]+")
+	mark := m6.ReplaceAllString(stripped5,"$0#")
 
-	cleaned := strings.ReplaceAll(stripped6,"\n"," ")
+	cleaned := strings.ReplaceAll(mark,"\n"," ")
 
 	return cleaned
 }
 
 //**************************************************************
 
-func ParseChunk(text string) {
+func CoordinatizeTextBySentences(text string) {
 
 	var sentences []string
 
@@ -256,11 +250,11 @@ func ParseChunk(text string) {
 		
 		meaning := FractionateThenRankSentence(ALL_SENTENCE_INDEX,sentences[s_idx])
 
-		ctxid,context := RunningFeelingAndSTMContext()
+		ctxid,context := FeelingAndSTMContext()
 		
 		if SentenceMeetsAttentionThreshold(meaning,sentences[s_idx]) {
 
-			n := NarrationMarker(sentences[s_idx] + ".", meaning, ctxid,context,ALL_SENTENCE_INDEX)
+			n := NarrationMarker(sentences[s_idx], meaning, ctxid,context,ALL_SENTENCE_INDEX)
 			
 			// The context hub name is stored with the selected sentence
 			
@@ -322,33 +316,22 @@ func SentenceMeetsAttentionThreshold(meaning float64, sentence string) bool {
 
 //**************************************************************
 
-func SplitIntoSentences(para string) []string {
+func SplitIntoSentences(text string) []string {
 
-	sentences := strings.Split(para,".")
+	// Note this regex split has the effect of removing .?!
 
-	var cleaned []string
+	re := regexp.MustCompile("#")
+	sentences := re.Split(text, -1)
+
+	var cleaned  = make([]string,1)
 
 	for sen := range sentences{
 
-		// Split first by punctuation marks, because phrases don't cross these boundaries
-
-		f := func(c rune) bool {       // Inline function
-
-			// Something serious going on, so perk up
-
-			ATTENTION_LEVEL = 1
-
-			return c == ':' || c == ';'
-		}
-
-		fields := strings.FieldsFunc(sentences[sen], f)
-
-		for field := range fields {
-			content := strings.Trim(fields[field]," ")
-
-			if len(content) > 0 {			
-				cleaned = append(cleaned,content)
-			}
+		content := strings.Trim(sentences[sen]," ")
+		
+		fmt.Println("YYY",content,"\n\n")
+		if len(content) > 0 {			
+			cleaned = append(cleaned,content)
 		}
 	}
 
@@ -364,25 +347,23 @@ func FractionateThenRankSentence(s_idx int, sentence string) float64 {
 	var rank float64
 
 	// For one sentence, break it up into codons and sum their importances
-
-	no_dot := strings.ReplaceAll(sentence,"."," ")
-	no_comma := strings.ReplaceAll(no_dot,","," ")
-	no_dash := strings.ReplaceAll(no_comma,"—"," ")
-	clean_sentence := strings.Split(no_dash," ")
+	
+	clean_sentence := strings.Split(string(sentence)," ")
 
 	for word := range clean_sentence {
 
 		// This will be too strong in general - ligatures in xhtml etc
 
-		m := regexp.MustCompile("[^-a-zA-Z0-9]*") 
+		m := regexp.MustCompile("[^-a-zA-Z0-9. ]*") 
 		cleanjunk := m.ReplaceAllString(clean_sentence[word],"") 
-		cleanword := strings.ToLower(cleanjunk)
-
+		cleanword := strings.Trim(strings.ToLower(cleanjunk)," ")
+		
 		if len(cleanword) == 0 {
 			continue
 		}
 
 		// Shift all the rolling longitudinal Ngram rr-buffers by one word
+
 		rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer)
 		sentence_meaning_rank += rank
 	}
@@ -442,7 +423,6 @@ func SearchInvariants(g TT.Analytics) {
 				delta = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location] - last			
 				last = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location]
 
-				//fmt.Println("DELTA",delta,delta/10*10)
 				HISTO_AUTO_CORRE_NGRAM[n][delta/LEG_WINDOW*LEG_WINDOW]++
 
 			}
@@ -804,7 +784,7 @@ return n
 
 //**************************************************************
 
-func RunningFeelingAndSTMContext() (string,[]string) {
+func FeelingAndSTMContext() (string,[]string) {
 
 	// Find the top ranked fragments, as they must
 	// represent the subject of the narrative somehow
