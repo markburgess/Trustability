@@ -209,7 +209,7 @@ func CleanFile(filename string) string {
 
 	//Strip and \begin \latex type commands
 
-	m2 := regexp.MustCompile("\\\\[^ \n]*") 
+	m2 := regexp.MustCompile("\\\\[^ \n]+") 
 	stripped2 := m2.ReplaceAllString(stripped1," ") 
 
 	// Non-English alphabet (tricky), but leave ?!:;
@@ -227,7 +227,8 @@ func CleanFile(filename string) string {
 	m6 := regexp.MustCompile("[?!.]+")
 	mark := m6.ReplaceAllString(stripped5,"$0#")
 
-	cleaned := strings.ReplaceAll(mark,"\n"," ")
+	m7 := regexp.MustCompile("[ \n]+")
+	cleaned := m7.ReplaceAllString(mark," ")
 
 	return cleaned
 }
