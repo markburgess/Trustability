@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+// e.g.
+//     go run ngrams.go /home/mark/Laptop/Work/SST/data_samples/obama.dat
 
 package main
 
@@ -52,10 +54,8 @@ type Narrative struct {
 
 var WORDCOUNT int = 0
 var LEGCOUNT int = 0
-
 var KEPT int = 0
 var SKIPPED int = 0
-
 var TOTAL_PARAGRAPHS int = 0
 var ALL_SENTENCE_INDEX int = 0
 
@@ -97,7 +97,6 @@ var HISTO_AUTO_CORRE_NGRAM [MAXCLUSTERS]map[int]int  // [sentence_distance]count
 
 // Short term memory is used to cache the ngram scores
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
-var LTM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
 
 var G TT.Analytics
 
@@ -129,7 +128,7 @@ func main() {
 	for i := 1; i < MAXCLUSTERS; i++ {
 
 		STM_NGRAM_RANK[i] = make(map[string]float64)
-		LTM_NGRAM_RANK[i] = make(map[string]float64)
+
 		LTM_NGRAMS_IN_SENTENCE[i] = make(map[int][]string)
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
@@ -151,9 +150,10 @@ func main() {
 
 		if strings.HasSuffix(args[i],".dat") {
 
-			ParseDocument(args[i])  // Once for whole thing, reset and compare to realtime
+			ReadSentenceStream(args[i])  // Once for whole thing, reset and compare to realtime
 
-			SearchInvariants(G)
+			//SummarizeHistograms(G)
+			//SearchInvariants(G)
 
 			FilterAndAnnotateSelectedEvents(args[i])
 
@@ -169,26 +169,27 @@ func main() {
 }
 
 //**************************************************************
-// Start scanning docs
+// Scan text input
 //**************************************************************
 
-func ParseDocument(filename string) {
+func ReadSentenceStream(filename string) {
 
-	/// Use the filename as context
+	// The take the filename as a marker for the semantic map
+	// as an arbitrary starting concept marker
 
 	start := strings.ReplaceAll(path.Base(filename),"/",":")
-
 	TT.NextDataEvent(&G,start,start)
 
-	TOTAL_PARAGRAPHS = len(Scanfile(filename))
+	TOTAL_PARAGRAPHS = len(ReadAndSplitRawStream(filename))
 }
 
 //**************************************************************
 
-func Scanfile(filename string) []string {
+func ReadAndSplitRawStream(filename string) []string {
 
-	// split each file into paragraphs. These paragraphs aren't significant for
-	// processing, because styles use paragraphs in diff ways, so we use "legs" instead.
+	// split each file into "paragraphs", or units of rhythm. 
+        // These paragraphs aren't significant for processing, as
+	// styles use paragraphs in diff ways, so we use "legs" instead.
 
 	proto_paragraphs := CleanFile(string(filename))
 	
@@ -1049,7 +1050,6 @@ func MemoryUpdateNgram(n int, key string) float64 {
 	}
 
 	STM_NGRAM_RANK[n][key] = rank
-	LTM_NGRAM_RANK[n][key]++
 
 	// Diffuse ALL concepts - should probably be handled by "dream" phase
 
