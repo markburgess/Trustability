@@ -252,7 +252,7 @@ func PreSelectSentencesBySemanticImpact(text string) {
 		meaning := FractionateThenRankSentence(ALL_SENTENCE_INDEX,sentences[s_idx])
 
 		ctxid,context := FeelingAndSTMContext()
-		
+
 		if SentenceMeetsAttentionThreshold(meaning,sentences[s_idx]) {
 
 			n := NarrationMarker(sentences[s_idx], meaning, ctxid,context,ALL_SENTENCE_INDEX)
@@ -591,8 +591,8 @@ return meaning
 
 func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
 
-	const threshold = 0.8  // 80/20 rule -- CONTROL VARIABLE
-	const sampling_density = 3
+	const threshold = 0.8       // 80/20 rule -- CONTROL VARIABLE
+	const sampling_density = 3  // base trust selection
 
 	var sentence_ranks []float64
 	var ranks_in_order []int
@@ -627,6 +627,8 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
+	fmt.Println(" >> (Rank leg",leg,"=",scale_free_rank,")")
+
 	if scale_free_rank > threshold {
 
 		var start int
@@ -644,8 +646,8 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 		for i :=  start; i < len(sentence_ranks); i++ {
 
-			s := key[sentence_ranks[i]]
-			ranks_in_order = append(ranks_in_order,s)
+			r := key[sentence_ranks[i]]
+			ranks_in_order = append(ranks_in_order,r)
 		}
 
 		// Put the ranked selections back in sentence order
@@ -656,11 +658,11 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 	// Now highest importance in order of occurrence
 
-	for s := range ranks_in_order {
+	for r := range ranks_in_order {
 
-		fmt.Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[s],SELECTED_SENTENCES[ranks_in_order[s]].text)
+		fmt.Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[r],SELECTED_SENTENCES[ranks_in_order[r]].text)
 
-		AnnotateSentence(filename,s,SELECTED_SENTENCES[ranks_in_order[s]].text)
+		AnnotateSentence(filename,r,SELECTED_SENTENCES[ranks_in_order[r]].text)
 	}
 }
 
@@ -764,7 +766,8 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 				continue
 			}
 
-			rank += MemoryUpdateNgram(n,key)
+			MemoryUpdateNgram(n,key) 
+			rank += Intentionality(n,key)
 
 			LTM_NGRAMS_IN_SENTENCE[n][s_idx] = append(LTM_NGRAMS_IN_SENTENCE[n][s_idx],key)
 			LTM_EVERY_NGRAM_OCCURRENCE[n][key] = append(LTM_EVERY_NGRAM_OCCURRENCE[n][key],s_idx)
@@ -772,7 +775,10 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 		}
 	}
 
-	rank += MemoryUpdateNgram(1,word)
+	//rank += MemoryUpdateNgram(1,word)
+
+	MemoryUpdateNgram(1,word) 
+	rank += Intentionality(1,word)
 
 	LTM_NGRAMS_IN_SENTENCE[1][s_idx] = append(LTM_NGRAMS_IN_SENTENCE[1][s_idx],word)
 	LTM_EVERY_NGRAM_OCCURRENCE[1][word] = append(LTM_EVERY_NGRAM_OCCURRENCE[1][word],s_idx)
