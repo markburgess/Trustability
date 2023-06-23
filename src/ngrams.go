@@ -530,26 +530,26 @@ func ReviewAndSelectEvents(filename string) {
 	leg = 0
 	var this_leg_av_rank float64 = av_rank_for_leg[0]
 
-	var sentence_by_rank = make(map[int]map[float64]int)
-	sentence_by_rank[0] = make(map[float64]int)
+	var sentence_id_by_rank = make(map[int]map[float64]int)
+	sentence_id_by_rank[0] = make(map[float64]int)
 
 	// Go through all the sentences that haven't been excluded and pick a simpling density that's
 	// approximately evenly distributed-- split into LEG_WINDOW intervals
 
 	for s := range SELECTED_SENTENCES {
 
-		sentence_by_rank[leg][SELECTED_SENTENCES[s].rank] = s
+		sentence_id_by_rank[leg][SELECTED_SENTENCES[s].rank] = s
 
 		if steps > LEG_WINDOW {
 
 			this_leg_av_rank = av_rank_for_leg[leg]
 
-			AnnotateLeg(filename, leg, sentence_by_rank[leg], this_leg_av_rank, max_all_legs)
+			AnnotateLeg(filename, leg, sentence_id_by_rank[leg], this_leg_av_rank, max_all_legs)
 
 			steps = 0
 			leg++
 
-			sentence_by_rank[leg] = make(map[float64]int)
+			sentence_id_by_rank[leg] = make(map[float64]int)
 		}
 
 		steps++
@@ -559,7 +559,7 @@ func ReviewAndSelectEvents(filename string) {
 
 	this_leg_av_rank = av_rank_for_leg[leg]
 	
-	AnnotateLeg(filename, leg, sentence_by_rank[leg], this_leg_av_rank, max_all_legs)
+	AnnotateLeg(filename, leg, sentence_id_by_rank[leg], this_leg_av_rank, max_all_legs)
 }
 
 //**************************************************************
@@ -589,7 +589,7 @@ return meaning
 
 //**************************************************************
 
-func AnnotateLeg(filename string, leg int, sentence_by_rank map[float64]int, leg_imp, max float64) {
+func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
 
 	const threshold = 0.8  // 80/20 rule -- CONTROL VARIABLE
 	const sampling_density = 3
@@ -599,7 +599,7 @@ func AnnotateLeg(filename string, leg int, sentence_by_rank map[float64]int, leg
 
 	key := make(map[float64]int)
 
-	for fl := range sentence_by_rank {
+	for fl := range sentence_id_by_rank {
 
 		sentence_ranks = append(sentence_ranks,fl)
 	}
@@ -611,21 +611,21 @@ func AnnotateLeg(filename string, leg int, sentence_by_rank map[float64]int, leg
 	// Rank by importance and rescale all as dimensionless between [0,1]
 
 	sort.Float64s(sentence_ranks)
-	context_importance := leg_imp / max
+	scale_free_rank := this_leg_av_rank / max
 
 	// We now have an array of sentences whose indices are ascending ordered rankings, max = last
 	// and an array of rankings min to max
 	// Set up a key = sentence with rank = r as key[r]
 
 	for i := range sentence_ranks {
-		key[sentence_ranks[i]] = sentence_by_rank[sentence_ranks[i]]
+		key[sentence_ranks[i]] = sentence_id_by_rank[sentence_ranks[i]]
 	}
 
 	// Select only the most important remaining in order for the hub
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	if context_importance > threshold {
+	if scale_free_rank > threshold {
 
 		var start int
 
