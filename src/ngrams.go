@@ -604,7 +604,9 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 		sentence_ranks = append(sentence_ranks,fl)
 	}
 
-	if len(sentence_ranks) < 1 {
+	var samples_per_leg = len(sentence_ranks)
+
+	if samples_per_leg < 1 {
 		return
 	}
 
@@ -631,11 +633,12 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 		// top 3 = count backwards from the end
 
-		if len(sentence_ranks) > sampling_density {
+		if samples_per_leg > sampling_density {
 
 			start = len(sentence_ranks) - sampling_density
 
 		} else {
+
 			start = 0
 		}
 
@@ -645,14 +648,10 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 			ranks_in_order = append(ranks_in_order,s)
 		}
 
-		// Put the ranks in order, with back conversion via keys[] 
+		// Put the ranked selections back in sentence order
 
 		sort.Ints(ranks_in_order)
 
-	} else {
-
-		s := key[sentence_ranks[len(sentence_ranks)-1]]
-		ranks_in_order = append(ranks_in_order,s)
 	}
 
 	// Now highest importance in order of occurrence
