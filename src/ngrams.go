@@ -474,46 +474,52 @@ func ReviewAndSelectEvents(filename string) {
 
 	var steps,leg int
 
-	const leg_reset = LEG_WINDOW // measured in sentences
-
 	// Sentences to summarize per leg of the story journey
 
 	steps = 0
 
-	var imp_thisleg float64 = 0
-	var imp_leg []float64
+	// We rank a leg by summing its sentence ranks
+
+	var rank_sum float64 = 0
+	var av_rank_for_leg []float64
 	
 	// First, coarse grain the narrative into `legs', 
         // i.e. standardized "narrative regions" by meter not syntax
 
 	for s := range SELECTED_SENTENCES {
 
-		// Make list of summed importances of each leg
+		// Make list of summed importance ranks for each leg
 
-		imp_thisleg += SELECTED_SENTENCES[s].rank
+		rank_sum += SELECTED_SENTENCES[s].rank
 
-		if steps > leg_reset {
+		// Once we've summed all the importances and reached the end of the leg
+		// define the leg_rank_average as the average over the interval and add this
+		// to a list/array indexed by legs sequentially (append)
+
+		if steps > LEG_WINDOW {
 			steps = 0
-			leg_importance := imp_thisleg / float64(LEG_WINDOW)
-			imp_leg = append(imp_leg,leg_importance)
-			imp_thisleg = 0
+			leg_rank_average := rank_sum / float64(LEG_WINDOW)
+			av_rank_for_leg = append(av_rank_for_leg,leg_rank_average)
+			rank_sum = 0
 		}
 
 		steps++	
 	}
 
-	// Don't forget the final "short" leg
+	// Don't forget any final "short" leg if there is one (residuals from the loop < LEG_WINDOW)
 
-	leg_importance := imp_thisleg / float64(steps)
-	imp_leg = append(imp_leg,leg_importance)
+	leg_rank_average := rank_sum / float64(steps)
+	av_rank_for_leg = append(av_rank_for_leg,leg_rank_average)
 
-	var max_thisleg float64 = 0
+	// Find the leg of maximum importance
 
-	for l := range imp_leg {
+	var max_all_legs float64 = 0
 
-		if max_thisleg < imp_leg[l] {
+	for l := range av_rank_for_leg {
 
-			max_thisleg = imp_leg[l]
+		if max_all_legs < av_rank_for_leg[l] {
+
+			max_all_legs = av_rank_for_leg[l]
 		}
 	}
 
@@ -522,28 +528,28 @@ func ReviewAndSelectEvents(filename string) {
 
 	steps = 0
 	leg = 0
-	imp_thisleg = imp_leg[0]
+	var this_leg_av_rank float64 = av_rank_for_leg[0]
 
-	var max_rank = make(map[int]map[float64]int)
+	var sentence_by_rank = make(map[int]map[float64]int)
+	sentence_by_rank[0] = make(map[float64]int)
 
-	max_rank[0] = make(map[float64]int)
+	// Go through all the sentences that haven't been excluded and pick a simpling density that's
+	// approximately evenly distributed-- split into LEG_WINDOW intervals
 
 	for s := range SELECTED_SENTENCES {
 
-		// Keep the latest running context summary hub, as we go through the sentences
+		sentence_by_rank[leg][SELECTED_SENTENCES[s].rank] = s
 
-		max_rank[leg][SELECTED_SENTENCES[s].rank] = s
+		if steps > LEG_WINDOW {
 
-		if steps > leg_reset { // foreach LEG of the journey
+			this_leg_av_rank = av_rank_for_leg[leg]
 
-			imp_thisleg = imp_leg[leg]
-
-			AnnotateLeg(filename, leg, max_rank[leg], imp_thisleg, max_thisleg)
+			AnnotateLeg(filename, leg, sentence_by_rank[leg], this_leg_av_rank, max_all_legs)
 
 			steps = 0
 			leg++
 
-			max_rank[leg] = make(map[float64]int)
+			sentence_by_rank[leg] = make(map[float64]int)
 		}
 
 		steps++
@@ -551,9 +557,9 @@ func ReviewAndSelectEvents(filename string) {
 
 	// Don't forget the final remainder (catch leg++)
 
-	imp_thisleg = imp_leg[leg]
+	this_leg_av_rank = av_rank_for_leg[leg]
 	
-	AnnotateLeg(filename, leg, max_rank[leg], imp_thisleg, max_thisleg)
+	AnnotateLeg(filename, leg, sentence_by_rank[leg], this_leg_av_rank, max_all_legs)
 }
 
 //**************************************************************
@@ -583,34 +589,36 @@ return meaning
 
 //**************************************************************
 
-func AnnotateLeg(filename string, leg int, random map[float64]int, leg_imp,max float64) {
+func AnnotateLeg(filename string, leg int, sentence_by_rank map[float64]int, leg_imp, max float64) {
 
 	const threshold = 0.8  // 80/20 rule -- CONTROL VARIABLE
+	const sampling_density = 3
 
-	var imp []float64
-	var ordered []int
+	var sentence_ranks []float64
+	var ranks_in_order []int
 
 	key := make(map[float64]int)
 
-	for fl := range random {
+	for fl := range sentence_by_rank {
 
-		imp = append(imp,fl)
+		sentence_ranks = append(sentence_ranks,fl)
 	}
 
-	if len(imp) < 1 {
+	if len(sentence_ranks) < 1 {
 		return
 	}
 
-	// Rank by importance
+	// Rank by importance and rescale all as dimensionless between [0,1]
 
-	sort.Float64s(imp)
+	sort.Float64s(sentence_ranks)
 	context_importance := leg_imp / max
 
-	// The importance level is now almost constant, since we already picked out by attention
-	// Get the rank as integer order
+	// We now have an array of sentences whose indices are ascending ordered rankings, max = last
+	// and an array of rankings min to max
+	// Set up a key = sentence with rank = r as key[r]
 
-	for i := range imp {
-		key[imp[i]] = random[imp[i]]
+	for i := range sentence_ranks {
+		key[sentence_ranks[i]] = sentence_by_rank[sentence_ranks[i]]
 	}
 
 	// Select only the most important remaining in order for the hub
@@ -621,33 +629,39 @@ func AnnotateLeg(filename string, leg int, random map[float64]int, leg_imp,max f
 
 		var start int
 
-		if len(imp) > 3 {             // Handle boundary condition in 3s
-			start = len(imp) - 3
+		// top 3 = count backwards from the end
+
+		if len(sentence_ranks) > sampling_density {
+
+			start = len(sentence_ranks) - sampling_density
+
 		} else {
 			start = 0
 		}
 
-		for i :=  start; i < len(imp); i++ {
-			
-			s := key[imp[i]]
-			ordered = append(ordered,s)
+		for i :=  start; i < len(sentence_ranks); i++ {
+
+			s := key[sentence_ranks[i]]
+			ranks_in_order = append(ranks_in_order,s)
 		}
 
-		sort.Ints(ordered)
+		// Put the ranks in order, with back conversion via keys[] 
+
+		sort.Ints(ranks_in_order)
 
 	} else {
 
-		s := key[imp[len(imp)-1]]
-		ordered = append(ordered,s)
+		s := key[sentence_ranks[len(sentence_ranks)-1]]
+		ranks_in_order = append(ranks_in_order,s)
 	}
 
-	// Now in order of importance
+	// Now highest importance in order of occurrence
 
-	for s := range ordered {
+	for s := range ranks_in_order {
 
-		fmt.Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ordered[s],SELECTED_SENTENCES[ordered[s]].text)
+		fmt.Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[s],SELECTED_SENTENCES[ranks_in_order[s]].text)
 
-		AnnotateSentence(filename,s,SELECTED_SENTENCES[ordered[s]].text)
+		AnnotateSentence(filename,s,SELECTED_SENTENCES[ranks_in_order[s]].text)
 	}
 }
 
@@ -656,7 +670,8 @@ func AnnotateLeg(filename string, leg int, random map[float64]int, leg_imp,max f
 func AnnotateSentence(filename string, s_number int,sentence string) {
 
 	// We use the unadulterated sentence itself as an episodic event
-	// This acts as an impromptu hub
+	// This acts as an impromptu hub. This function doesn't contribute to selection, only
+	// to connecting an analytic graph of references for later analysis
 
 	key := TT.KeyName(sentence) //fmt.Sprintf("%s_Sentence_%d",prefix,s_number)
 
