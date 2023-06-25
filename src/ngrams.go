@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"path"
 	"sort"
+	"math"
 	"TT"
 )
 
@@ -52,6 +53,14 @@ type Narrative struct {
 	index int
 }
 
+type Score struct {
+
+	Key   string
+	Score float64
+}
+
+// ***************************************************************************
+
 var WORDCOUNT int = 0
 var LEGCOUNT int = 0
 var KEPT int = 0
@@ -62,15 +71,14 @@ var SELECTED_SENTENCES []Narrative
 
 var THRESH_ACCEPT float64 = 0
 var TOTAL_THRESH float64 = 0
-var MAX_IMPORTANCE float64
 
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
 
 const MAXCLUSTERS = 7
 const LEG_WINDOW = 100
 
-var ATTENTION_LEVEL float64 = 0.6
-var SENTENCE_THRESH float64 = 10
+var ATTENTION_LEVEL float64 = 1.0
+var SENTENCE_THRESH float64 = 100 // chars
 
 const REPEATED_HERE_AND_NOW  = 1.0 // initial primer
 const INITIAL_VALUE = 0.5
@@ -92,6 +100,8 @@ var LTM_NGRAMS_IN_SENTENCE [MAXCLUSTERS]map[int][]string
 // inverse: in which sentences did the ngrams appear? Sequence of integer times by ngram
 var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
 
+var INTENTIONALITY [MAXCLUSTERS]map[string]float64
+
 var HISTO_AUTO_CORRE_NGRAM [MAXCLUSTERS]map[int]int  // [sentence_distance]count
 
 // Short term memory is used to cache the ngram scores
@@ -103,8 +113,6 @@ var G TT.Analytics
 // SCAN themed stories as text to understand their components
 //
 //   go run scan_stream.go ~/LapTop/SST/test3.dat 
-//
-// Version 2 of scan_text using realtime / n-torus approach
 //
 // We want to input streams of narrative and extract phrase fragments to see
 // which become statistically significant - maybe forming a hierarchy of significance.
@@ -127,6 +135,8 @@ func main() {
 	for i := 1; i < MAXCLUSTERS; i++ {
 
 		STM_NGRAM_RANK[i] = make(map[string]float64)
+
+		INTENTIONALITY[i] = make(map[string]float64)
 
 		LTM_NGRAMS_IN_SENTENCE[i] = make(map[int][]string)
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
@@ -151,15 +161,13 @@ func main() {
 
 			ReadSentenceStream(args[i])  // Once for whole thing, reset and compare to realtime
 
-			//SummarizeHistograms(G)
+			ReviewAndSelectEvents(args[i])
 			SearchInvariants(G)
 
-			ReviewAndSelectEvents(args[i])
+			SummarizeHistograms(G)
 
 		}
 	}
-
-	SaveContext()
 
 	fmt.Println("\nKept = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
 
@@ -251,11 +259,9 @@ func PreSelectSentencesBySemanticImpact(text string) {
 		
 		meaning := FractionateThenRankSentence(ALL_SENTENCE_INDEX,sentences[s_idx])
 
-		ctxid,context := FeelingAndSTMContext()
-
 		if SentenceMeetsAttentionThreshold(meaning,sentences[s_idx]) {
 
-			n := NarrationMarker(sentences[s_idx], meaning, ctxid,context,ALL_SENTENCE_INDEX)
+			n := NarrationMarker(sentences[s_idx], meaning, ALL_SENTENCE_INDEX)
 			
 			// The context hub name is stored with the selected sentence
 			
@@ -279,19 +285,24 @@ func SentenceMeetsAttentionThreshold(meaning float64, sentence string) bool {
 
 	// If sudden change in sentence length, be alert
 
+	// This learns average sentence structure! Style...
+
 	slen := float64(len(sentence))
 
-	if (slen > SENTENCE_THRESH + sentence_width) {
+	// Alerts, could have a watch list for certain words
 
+	if (slen > SENTENCE_THRESH * 1.5) {
+
+		//fmt.Println("ALERT LONG!!",SENTENCE_THRESH,sentence)
 		ATTENTION_LEVEL = alert
-		SENTENCE_THRESH = response * slen + (1-response) * SENTENCE_THRESH
 	}
 
-	if (slen < SENTENCE_THRESH - sentence_width) {
+	if (slen < SENTENCE_THRESH * 0.5) {
 
 		ATTENTION_LEVEL = alert
-		SENTENCE_THRESH = response * slen + (1-response) * SENTENCE_THRESH
 	}
+
+	SENTENCE_THRESH = response * slen + (1-response) * SENTENCE_THRESH
 
 	if (meaning > MEANING_THRESH) && (ATTENTION_LEVEL > awake) {
 
@@ -308,6 +319,7 @@ func SentenceMeetsAttentionThreshold(meaning float64, sentence string) bool {
 
 	} else {
 		
+		// This is useful for purging small exclamations and titles, chapter headings etc.
 		//fmt.Println("\nSkipping: ", sentence)
 
 		SKIPPED++
@@ -346,40 +358,98 @@ func FractionateThenRankSentence(s_idx int, sentence string) float64 {
 	var sentence_meaning_rank float64 = 0
 	var rank float64
 
-	// For one sentence, break it up into codons and sum their importances
+	// split on any punctuation here, because punctuation cannot be in the middle
+	// of an n-gram by definition of punctuation's promises
+	// THIS IS A PT +/- constraint
 	
-	clean_sentence := strings.Split(string(sentence)," ")
-
-	for word := range clean_sentence {
-
-		// This will be too strong in general - ligatures and foreign languages etc
-
-		m := regexp.MustCompile("[/()?!]*") 
-		cleanjunk := m.ReplaceAllString(clean_sentence[word],"") 
-		cleanword := strings.Trim(strings.ToLower(cleanjunk)," ")
+	re := regexp.MustCompile("[,.;:!?]")
+	sentence_frags := re.Split(sentence, -1)
+	
+	for f := range sentence_frags {
 		
-		if len(cleanword) == 0 {
-			continue
+		// For one sentence, break it up into codons and sum their importances
+		
+		clean_sentence := strings.Split(string(sentence_frags[f])," ")
+		
+		for word := range clean_sentence {
+			
+			// This will be too strong in general - ligatures and foreign languages etc
+			
+			m := regexp.MustCompile("[/()?!]*") 
+			cleanjunk := m.ReplaceAllString(clean_sentence[word],"") 
+			cleanword := strings.Trim(strings.ToLower(cleanjunk)," ")
+			
+			if len(cleanword) == 0 {
+				continue
+			}
+			
+			// Shift all the rolling longitudinal Ngram rr-buffers by one word
+			
+			rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer)
+			sentence_meaning_rank += rank
+		}
+	}
+	
+	return sentence_meaning_rank
+}
+
+//**************************************************************
+
+func SummarizeHistograms(g TT.Analytics) {
+
+	fmt.Println("----- (Intentionality scores) ----------")
+
+	for n := 1; n < MAXCLUSTERS; n++ {
+
+		var max float64 = 0
+
+		for ngram := range STM_NGRAM_RANK[n] {
+
+			if STM_NGRAM_RANK[n][ngram] > max {
+				max = STM_NGRAM_RANK[n][ngram]
+			}
 		}
 
-		// Shift all the rolling longitudinal Ngram rr-buffers by one word
-
-		rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer)
-		sentence_meaning_rank += rank
+		fmt.Printf("Max value STM_NGRAM_RANK[%d] --> %f\n",n,max)
 	}
 
-return sentence_meaning_rank
+	for n := 1; n < MAXCLUSTERS; n++ {
+
+		var sortable []Score
+
+		for ngram := range INTENTIONALITY[n] {
+
+			var item Score
+			item.Key = ngram
+			item.Score = INTENTIONALITY[n][ngram]
+			sortable = append(sortable,item)
+		}
+
+		sort.Slice(sortable, func(i, j int) bool {
+			return sortable[i].Score < sortable[j].Score
+		})
+		
+		for i := range sortable {
+			fmt.Printf("Intention score (%d-gram) %s %f -- info %f\n",n,sortable[i].Key,sortable[i].Score,math.Log(sortable[i].Score)/float64(n))
+		}
+
+	}
+
+	fmt.Println("--------------------------------")
 }
 
 //**************************************************************
 
 func SearchInvariants(g TT.Analytics) {
 
-	fmt.Println("----- LONGITUDINAL INVARIANTS (THEMES) ----------")
+	var thresh_count [MAXCLUSTERS]map[int][]string
 
 	for n := 1; n < MAXCLUSTERS; n++ {
 
+		fmt.Println("----- LONGITUDINAL INVARIANTS", n)
+
 		var last,delta int
+		thresh_count[n] = make(map[int][]string)
 
 		HISTO_AUTO_CORRE_NGRAM[n] = make(map[int]int,0)
 
@@ -394,17 +464,34 @@ func SearchInvariants(g TT.Analytics) {
 
 			occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
 
-			// occurrences per unit length, per leg - constant or variable?
+			// if ngram of occurrences exceeds an expectation threshold in terms of length
 
 			if occurrences > (MAXCLUSTERS - n) {
 
-				fmt.Println("Theme long invariant",ngram,occurrences)
+				thresh_count[n][occurrences] = append(thresh_count[n][occurrences],ngram)
+				fmt.Printf("Scaled theshold occurrences %d-gram \"%s\" (%d)\n",n,ngram,occurrences)
 
 			} else {
 				continue
 			}
+		}
+
+		for ngram := range LTM_EVERY_NGRAM_OCCURRENCE[n] {
+
+			if (InsignificantPadding(ngram)) {
+				continue
+			}
+
+			// **** LONG
+
+			occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
+
+			// if ngram of occurrences exceeds an expectation threshold in terms of length
 
 			last = 0
+
+			var min_delta int = 9999
+			var max_delta int = 0
 
 			for location := 0; location < occurrences; location++ {
 
@@ -423,44 +510,27 @@ func SearchInvariants(g TT.Analytics) {
 				delta = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location] - last			
 				last = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location]
 
-				HISTO_AUTO_CORRE_NGRAM[n][delta/LEG_WINDOW*LEG_WINDOW]++
+				if min_delta > delta {
+					min_delta = delta
+				}
 
+				if max_delta < delta {
+					max_delta = delta
+				}
 			}
+
+			// which ngrams occur in bursty clusters. If completely even, then significance
+			// is low or the theme of the whole piece. If cluster span/total span
+			// max interdistance >> min interdistance then bursty
+
+			const scale_factor = 2  // measured in sentences
+
+			if min_delta < LEG_WINDOW/scale_factor && max_delta > LEG_WINDOW*scale_factor {
+				fmt.Printf("Longitudinal %d-invariant \"%s\" (%d) --  min %d, max %d\n",n,ngram,occurrences,min_delta,max_delta)
+			}
+
 		}
-
-		PlotClusteringGraph(n)
 	}
-	
-	fmt.Println("-------------")
-}
-
-//**************************************************************
-
-func PlotClusteringGraph(n int) {
-
-	name := fmt.Sprintf("/tmp/cellibrium/clusters_%d_grams",n)
-
-	f, err := os.Create(name)
-	
-	if err != nil {
-		fmt.Println("Error opening file ",name)
-		return
-	}
-
-	var keys []int
-
-	for v := range HISTO_AUTO_CORRE_NGRAM[n] {
-		keys = append(keys,v)
-	}
-
-	sort.Ints(keys)
-
-	for delta := range keys {
-		s := fmt.Sprintf("%d %d\n",keys[delta],HISTO_AUTO_CORRE_NGRAM[n][keys[delta]])
-		f.WriteString(s)
-	}
-
-	f.Close()
 }
 
 // *****************************************************************
@@ -566,23 +636,18 @@ func ReviewAndSelectEvents(filename string) {
 // TOOLKITS
 //**************************************************************
 
-func Intentionality(n int, s string) float64 {
+func Intentionality(n int, s string, sentence_count int) float64 {
 
 	// Emotional bias to be added ?
 
-	if _, ok := STM_NGRAM_RANK[n][s]; !ok {
+	STM_NGRAM_RANK[n][s]++
 
-		return 0
-	}
+	frequency := STM_NGRAM_RANK[n][s] / float64(1 + sentence_count)
 
 	// Things that are repeated too often are not important
 	// but length indicates purposeful intent
 
-	meaning := float64(len(s)) / (0.5 + STM_NGRAM_RANK[n][s] )
-
-	if meaning > MAX_IMPORTANCE {
-		MAX_IMPORTANCE = meaning
-	}
+	meaning := math.Log(float64(len(s)) / frequency) / float64(n)
 
 return meaning
 }
@@ -633,7 +698,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 		var start int
 
-		// top 3 = count backwards from the end
+		// top sampling_density = count backwards from the end
 
 		if samples_per_leg > sampling_density {
 
@@ -661,72 +726,6 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	for r := range ranks_in_order {
 
 		fmt.Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[r],SELECTED_SENTENCES[ranks_in_order[r]].text)
-
-		AnnotateSentence(filename,r,SELECTED_SENTENCES[ranks_in_order[r]].text)
-	}
-}
-
-//**************************************************************
-
-func AnnotateSentence(filename string, s_number int,sentence string) {
-
-	// We use the unadulterated sentence itself as an episodic event
-	// This acts as an impromptu hub. This function doesn't contribute to selection, only
-	// to connecting an analytic graph of references for later analysis
-
-	key := TT.KeyName(sentence) //fmt.Sprintf("%s_Sentence_%d",prefix,s_number)
-
-	event := TT.NextDataEvent(&G, key, sentence)
-
-	// Keep the 3-fragments and above that are important enough to pass threshold
-	// Then hierarchically break them into words that are important enough.
-
-	hub := TT.KeyName(SELECTED_SENTENCES[s_number].contextid)
-	hubnode := TT.CreateHub(G,hub,SELECTED_SENTENCES[s_number].contextid,1)
-
-	TT.CreateLink(G,hubnode,"CONTAINS",event,1)
-
-	for frag := range SELECTED_SENTENCES[s_number].context {
-
-		fragkey := TT.KeyName(SELECTED_SENTENCES[s_number].context[frag])
-		ngram := TT.CreateFragment(G,fragkey,SELECTED_SENTENCES[s_number].context[frag],1)
-		TT.CreateLink(G,hubnode,"DEPENDS",ngram,1)
-	}
-
-	// So we have a hierarchy: context_hub - sentence - phrases - significant words
-
-	const min_cluster = 3
-	const max_cluster = 6
-	const incr = 2
-
-	for i := min_cluster; i < max_cluster; i += incr {
-
-		// LTM_NGRAMS_IN_SENTENCE is the ngrams from sentence number index - how is this different from context?
-		// context may contain additional info about environment, and is quality ranked
-
-		for f := range LTM_NGRAMS_IN_SENTENCE[i][s_number] {
-			
-			fragment := LTM_NGRAMS_IN_SENTENCE[i][s_number][f]
-			
-			TOTAL_THRESH++
-			
-			// We can't use Intentionality() here, as it has already been forgotten, so what is the criterion?
-			// We can use the "irrelevant" function, which never forgets (long term memory)
-			
-			if !InsignificantPadding(fragment) {
-				
-				// Connect all the children words to the fragment
-				// The ordered combinations are expressed by longer n fragments
-				THRESH_ACCEPT++
-				
-				key := TT.KeyName(fragment) // fmt.Sprintf("F:L%d,N%d,E%d",i,f,s_number)
-				frag := TT.CreateFragment(G,key,fragment,1.0)
-
-				// Sentence contains fragment
-				TT.CreateLink(G,event,"CONTAINS",frag,1.0)
-
-			}
-		}
 	}
 }
 
@@ -766,8 +765,8 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 				continue
 			}
 
-			MemoryUpdateNgram(n,key) 
-			rank += Intentionality(n,key)
+			INTENTIONALITY[n][key] = 0.5 * Intentionality(n,key,s_idx) + 0.5 * INTENTIONALITY[n][key]
+			rank += INTENTIONALITY[n][key]
 
 			LTM_NGRAMS_IN_SENTENCE[n][s_idx] = append(LTM_NGRAMS_IN_SENTENCE[n][s_idx],key)
 			LTM_EVERY_NGRAM_OCCURRENCE[n][key] = append(LTM_EVERY_NGRAM_OCCURRENCE[n][key],s_idx)
@@ -775,10 +774,8 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 		}
 	}
 
-	//rank += MemoryUpdateNgram(1,word)
-
-	MemoryUpdateNgram(1,word) 
-	rank += Intentionality(1,word)
+	INTENTIONALITY[1][word] = 0.5 * Intentionality(1,word,s_idx) + 0.5 * INTENTIONALITY[1][word]
+	rank += INTENTIONALITY[1][word]
 
 	LTM_NGRAMS_IN_SENTENCE[1][s_idx] = append(LTM_NGRAMS_IN_SENTENCE[1][s_idx],word)
 	LTM_EVERY_NGRAM_OCCURRENCE[1][word] = append(LTM_EVERY_NGRAM_OCCURRENCE[1][word],s_idx)
@@ -790,167 +787,15 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 // MISC
 //**************************************************************
 
-func NarrationMarker(text string, rank float64, contextname string, context []string, index int) Narrative {
+func NarrationMarker(text string, rank float64, index int) Narrative {
 
 	var n Narrative
 
 	n.text = text
 	n.rank = rank
-	n.contextid = contextname
-	n.context = context
 	n.index = index
 
 return n
-}
-
-//**************************************************************
-
-func FeelingAndSTMContext() (string,[]string) {
-
-	// Find the top ranked fragments, as they must
-	// represent the subject of the narrative somehow
-	// don't need to go to MAXCLUSTERS, only 1,2,3
-
-	var hub string = ""
-	var topics []string
-
-	const min_cluster = 1
-	const max_cluster = 3
-
-	for n := min_cluster; n < max_cluster; n++ {
-
-		topics = SkimFrags(n,STM_NGRAM_RANK[n])
-
-		// Now we want to make a "section hub identifier" from these
-		// order them so they form consistently IMPORTANT fragments in spite of context
-
-		sort.Strings(topics)
-
-		top := len(topics)
-
-		// How shall we name hubs? By emotional character plus a hash?
-
-		for topic1 := 0; topic1 < top; topic1++ {
-
-			hub = hub + topics[topic1] + ","
-		}		
-	}
-
-	return hub, topics
-}
-
-//**************************************************************
-
-func SkimFrags(n int, source map[string]float64) []string {
-
-	var ranked []float64
-	var species = make(map[string]float64)
-	var inv = make(map[float64][]string)
-	var topics []string
-
-	const skim = 100
-
-	for frag := range source {
-		species[frag] = Intentionality(n,frag)
-	}
-
-	for frag := range species {
-		inv[species[frag]] = append(inv[species[frag]],frag) // could be multi-valued
-		ranked = append(ranked,species[frag])
-	}
-
-	sort.Float64s(ranked)
-
-	rlen := len(ranked)
-	var start int
-
-	// Pick up top 10 keywords from the important n-fragments
-	// This is a sliding window, so it's studying coactivation
-	// within a certain radius, not special change or significance
-	// But since this only gets called every leg, it can miss things
-	// where legs overlap
-
-	if rlen > skim {
-		start = rlen - skim
-	} else {
-		start = 0
-	}
-
-	for r := start; r < rlen; r++ {
-
-		key := ranked[r]
-		for multi := range inv[key] {
-			topics = AppendIdemp(topics,inv[key][multi])
-		}
-	}
-
-	//fmt.Println("CONTEXT",topics)
-
-return topics
-}
-
-//**************************************************************
-
-func SaveContext() {
-
-	name := fmt.Sprintf("/tmp/cellibrium/context")
-
-	f, err := os.Create(name)
-	
-	if err != nil {
-		fmt.Println("Error opening file ",name)
-		return
-	}
-
-	var context []string
-	var hub string
-
-	const min_cluster = 1
-	const max_cluster = 6
-
-	for n := min_cluster; n < max_cluster; n++ {
-
-		var ordered []float64
-		var inv = make(map[float64]string)
-
-		for key := range STM_NGRAM_RANK[n] {
-			ordered = append(ordered,Intentionality(n,key))
-			inv[Intentionality(n,key)] = key
-		}
-
-		sort.Float64s(ordered)
-
-		var lim = len(ordered)
-		var start = lim - n*10
-
-		if start < 0 {
-			start = 0
-		}
-
-		for key := start; key < lim; key++ {
-			s := fmt.Sprintf("%s,%f\n",inv[ordered[key]],ordered[key])
-			f.WriteString(s)
-
-			add := fmt.Sprintf("%d:%s",n,inv[ordered[key]])
-			hub = hub + add + ","
-			context = AppendIdemp(context,inv[ordered[key]])
-		}
-	}
-	
-	f.Close()
-}
-
-//**************************************************************
-
-func AppendIdemp(region []string,value string) []string {
-	
-	for m := range region {
-		if value == region[m] {
-			return region
-		}
-	}
-
-	return append(region,value)
 }
 
 //**************************************************************
@@ -1005,102 +850,6 @@ func InsignificantPadding(word string) bool {
 	}
 
 return false
-}
-
-//**************************************************************
-
-func MemoryUpdateNgram(n int, key string) float64 {
-
-	// Decay rate approximately once per sentence, assuming no repeated ngrams
-
-	var rank float64
-
-	if _, ok := STM_NGRAM_RANK[n][key]; !ok {
-
-		rank = INITIAL_VALUE
-
-	} else {
-
-		rank = REPEATED_HERE_AND_NOW
-	}
-
-	STM_NGRAM_RANK[n][key] = rank
-
-	// Diffuse ALL concepts - should probably be handled by "dream" phase
-
-	MemoryDecay(n)
-
-return rank
-}
-
-//**************************************************************
-
-func MemoryDecay(n int) {
-
-	const decay_rate = FORGET_FRACTION // probability linear decay rate per word
-	const context_threshold = INITIAL_VALUE
-
-	for k := range STM_NGRAM_RANK[n] {
-
-		oldv := STM_NGRAM_RANK[n][k]
-		
-		// Can't go negative
-		
-		if oldv > decay_rate {
-			
-			STM_NGRAM_RANK[n][k] = oldv - decay_rate
-
-		} else {
-			// Help prevent memory blowing up - garbage collection, forget forever
-			delete(STM_NGRAM_RANK[n],k)
-		}
-	}
-}
-
-//**************************************************************
-
-func MakeDir(pathname string) string {
-
-	prefix := strings.Split(pathname,".")
-
-	subdir := prefix[0]+"_analysis"
-
-	err := os.Mkdir(subdir, 0700)
-	
-	if err == nil || os.IsExist(err) {
-		return subdir 
-	} else {
-		fmt.Println("Couldn't makedir ",prefix[0])
-		os.Exit(1)
-	}
-
-return "/tmp"
-}
-
-//**************************************************************
-
-func GetSentence(s int) string {
-
-	for t := range SELECTED_SENTENCES {
-
-		if SELECTED_SENTENCES[t].index == s {
-			return SELECTED_SENTENCES[t].text
-		}
-	}
-return "<none>"
-}
-
-//**************************************************************
-
-func Exists(path string) bool {
-
-    _, err := os.Stat(path)
-
-    if os.IsNotExist(err) { 
-	    return false
-    }
-
-    return true
 }
 
 //**************************************************************
