@@ -87,7 +87,7 @@ const FORGET_FRACTION = 0.001  // this amount per sentence ~ forget over 1000 wo
 
 var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
 var INTENTIONALITY [MAXCLUSTERS]map[string]float64
-var SCALE_PERSISTENTS [MAXCLUSTERS]map[string]float64
+var TOPICS = make(map[string]float64)
 
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
 
@@ -120,7 +120,6 @@ func main() {
 
 		STM_NGRAM_RANK[i] = make(map[string]float64)
 		INTENTIONALITY[i] = make(map[string]float64)
-		SCALE_PERSISTENTS[i] = make(map[string]float64)
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
 	
@@ -152,6 +151,28 @@ func main() {
 	}
 
 	fmt.Println("\nKept = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
+
+	fmt.Println("----- TOPICS ---------")
+
+	var sortable []Score
+	
+	for ngram := range TOPICS {
+		
+		var item Score
+		item.Key = ngram
+		item.Score = TOPICS[ngram]
+		sortable = append(sortable,item)
+	}
+	
+	sort.Slice(sortable, func(i, j int) bool {
+		return sortable[i].Score < sortable[j].Score
+	})
+
+	for i := range sortable {
+		if sortable[i].Score > 1 {
+			fmt.Println("Particular topic", sortable[i].Key,sortable[i].Score)
+		}
+	}
 
 }
 
@@ -234,7 +255,7 @@ func FractionateSentences(text string) {
 
 	for s_idx := range sentences {
 
-		meaning[s_idx] = FractionateThenRankSentence(ALL_SENTENCE_INDEX,sentences[s_idx])
+		meaning[s_idx] = FractionateThenRankSentence(s_idx,sentences[s_idx])
 
 	}
 
@@ -242,7 +263,7 @@ func FractionateSentences(text string) {
 
 	for s_idx := range sentences {
 
-		n := NarrationMarker(sentences[s_idx], meaning[s_idx], ALL_SENTENCE_INDEX)
+		n := NarrationMarker(sentences[s_idx], meaning[s_idx], s_idx)
 			
 		SELECTED_SENTENCES = append(SELECTED_SENTENCES,n)
 		
@@ -420,37 +441,23 @@ func SearchInvariantsAndUpdateImportance(meaning []float64) []float64 {
 				if max_delta < delta {
 					max_delta = delta
 				}
-			}
 
-			// which ngrams occur in bursty clusters. If completely even, then significance
-			// is low or the theme of the whole piece. If cluster span/total span
-			// max interdistance >> min interdistance then bursty
-
-			const persistence_factor = 2.5  // measured in sentences
-
-			if (min_delta < LEG_WINDOW/persistence_factor) && (max_delta > LEG_WINDOW*persistence_factor) {
-
-				fmt.Printf("Longitudinal %d-invariant \"%s\" (%d) --  min %d, max %d\n",n,ngram,occurrences,min_delta,max_delta)
-				// We keep these separate as we expect them to represent topics within the story
-
-				SCALE_PERSISTENTS[n][ngram] = math.Log(float64(len(ngram)))
-			}
-
-			for ngram := range LTM_EVERY_NGRAM_OCCURRENCE[n] {
+				// which ngrams occur in bursty clusters. If completely even, then significance
+				// is low or the theme of the whole piece. If cluster span/total span
+				// max interdistance >> min interdistance then bursty
 				
-				if (InsignificantPadding(ngram)) {
-					continue
-				}
+				const persistence_factor = 2  // measured in sentences
 				
-				occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
+				if (min_delta < LEG_WINDOW/persistence_factor) && (max_delta > LEG_WINDOW*persistence_factor) {
 				
-				// if ngram of occurrences exceeds an expectation threshold in terms of length
-				
-				for location := 0; location < occurrences; location++ {
+					if n > 2 {	
+						TOPICS[ngram]++
+					}
+					//fmt.Printf("Longitudinal %d-invariant \"%s\" (%d) --  min %d, max %d -- %f\n",n,ngram,occurrences,min_delta,max_delta,meaning[location])
+					// We keep these separate as we expect them to represent topics within the story
 					
-					// Now BOOST/update the relevant sentence scores where they appear
+					meaning[location] += Intentionality(n,ngram,1)
 					
-					meaning[location] += SCALE_PERSISTENTS[n][ngram]
 				}
 			}
 		}
@@ -737,7 +744,7 @@ func ExcludedByBindings(firstword,lastword string) bool {
 		return true
 	}
 
-	var eforbidden = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is" }
+	var eforbidden = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "with", "using", "that", "who", "to" ,"no"}
 
 	for s := range eforbidden {
 		if lastword == eforbidden[s] {
@@ -745,7 +752,7 @@ func ExcludedByBindings(firstword,lastword string) bool {
 		}
 	}
 
-	var sforbidden = []string{"and","or","of"}
+	var sforbidden = []string{"and","or","of","the","it"}
 
 	for s := range sforbidden {
 		if firstword == sforbidden[s] {
@@ -767,7 +774,7 @@ func InsignificantPadding(word string) bool {
 		return true
 	}
 
-	var irrel = []string{"hub:", "but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "if", "we", "you", "i", "there", "as", "in", "then", "that", "with", "to", "is","was", "when", "where", "are", "some", "can", "also", "it", "at", "out", "like", "they", "her", "him", "them", "his", "our", "by", "more", "less", "from", "over", "under", "why", "because", "what", "every", "some", "about", "though", "for", "around", "about", "any", "will","had","all","which" }
+	var irrel = []string{"hub:", "but", "and", "the", "or", "a", "an", "it", "its", "it's", "their", "your", "my", "of", "if", "we", "you", "i", "there", "as", "in", "then", "that", "with", "to", "is","was", "when", "where", "are", "some", "can", "also", "it", "at", "out", "like", "they", "her", "him", "them", "his", "our", "by", "more", "less", "from", "over", "under", "why", "because", "what", "every", "some", "about", "though", "for", "around", "about", "any", "will","had","all","which","utc" }
 
 	for s := range irrel {
 		if irrel[s] == word {
