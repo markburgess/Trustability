@@ -95,8 +95,6 @@ const FORGET_FRACTION = 0.001  // this amount per sentence ~ forget over 1000 wo
 // implicated in selection at the "smart sensor" level, i.e. innate adaptation
 // about what is retained from the incomning `signal'
 
-var LTM_NGRAMS_IN_SENTENCE [MAXCLUSTERS]map[int][]string
-
 // inverse: in which sentences did the ngrams appear? Sequence of integer times by ngram
 var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
 
@@ -138,7 +136,6 @@ func main() {
 
 		INTENTIONALITY[i] = make(map[string]float64)
 
-		LTM_NGRAMS_IN_SENTENCE[i] = make(map[int][]string)
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
 	
@@ -259,71 +256,11 @@ func PreSelectSentencesBySemanticImpact(text string) {
 		
 		meaning := FractionateThenRankSentence(ALL_SENTENCE_INDEX,sentences[s_idx])
 
-		if SentenceMeetsAttentionThreshold(meaning,sentences[s_idx]) {
-
-			n := NarrationMarker(sentences[s_idx], meaning, ALL_SENTENCE_INDEX)
+		n := NarrationMarker(sentences[s_idx], meaning, ALL_SENTENCE_INDEX)
 			
-			// The context hub name is stored with the selected sentence
-			
-			SELECTED_SENTENCES = append(SELECTED_SENTENCES,n)
-		}
+		SELECTED_SENTENCES = append(SELECTED_SENTENCES,n)
 		
 		ALL_SENTENCE_INDEX++
-	}
-}
-
-//**************************************************************
-
-func SentenceMeetsAttentionThreshold(meaning float64, sentence string) bool {
-
-	const alert = 1.0
-	const awake = 0.5
-	const attention_deficit = 0.1
-	const sentence_width = 7
-	const response = 0.6
-	const calm = 0.9
-
-	// If sudden change in sentence length, be alert
-
-	// This learns average sentence structure! Style...
-
-	slen := float64(len(sentence))
-
-	// Alerts, could have a watch list for certain words
-
-	if (slen > SENTENCE_THRESH * 1.5) {
-
-		//fmt.Println("ALERT LONG!!",SENTENCE_THRESH,sentence)
-		ATTENTION_LEVEL = alert
-	}
-
-	if (slen < SENTENCE_THRESH * 0.5) {
-
-		ATTENTION_LEVEL = alert
-	}
-
-	SENTENCE_THRESH = response * slen + (1-response) * SENTENCE_THRESH
-
-	if (meaning > MEANING_THRESH) && (ATTENTION_LEVEL > awake) {
-
-		KEPT++
-
-		if ATTENTION_LEVEL > attention_deficit {
-
-			ATTENTION_LEVEL -= attention_deficit
-		}
-
-		//fmt.Println("\nKeeping: ", sentence)
-
-		return true
-
-	} else {
-		
-		// This is useful for purging small exclamations and titles, chapter headings etc.
-		//fmt.Println("\nSkipping: ", sentence)
-
-		SKIPPED++
-		return false
 	}
 }
 
@@ -429,8 +366,10 @@ func SummarizeHistograms(g TT.Analytics) {
 			return sortable[i].Score < sortable[j].Score
 		})
 		
-		for i := range sortable {
-			fmt.Printf("Intention score (%d-gram) %s %f -- info %f\n",n,sortable[i].Key,sortable[i].Score,math.Log(sortable[i].Score)/float64(n))
+		for i := 3 *len(sortable) / 4; i < len(sortable); i++ {
+			if n > 2 {
+				fmt.Printf("Intention score (%d-gram) %s %f (log scaled)\n",n,sortable[i].Key,sortable[i].Score)
+			}
 		}
 
 	}
@@ -469,7 +408,9 @@ func SearchInvariants(g TT.Analytics) {
 			if occurrences > (MAXCLUSTERS - n) {
 
 				thresh_count[n][occurrences] = append(thresh_count[n][occurrences],ngram)
-				fmt.Printf("Scaled theshold occurrences %d-gram \"%s\" (%d)\n",n,ngram,occurrences)
+				if n > 1 {
+					fmt.Printf("Scaled theshold occurrences %d-gram \"%s\" (%d)\n",n,ngram,occurrences)
+				}
 
 			} else {
 				continue
@@ -523,9 +464,9 @@ func SearchInvariants(g TT.Analytics) {
 			// is low or the theme of the whole piece. If cluster span/total span
 			// max interdistance >> min interdistance then bursty
 
-			const scale_factor = 2  // measured in sentences
+			const persistence_factor = 2.5  // measured in sentences
 
-			if min_delta < LEG_WINDOW/scale_factor && max_delta > LEG_WINDOW*scale_factor {
+			if min_delta < LEG_WINDOW/persistence_factor && max_delta > LEG_WINDOW*persistence_factor {
 				fmt.Printf("Longitudinal %d-invariant \"%s\" (%d) --  min %d, max %d\n",n,ngram,occurrences,min_delta,max_delta)
 			}
 
@@ -646,8 +587,9 @@ func Intentionality(n int, s string, sentence_count int) float64 {
 
 	// Things that are repeated too often are not important
 	// but length indicates purposeful intent
+	// motiovation is multscale AND^n  -> compare
 
-	meaning := math.Log(float64(len(s)) / frequency) / float64(n)
+	meaning := math.Log(float64(len(s)) / frequency)
 
 return meaning
 }
@@ -656,7 +598,7 @@ return meaning
 
 func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
 
-	const threshold = 0.8       // 80/20 rule -- CONTROL VARIABLE
+	const trust_threshold = 0.8       // 80/20 rule -- CONTROL VARIABLE
 	const sampling_density = 3  // base trust selection
 
 	var sentence_ranks []float64
@@ -678,7 +620,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	// Rank by importance and rescale all as dimensionless between [0,1]
 
 	sort.Float64s(sentence_ranks)
-	scale_free_rank := this_leg_av_rank / max
+	scale_free_trust := this_leg_av_rank / max
 
 	// We now have an array of sentences whose indices are ascending ordered rankings, max = last
 	// and an array of rankings min to max
@@ -692,9 +634,9 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	fmt.Println(" >> (Rank leg",leg,"=",scale_free_rank,")")
+	fmt.Println(" >> (Rank leg",leg,"=",scale_free_trust,")")
 
-	if scale_free_rank > threshold {
+	if scale_free_trust > trust_threshold {
 
 		var start int
 
@@ -768,7 +710,6 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 			INTENTIONALITY[n][key] = 0.5 * Intentionality(n,key,s_idx) + 0.5 * INTENTIONALITY[n][key]
 			rank += INTENTIONALITY[n][key]
 
-			LTM_NGRAMS_IN_SENTENCE[n][s_idx] = append(LTM_NGRAMS_IN_SENTENCE[n][s_idx],key)
 			LTM_EVERY_NGRAM_OCCURRENCE[n][key] = append(LTM_EVERY_NGRAM_OCCURRENCE[n][key],s_idx)
 
 		}
@@ -777,7 +718,6 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 	INTENTIONALITY[1][word] = 0.5 * Intentionality(1,word,s_idx) + 0.5 * INTENTIONALITY[1][word]
 	rank += INTENTIONALITY[1][word]
 
-	LTM_NGRAMS_IN_SENTENCE[1][s_idx] = append(LTM_NGRAMS_IN_SENTENCE[1][s_idx],word)
 	LTM_EVERY_NGRAM_OCCURRENCE[1][word] = append(LTM_EVERY_NGRAM_OCCURRENCE[1][word],s_idx)
 
 	return rank, rrbuffer
