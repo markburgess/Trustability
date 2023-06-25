@@ -25,7 +25,6 @@ import (
 	"flag"
 	"fmt"
 	"regexp"
-	"path"
 	"sort"
 	"math"
 	"TT"
@@ -48,8 +47,6 @@ type Narrative struct {
 
 	rank float64
 	text string
-	contextid string
-	context []string
 	index int
 }
 
@@ -87,22 +84,11 @@ const MEANING_THRESH = 20      // reduce this if too few samples
 const FORGET_FRACTION = 0.001  // this amount per sentence ~ forget over 1000 words
 
 // ****************************************************************************
-// The ranking vectors for structural objects in a narrative
-// LHS = type (semantic, metric) and RHS = importance / relative meaning
-// ****************************************************************************
 
-// n-phrase clusters by sentence are semantic units (no relevant order) - these are memory
-// implicated in selection at the "smart sensor" level, i.e. innate adaptation
-// about what is retained from the incomning `signal'
-
-// inverse: in which sentences did the ngrams appear? Sequence of integer times by ngram
 var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
-
 var INTENTIONALITY [MAXCLUSTERS]map[string]float64
+var SCALE_PERSISTENTS [MAXCLUSTERS]map[string]float64
 
-var HISTO_AUTO_CORRE_NGRAM [MAXCLUSTERS]map[int]int  // [sentence_distance]count
-
-// Short term memory is used to cache the ngram scores
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
 
 var G TT.Analytics
@@ -133,9 +119,8 @@ func main() {
 	for i := 1; i < MAXCLUSTERS; i++ {
 
 		STM_NGRAM_RANK[i] = make(map[string]float64)
-
 		INTENTIONALITY[i] = make(map[string]float64)
-
+		SCALE_PERSISTENTS[i] = make(map[string]float64)
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
 	
@@ -159,16 +144,14 @@ func main() {
 			ReadSentenceStream(args[i])  // Once for whole thing, reset and compare to realtime
 
 			ReviewAndSelectEvents(args[i])
-			SearchInvariants(G)
 
-			SummarizeHistograms(G)
+
+			//SummarizeHistograms(G)
 
 		}
 	}
 
 	fmt.Println("\nKept = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
-
-	fmt.Println("\nAccepted (average attention)",THRESH_ACCEPT/TOTAL_THRESH*100,"% into hubs")
 
 }
 
@@ -181,23 +164,18 @@ func ReadSentenceStream(filename string) {
 	// The take the filename as a marker for the semantic map
 	// as an arbitrary starting concept marker
 
-	start := strings.ReplaceAll(path.Base(filename),"/",":")
-	TT.NextDataEvent(&G,start,start)
-
 	ReadAndCleanRawStream(filename)
 }
 
 //**************************************************************
 
-func ReadAndCleanRawStream(filename string) string {
+func ReadAndCleanRawStream(filename string) {
 
 	// Here we can provide different readers for different formats
 
 	proto_text := CleanFile(string(filename))
 	
-	PreSelectSentencesBySemanticImpact(proto_text)
-	
-	return proto_text
+	FractionateSentences(proto_text)
 }
 
 //**************************************************************
@@ -240,7 +218,7 @@ func CleanFile(filename string) string {
 
 //**************************************************************
 
-func PreSelectSentencesBySemanticImpact(text string) {
+func FractionateSentences(text string) {
 
 	var sentences []string
 
@@ -252,11 +230,19 @@ func PreSelectSentencesBySemanticImpact(text string) {
 
 	sentences = SplitIntoSentences(text)
 
-	for s_idx := range sentences {
-		
-		meaning := FractionateThenRankSentence(ALL_SENTENCE_INDEX,sentences[s_idx])
+	var meaning = make([]float64,len(sentences))
 
-		n := NarrationMarker(sentences[s_idx], meaning, ALL_SENTENCE_INDEX)
+	for s_idx := range sentences {
+
+		meaning[s_idx] = FractionateThenRankSentence(ALL_SENTENCE_INDEX,sentences[s_idx])
+
+	}
+
+	meaning = SearchInvariantsAndUpdateImportance(meaning)
+
+	for s_idx := range sentences {
+
+		n := NarrationMarker(sentences[s_idx], meaning[s_idx], ALL_SENTENCE_INDEX)
 			
 		SELECTED_SENTENCES = append(SELECTED_SENTENCES,n)
 		
@@ -379,7 +365,7 @@ func SummarizeHistograms(g TT.Analytics) {
 
 //**************************************************************
 
-func SearchInvariants(g TT.Analytics) {
+func SearchInvariantsAndUpdateImportance(meaning []float64) []float64 {
 
 	var thresh_count [MAXCLUSTERS]map[int][]string
 
@@ -390,32 +376,8 @@ func SearchInvariants(g TT.Analytics) {
 		var last,delta int
 		thresh_count[n] = make(map[int][]string)
 
-		HISTO_AUTO_CORRE_NGRAM[n] = make(map[int]int,0)
-
 		// Search through all sentence ngrams and measure distance between repeated
 		// try to indentify any scales that emerge
-
-		for ngram := range LTM_EVERY_NGRAM_OCCURRENCE[n] {
-
-			if (InsignificantPadding(ngram)) {
-				continue
-			}
-
-			occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
-
-			// if ngram of occurrences exceeds an expectation threshold in terms of length
-
-			if occurrences > (MAXCLUSTERS - n) {
-
-				thresh_count[n][occurrences] = append(thresh_count[n][occurrences],ngram)
-				if n > 1 {
-					fmt.Printf("Scaled theshold occurrences %d-gram \"%s\" (%d)\n",n,ngram,occurrences)
-				}
-
-			} else {
-				continue
-			}
-		}
 
 		for ngram := range LTM_EVERY_NGRAM_OCCURRENCE[n] {
 
@@ -466,12 +428,35 @@ func SearchInvariants(g TT.Analytics) {
 
 			const persistence_factor = 2.5  // measured in sentences
 
-			if min_delta < LEG_WINDOW/persistence_factor && max_delta > LEG_WINDOW*persistence_factor {
+			if (min_delta < LEG_WINDOW/persistence_factor) && (max_delta > LEG_WINDOW*persistence_factor) {
+
 				fmt.Printf("Longitudinal %d-invariant \"%s\" (%d) --  min %d, max %d\n",n,ngram,occurrences,min_delta,max_delta)
+				// We keep these separate as we expect them to represent topics within the story
+
+				SCALE_PERSISTENTS[n][ngram] = math.Log(float64(len(ngram)))
 			}
 
+			for ngram := range LTM_EVERY_NGRAM_OCCURRENCE[n] {
+				
+				if (InsignificantPadding(ngram)) {
+					continue
+				}
+				
+				occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
+				
+				// if ngram of occurrences exceeds an expectation threshold in terms of length
+				
+				for location := 0; location < occurrences; location++ {
+					
+					// Now BOOST/update the relevant sentence scores where they appear
+					
+					meaning[location] += SCALE_PERSISTENTS[n][ngram]
+				}
+			}
 		}
 	}
+
+	return meaning
 }
 
 // *****************************************************************
@@ -598,8 +583,8 @@ return meaning
 
 func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
 
-	const trust_threshold = 0.8       // 80/20 rule -- CONTROL VARIABLE
-	const sampling_density = 3  // base trust selection
+	const leg_trust_threshold = 0.8       // 80/20 rule -- CONTROL VARIABLE
+	const intra_leg_sampling_density = 4  // base trust selection
 
 	var sentence_ranks []float64
 	var ranks_in_order []int
@@ -634,17 +619,17 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	fmt.Println(" >> (Rank leg",leg,"=",scale_free_trust,")")
+	fmt.Println(" >> (Rank leg trustworthiness",leg,"=",scale_free_trust,")")
 
-	if scale_free_trust > trust_threshold {
+	if scale_free_trust > leg_trust_threshold {
 
 		var start int
 
-		// top sampling_density = count backwards from the end
+		// top intra_leg_sampling_density = count backwards from the end
 
-		if samples_per_leg > sampling_density {
+		if samples_per_leg > intra_leg_sampling_density {
 
-			start = len(sentence_ranks) - sampling_density
+			start = len(sentence_ranks) - intra_leg_sampling_density
 
 		} else {
 
@@ -668,6 +653,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	for r := range ranks_in_order {
 
 		fmt.Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[r],SELECTED_SENTENCES[ranks_in_order[r]].text)
+		KEPT++
 	}
 }
 
