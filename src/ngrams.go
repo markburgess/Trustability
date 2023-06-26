@@ -154,9 +154,9 @@ func main() {
 		}
 	}
 
-	fmt.Println("\nKept = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
+	fmt.Println("\nNotable events = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
 
-	fmt.Println("----- TOPICS ---------")
+	fmt.Println("----- Emergent Longitudinally Stable Concept Fragments ---------")
 
 	var sortable []Score
 	
@@ -173,7 +173,7 @@ func main() {
 	})
 
 	for i := range sortable {
-		if sortable[i].Score > 1 {
+		if sortable[i].Score > 2 {
 			fmt.Printf("Particular theme/topic \"%s\" score %f \n", sortable[i].Key,sortable[i].Score)
 		}
 	}
@@ -454,16 +454,14 @@ func SearchInvariantsAndUpdateImportance() {
 				const persistence_factor = 2  // measured in sentences
 				
 				if (min_delta < LEG_WINDOW/persistence_factor) && (max_delta > LEG_WINDOW*persistence_factor) {
-				
 					//Extract the persistent invariants
-					if n > 2 {	
+
+					if n > 2 {
 						TOPICS[ngram]++
 					}					
 				}
 			}
 		}
-
-		fmt.Println("----- LONGITUDINAL INVARIANTS", n, len(TOPICS))
 	}
 }
 
