@@ -144,7 +144,6 @@ func main() {
 
 			ReviewAndSelectEvents(args[i])
 
-
 			//SummarizeHistograms(G)
 
 		}
@@ -173,6 +172,10 @@ func main() {
 			fmt.Println("Particular topic", sortable[i].Key,sortable[i].Score)
 		}
 	}
+
+	fmt.Println("Check a", STM_NGRAM_RANK[1]["a"])
+	fmt.Println("Check will", STM_NGRAM_RANK[1]["will"])
+	fmt.Println("Check love", STM_NGRAM_RANK[1]["love"])
 
 }
 
@@ -256,14 +259,21 @@ func FractionateSentences(text string) {
 	for s_idx := range sentences {
 
 		meaning[s_idx] = FractionateThenRankSentence(s_idx,sentences[s_idx])
-
 	}
 
 	meaning = SearchInvariantsAndUpdateImportance(meaning)
 
+	// Some things to note: importance tends to be clustered around the start and the end of
+	// a story. The start is automatically weakner in this method, due to lack of data. We can
+	// compensate by weighting the start and the end by sentence number.
+
+	midway := len(sentences) / 2
+
 	for s_idx := range sentences {
 
-		n := NarrationMarker(sentences[s_idx], meaning[s_idx], s_idx)
+		scale_factor := float64((midway - s_idx) * (midway - s_idx)) / float64(midway*midway)
+
+		n := NarrationMarker(sentences[s_idx], meaning[s_idx] * scale_factor, s_idx)
 			
 		SELECTED_SENTENCES = append(SELECTED_SENTENCES,n)
 		
@@ -333,7 +343,7 @@ func FractionateThenRankSentence(s_idx int, sentence string) float64 {
 			sentence_meaning_rank += rank
 		}
 	}
-	
+
 	return sentence_meaning_rank
 }
 
@@ -391,8 +401,6 @@ func SearchInvariantsAndUpdateImportance(meaning []float64) []float64 {
 	var thresh_count [MAXCLUSTERS]map[int][]string
 
 	for n := 1; n < MAXCLUSTERS; n++ {
-
-		fmt.Println("----- LONGITUDINAL INVARIANTS", n)
 
 		var last,delta int
 		thresh_count[n] = make(map[int][]string)
@@ -453,14 +461,14 @@ func SearchInvariantsAndUpdateImportance(meaning []float64) []float64 {
 					if n > 2 {	
 						TOPICS[ngram]++
 					}
-					//fmt.Printf("Longitudinal %d-invariant \"%s\" (%d) --  min %d, max %d -- %f\n",n,ngram,occurrences,min_delta,max_delta,meaning[location])
-					// We keep these separate as we expect them to represent topics within the story
 					
 					meaning[location] += Intentionality(n,ngram,1)
 					
 				}
 			}
 		}
+
+		fmt.Println("----- LONGITUDINAL INVARIANTS", n, len(TOPICS))
 	}
 
 	return meaning
@@ -536,7 +544,7 @@ func ReviewAndSelectEvents(filename string) {
 	var sentence_id_by_rank = make(map[int]map[float64]int)
 	sentence_id_by_rank[0] = make(map[float64]int)
 
-	// Go through all the sentences that haven't been excluded and pick a simpling density that's
+	// Go through all the sentences that haven't been excluded and pick a sampling density that's
 	// approximately evenly distributed-- split into LEG_WINDOW intervals
 
 	for s := range SELECTED_SENTENCES {
@@ -580,8 +588,19 @@ func Intentionality(n int, s string, sentence_count int) float64 {
 	// Things that are repeated too often are not important
 	// but length indicates purposeful intent
 	// motiovation is multscale AND^n  -> compare
+	// A word that occurs in every sentence or more is unlikley to be important
+
+	if frequency > 1 {
+		return 0
+	}
 
 	meaning := math.Log(float64(len(s)) / frequency)
+
+	//Log can go negative 
+
+	if meaning < 0 {
+		meaning = 0
+	}
 
 return meaning
 }
@@ -590,8 +609,8 @@ return meaning
 
 func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
 
-	const leg_trust_threshold = 0.8       // 80/20 rule -- CONTROL VARIABLE
-	const intra_leg_sampling_density = 4  // base trust selection
+	const leg_trust_threshold = 0.4       // 80/20 rule -- CONTROL VARIABLE
+	const intra_leg_sampling_density = 4  // detail per leg
 
 	var sentence_ranks []float64
 	var ranks_in_order []int
