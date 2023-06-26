@@ -169,7 +169,7 @@ func main() {
 
 	for i := range sortable {
 		if sortable[i].Score > 1 {
-			fmt.Println("Particular topic", sortable[i].Key,sortable[i].Score)
+			fmt.Printf("Particular theme/topic \"%s\" score %f \n", sortable[i].Key,sortable[i].Score)
 		}
 	}
 }
@@ -219,11 +219,10 @@ func CleanFile(filename string) string {
 	m3 := regexp.MustCompile("[–{&}“#%^+_#”=$’~‘/()<>\"&]*") 
 	stripped3 := m3.ReplaceAllString(stripped2,"") 
 
-	// Strip digits, this is probably wrong in general
 	m4 := regexp.MustCompile("[:;]+")
 	stripped4 := m4.ReplaceAllString(stripped3,".")
 
-	m5 := regexp.MustCompile("[^ a-zA-Z.,!?\n]*")
+	m5 := regexp.MustCompile("[^- a-zA-Z.,!?\n]*")
 	stripped5 := m5.ReplaceAllString(stripped4,"")
 
 	m6 := regexp.MustCompile("[?!.]+")
