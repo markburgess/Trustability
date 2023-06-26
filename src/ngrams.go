@@ -144,6 +144,11 @@ func main() {
 
 			ReviewAndSelectEvents(args[i])
 
+			// Find the longitudinal invariants that are the complements of the anomalous events.
+			// These are the normalized trusted themes, versus the "unexpected" shock items.
+			
+			SearchInvariantsAndUpdateImportance()
+
 			//SummarizeHistograms(G)
 
 		}
@@ -254,8 +259,6 @@ func FractionateSentences(text string) {
 
 		meaning[s_idx] = FractionateThenRankSentence(s_idx,sentences[s_idx])
 	}
-
-	meaning = SearchInvariantsAndUpdateImportance(meaning)
 
 	// Some things to note: importance tends to be clustered around the start and the end of
 	// a story. The start is automatically weakner in this method, due to lack of data. We can
@@ -390,7 +393,7 @@ func SummarizeHistograms(g TT.Analytics) {
 
 //**************************************************************
 
-func SearchInvariantsAndUpdateImportance(meaning []float64) []float64 {
+func SearchInvariantsAndUpdateImportance() {
 
 	var thresh_count [MAXCLUSTERS]map[int][]string
 
@@ -452,20 +455,16 @@ func SearchInvariantsAndUpdateImportance(meaning []float64) []float64 {
 				
 				if (min_delta < LEG_WINDOW/persistence_factor) && (max_delta > LEG_WINDOW*persistence_factor) {
 				
+					//Extract the persistent invariants
 					if n > 2 {	
 						TOPICS[ngram]++
-					}
-					
-					meaning[location] += Intentionality(n,ngram,1)
-					
+					}					
 				}
 			}
 		}
 
 		fmt.Println("----- LONGITUDINAL INVARIANTS", n, len(TOPICS))
 	}
-
-	return meaning
 }
 
 // *****************************************************************
@@ -639,7 +638,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	fmt.Println(" >> (Rank leg trustworthiness",leg,"=",scale_free_trust,")")
+	fmt.Println(" >> (Rank leg untrustworthiness (anomalous interest)",leg,"=",scale_free_trust,")")
 
 	if scale_free_trust > leg_trust_threshold {
 
