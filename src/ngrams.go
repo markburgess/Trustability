@@ -172,11 +172,6 @@ func main() {
 			fmt.Println("Particular topic", sortable[i].Key,sortable[i].Score)
 		}
 	}
-
-	fmt.Println("Check a", STM_NGRAM_RANK[1]["a"])
-	fmt.Println("Check will", STM_NGRAM_RANK[1]["will"])
-	fmt.Println("Check love", STM_NGRAM_RANK[1]["love"])
-
 }
 
 //**************************************************************
@@ -674,7 +669,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 	}
 
-	// Now highest importance in order of occurrence
+	// Now highest importance within the lef, in order of occurrence
 
 	for r := range ranks_in_order {
 
