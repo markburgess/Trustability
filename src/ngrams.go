@@ -58,6 +58,10 @@ type Score struct {
 
 // ***************************************************************************
 
+var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "with", "using", "that", "who", "to" ,"no"}
+
+var FORBIDDEN_STARTER = []string{"and","or","of","the","it"}
+
 var WORDCOUNT int = 0
 var LEGCOUNT int = 0
 var KEPT int = 0
@@ -70,6 +74,12 @@ var THRESH_ACCEPT float64 = 0
 var TOTAL_THRESH float64 = 0
 
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
+
+const LONG_TRUST_THRESHOLD = 20
+const MISTRUST_THRESHOLD = 0.5
+const DETAIL_PER_LEG_POLICY = 3
+
+// ***
 
 const MAXCLUSTERS = 7
 const LEG_WINDOW = 100
@@ -149,7 +159,7 @@ func main() {
 			
 			SearchInvariantsAndUpdateImportance()
 
-			//SummarizeHistograms(G)
+			SummarizeHistograms(G)
 
 		}
 	}
@@ -173,7 +183,7 @@ func main() {
 	})
 
 	for i := range sortable {
-		if sortable[i].Score > 2 {
+		if sortable[i].Score > LONG_TRUST_THRESHOLD {
 			fmt.Printf("Particular theme/topic \"%s\" score %f \n", sortable[i].Key,sortable[i].Score)
 		}
 	}
@@ -347,6 +357,21 @@ func FractionateThenRankSentence(s_idx int, sentence string) float64 {
 //**************************************************************
 
 func SummarizeHistograms(g TT.Analytics) {
+
+
+	fmt.Println("----- (Forbidden baseline scores) ----------")
+
+	for i := range FORBIDDEN_ENDING {
+		
+		frac := float64(STM_NGRAM_RANK[1][FORBIDDEN_ENDING[i]])/float64(len(SELECTED_SENTENCES))
+		fmt.Println("FORBIDDEN",FORBIDDEN_ENDING[i],STM_NGRAM_RANK[1][FORBIDDEN_ENDING[i]],frac)
+	}
+
+	for i := range FORBIDDEN_STARTER {
+		
+		frac := float64(STM_NGRAM_RANK[1][FORBIDDEN_STARTER[i]])/float64(len(SELECTED_SENTENCES))
+		fmt.Println("FORBIDDEN",FORBIDDEN_STARTER[i],STM_NGRAM_RANK[1][FORBIDDEN_STARTER[i]],frac)
+	}
 
 	fmt.Println("----- (Intentionality scores) ----------")
 
@@ -600,8 +625,8 @@ return meaning
 
 func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
 
-	const leg_trust_threshold = 0.4       // 80/20 rule -- CONTROL VARIABLE
-	const intra_leg_sampling_density = 4  // detail per leg
+	const mistrust_policy_threshold = MISTRUST_THRESHOLD
+	const intra_leg_sampling_density = DETAIL_PER_LEG_POLICY
 
 	var sentence_ranks []float64
 	var ranks_in_order []int
@@ -638,7 +663,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 	fmt.Println(" >> (Rank leg untrustworthiness (anomalous interest)",leg,"=",scale_free_trust,")")
 
-	if scale_free_trust > leg_trust_threshold {
+	if scale_free_trust > mistrust_policy_threshold {
 
 		var start int
 
@@ -754,18 +779,14 @@ func ExcludedByBindings(firstword,lastword string) bool {
 		return true
 	}
 
-	var eforbidden = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "with", "using", "that", "who", "to" ,"no"}
-
-	for s := range eforbidden {
-		if lastword == eforbidden[s] {
+	for s := range FORBIDDEN_ENDING {
+		if lastword == FORBIDDEN_ENDING[s] {
 			return true
 		}
 	}
 
-	var sforbidden = []string{"and","or","of","the","it"}
-
-	for s := range sforbidden {
-		if firstword == sforbidden[s] {
+	for s := range FORBIDDEN_STARTER {
+		if firstword == FORBIDDEN_STARTER[s] {
 			return true
 		}
 	}
