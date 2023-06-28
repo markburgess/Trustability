@@ -75,8 +75,10 @@ var TOTAL_THRESH float64 = 0
 
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
 
+const MISTRUST_THRESHOLD = 0.8
+
 const LONG_TRUST_THRESHOLD = 20
-const MISTRUST_THRESHOLD = 0.5
+
 const DETAIL_PER_LEG_POLICY = 3
 
 // ***
@@ -96,7 +98,6 @@ const FORGET_FRACTION = 0.001  // this amount per sentence ~ forget over 1000 wo
 // ****************************************************************************
 
 var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
-var INTENTIONALITY [MAXCLUSTERS]map[string]float64
 var TOPICS = make(map[string]float64)
 
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
@@ -129,7 +130,6 @@ func main() {
 	for i := 1; i < MAXCLUSTERS; i++ {
 
 		STM_NGRAM_RANK[i] = make(map[string]float64)
-		INTENTIONALITY[i] = make(map[string]float64)
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
 	
@@ -157,9 +157,7 @@ func main() {
 			// Find the longitudinal invariants that are the complements of the anomalous events.
 			// These are the normalized trusted themes, versus the "unexpected" shock items.
 			
-			SearchInvariantsAndUpdateImportance()
-
-			SummarizeHistograms(G)
+			SearchInvariants()
 
 		}
 	}
@@ -267,7 +265,7 @@ func FractionateSentences(text string) {
 
 	for s_idx := range sentences {
 
-		meaning[s_idx] = FractionateThenRankSentence(s_idx,sentences[s_idx])
+		meaning[s_idx] = FractionateThenRankSentence(s_idx,sentences[s_idx],len(sentences))
 	}
 
 	// Some things to note: importance tends to be clustered around the start and the end of
@@ -278,7 +276,9 @@ func FractionateSentences(text string) {
 
 	for s_idx := range sentences {
 
-		scale_factor := float64((midway - s_idx) * (midway - s_idx)) / float64(midway*midway)
+		scale_factor := 1.0 + float64((midway - s_idx) * (midway - s_idx)) / float64(midway*midway)
+
+		//fmt.Println("SCALE FACTOR",scale_factor)
 
 		n := NarrationMarker(sentences[s_idx], meaning[s_idx] * scale_factor, s_idx)
 			
@@ -313,7 +313,7 @@ func SplitIntoSentences(text string) []string {
 
 //**************************************************************
 
-func FractionateThenRankSentence(s_idx int, sentence string) float64 {
+func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int) float64 {
 
 	var rrbuffer [MAXCLUSTERS][]string
 	var sentence_meaning_rank float64 = 0
@@ -346,7 +346,7 @@ func FractionateThenRankSentence(s_idx int, sentence string) float64 {
 			
 			// Shift all the rolling longitudinal Ngram rr-buffers by one word
 			
-			rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer)
+			rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer,total_sentences)
 			sentence_meaning_rank += rank
 		}
 	}
@@ -356,69 +356,7 @@ func FractionateThenRankSentence(s_idx int, sentence string) float64 {
 
 //**************************************************************
 
-func SummarizeHistograms(g TT.Analytics) {
-
-
-	fmt.Println("----- (Forbidden baseline scores) ----------")
-
-	for i := range FORBIDDEN_ENDING {
-		
-		frac := float64(STM_NGRAM_RANK[1][FORBIDDEN_ENDING[i]])/float64(len(SELECTED_SENTENCES))
-		fmt.Println("FORBIDDEN",FORBIDDEN_ENDING[i],STM_NGRAM_RANK[1][FORBIDDEN_ENDING[i]],frac)
-	}
-
-	for i := range FORBIDDEN_STARTER {
-		
-		frac := float64(STM_NGRAM_RANK[1][FORBIDDEN_STARTER[i]])/float64(len(SELECTED_SENTENCES))
-		fmt.Println("FORBIDDEN",FORBIDDEN_STARTER[i],STM_NGRAM_RANK[1][FORBIDDEN_STARTER[i]],frac)
-	}
-
-	fmt.Println("----- (Intentionality scores) ----------")
-
-	for n := 1; n < MAXCLUSTERS; n++ {
-
-		var max float64 = 0
-
-		for ngram := range STM_NGRAM_RANK[n] {
-
-			if STM_NGRAM_RANK[n][ngram] > max {
-				max = STM_NGRAM_RANK[n][ngram]
-			}
-		}
-
-		fmt.Printf("Max value STM_NGRAM_RANK[%d] --> %f\n",n,max)
-	}
-
-	for n := 1; n < MAXCLUSTERS; n++ {
-
-		var sortable []Score
-
-		for ngram := range INTENTIONALITY[n] {
-
-			var item Score
-			item.Key = ngram
-			item.Score = INTENTIONALITY[n][ngram]
-			sortable = append(sortable,item)
-		}
-
-		sort.Slice(sortable, func(i, j int) bool {
-			return sortable[i].Score < sortable[j].Score
-		})
-		
-		for i := 3 *len(sortable) / 4; i < len(sortable); i++ {
-			if n > 2 {
-				fmt.Printf("Intention score (%d-gram) %s %f (log scaled)\n",n,sortable[i].Key,sortable[i].Score)
-			}
-		}
-
-	}
-
-	fmt.Println("--------------------------------")
-}
-
-//**************************************************************
-
-func SearchInvariantsAndUpdateImportance() {
+func SearchInvariants() {
 
 	var thresh_count [MAXCLUSTERS]map[int][]string
 
@@ -595,28 +533,23 @@ func ReviewAndSelectEvents(filename string) {
 
 func Intentionality(n int, s string, sentence_count int) float64 {
 
-	// Emotional bias to be added ?
-
 	STM_NGRAM_RANK[n][s]++
 
-	frequency := STM_NGRAM_RANK[n][s] / float64(1 + sentence_count)
+	work := float64(len(s)/2)
+
+	lambda := float64(STM_NGRAM_RANK[n][s])
+
+	// This constant is tuned to give words a growing importance up to a limit
+	// or peak occurrences, then downgrade
+
+	lambda0 := float64(sentence_count) / (float64(LEG_WINDOW) * 2 )
+
+	rho := lambda/lambda0
 
 	// Things that are repeated too often are not important
 	// but length indicates purposeful intent
-	// motiovation is multscale AND^n  -> compare
-	// A word that occurs in every sentence or more is unlikley to be important
 
-	if frequency > 1 {
-		return 0
-	}
-
-	meaning := math.Log(float64(len(s)) / frequency)
-
-	//Log can go negative 
-
-	if meaning < 0 {
-		meaning = 0
-	}
+	meaning := rho * work / (1.0 + math.Exp(lambda-lambda0)/lambda0)
 
 return meaning
 }
@@ -701,7 +634,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 //**************************************************************
 
-func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]string) (float64,[MAXCLUSTERS][]string) {
+func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]string,total_sentences int) (float64,[MAXCLUSTERS][]string) {
 
 	var rank float64 = 0
 
@@ -735,16 +668,14 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 				continue
 			}
 
-			INTENTIONALITY[n][key] = 0.5 * Intentionality(n,key,s_idx) + 0.5 * INTENTIONALITY[n][key]
-			rank += INTENTIONALITY[n][key]
+			rank += Intentionality(n,key,total_sentences)
 
 			LTM_EVERY_NGRAM_OCCURRENCE[n][key] = append(LTM_EVERY_NGRAM_OCCURRENCE[n][key],s_idx)
 
 		}
 	}
 
-	INTENTIONALITY[1][word] = 0.5 * Intentionality(1,word,s_idx) + 0.5 * INTENTIONALITY[1][word]
-	rank += INTENTIONALITY[1][word]
+	rank += Intentionality(1,word,total_sentences)
 
 	LTM_EVERY_NGRAM_OCCURRENCE[1][word] = append(LTM_EVERY_NGRAM_OCCURRENCE[1][word],s_idx)
 
