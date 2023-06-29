@@ -58,9 +58,9 @@ type Score struct {
 
 // ***************************************************************************
 
-var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "with", "using", "that", "who", "to" ,"no"}
+var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "with", "using", "that", "who", "to" ,"no", "because"}
 
-var FORBIDDEN_STARTER = []string{"and","or","of","the","it"}
+var FORBIDDEN_STARTER = []string{"and","or","of","the","it","because"}
 
 var WORDCOUNT int = 0
 var LEGCOUNT int = 0
@@ -77,7 +77,7 @@ var TOTAL_THRESH float64 = 0
 
 const MISTRUST_THRESHOLD = 0.8
 
-const LONG_TRUST_THRESHOLD = 10
+const LONG_TRUST_THRESHOLD = 1
 
 const DETAIL_PER_LEG_POLICY = 3
 
@@ -158,7 +158,7 @@ func main() {
 			// Find the longitudinal invariants that are the complements of the anomalous events.
 			// These are the normalized trusted themes, versus the "unexpected" shock items.
 
-			SearchInvariants()
+			LongitudinalPersistence()
 
 		}
 	}
@@ -181,14 +181,13 @@ func main() {
 		return sortable[i].Score < sortable[j].Score
 	})
 
-	for i := range sortable {
+	// The score is the average interval between repetitions
+	// If this is very long, the focus is spurious, so we look at the
+	// shortest sample
 
-		// SEMI EMPIRICAL RULE??
-		// use intentionality funtion here????
+	for i := 0; i < len(sortable); i++ {
 
-		if sortable[i].Score > LONG_TRUST_THRESHOLD {
-			fmt.Printf("Particular theme/topic \"%s\" score %f \n", sortable[i].Key,sortable[i].Score)
-		}
+		fmt.Printf("Particular theme/topic \"%s = %f\"\n", sortable[i].Key, sortable[i].Score)
 	}
 }
 
@@ -361,16 +360,15 @@ func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int
 
 //**************************************************************
 
-func SearchInvariants() {
-
-	var thresh_count [MAXCLUSTERS]map[int][]string
+func LongitudinalPersistence() {
 
 	sentences := len(SELECTED_SENTENCES)
 
-	for n := 4; n < MAXCLUSTERS; n++ {
+	fmt.Println("--------- Sumarize ngram Intentionality threshold selection ---------------------------")
+
+	for n := 1; n < MAXCLUSTERS; n++ {
 
 		var last,delta int
-		thresh_count[n] = make(map[int][]string)
 
 		// Search through all sentence ngrams and measure distance between repeated
 		// try to indentify any scales that emerge
@@ -379,9 +377,13 @@ func SearchInvariants() {
 
 			occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
 
-			if Intentionality(n,ngram,sentences) < 0.1  {
+			intent := Intentionality(n,ngram,sentences)
+
+			if intent < 0.3  {
 				continue
 			}
+
+			fmt.Println(n,ngram,occurrences,STM_NGRAM_RANK[n][ngram],"---------",intent)
 
 			// if ngram of occurrences exceeds an expectation threshold in terms of length
 
@@ -389,6 +391,7 @@ func SearchInvariants() {
 
 			var min_delta int = 9999
 			var max_delta int = 0
+			var sum_delta int = 0
 
 			for location := 0; location < occurrences; location++ {
 
@@ -407,6 +410,8 @@ func SearchInvariants() {
 				delta = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location] - last			
 				last = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location]
 
+				sum_delta += delta
+
 				if min_delta > delta {
 					min_delta = delta
 				}
@@ -414,15 +419,20 @@ func SearchInvariants() {
 				if max_delta < delta {
 					max_delta = delta
 				}
+			}
+			// which ngrams occur in bursty clusters. If completely even, then significance
+			// is low or the theme of the whole piece. If cluster span/total span
+			// max interdistance >> min interdistance then bursty
+			
+			if min_delta == 0 {
+				continue
+			}
 
-				// which ngrams occur in bursty clusters. If completely even, then significance
-				// is low or the theme of the whole piece. If cluster span/total span
-				// max interdistance >> min interdistance then bursty
-				
-				if (float64(max_delta) > LEG_WINDOW) {
+			av_delta := float64(sum_delta)/float64(occurrences)
 
-						TOPICS[ngram]++
-				}
+			if (av_delta > 3) && (av_delta < float64(LEG_WINDOW) * 4) {
+
+				TOPICS[ngram] = intent
 			}
 		}
 	}
@@ -533,18 +543,24 @@ func ReviewAndSelectEvents(filename string) {
 
 func Intentionality(n int, s string, sentence_count int) float64 {
 
-	STM_NGRAM_RANK[n][s]++
-
+	occurrences := STM_NGRAM_RANK[n][s]
 	work := float64(len(s))
+	legs := float64(sentence_count) / float64(LEG_WINDOW)
+
+	if occurrences < 3 {
+		return 0
+	}
+
+	if work < 5 {
+		return 0
+	}
 
 	// lambda should have a cutoff for insignificant words, like "a" , "of", etc that occur most often
 
-	lambda := float64(STM_NGRAM_RANK[n][s])
+	lambda := occurrences / float64(LEG_WINDOW)
 
 	// This constant is tuned to give words a growing importance up to a limit
 	// or peak occurrences, then downgrade
-
-	legs := float64(sentence_count) / float64(LEG_WINDOW)
 
 	// Things that are repeated too often are not important
 	// but length indicates purposeful intent
@@ -672,6 +688,7 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 				continue
 			}
 
+			STM_NGRAM_RANK[n][key]++
 			rank += Intentionality(n,key,total_sentences)
 
 			LTM_EVERY_NGRAM_OCCURRENCE[n][key] = append(LTM_EVERY_NGRAM_OCCURRENCE[n][key],s_idx)
@@ -679,6 +696,7 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 		}
 	}
 
+	STM_NGRAM_RANK[1][word]++
 	rank += Intentionality(1,word,total_sentences)
 
 	LTM_EVERY_NGRAM_OCCURRENCE[1][word] = append(LTM_EVERY_NGRAM_OCCURRENCE[1][word],s_idx)
@@ -729,28 +747,6 @@ func ExcludedByBindings(firstword,lastword string) bool {
 return false 
 }
 
-// *****************************************************************
-
-func InsignificantPadding(word string) bool {
-	
-	// This is a shorthand for the most common words and phrases, which may be learned by scanning many docs
-	// Earlier, we learned these too, now just cache them
-	
-	/* if len(word) < 3 {
-		return true
-	}
-	
-	var irrel = []string{"too","but", "and", "the", "or", "a", "an", "it", "its", "it's", "their", "your", "my", "of", "if", "whether","however", "we", "you", "i", "there", "as", "in", "then", "that", "with", "to", "is","was", "when", "where", "are", "some", "can", "also", "it", "at", "out", "like", "they", "her", "him", "them", "his", "our", "by", "more", "less", "from", "over", "under", "why", "because", "what", "every", "some", "about",  "though", "for", "around", "about", "any", "will","had","all","which","utc","has","have","would","these","those","such","only","many","most", "sometimes","often","time","than","each","every" } */
- 	
-	for s := range EXCLUSIONS {
-
-		if EXCLUSIONS[s] == word {
-			return true
-		}
-	}
-	
-	return false
-}
 
 //**************************************************************
 
