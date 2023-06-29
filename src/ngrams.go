@@ -58,9 +58,13 @@ type Score struct {
 
 // ***************************************************************************
 
-var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "with", "using", "that", "who", "to" ,"no", "because"}
+// Promise bindings in English. This domain knowledge saves us a lot of training analysis
 
-var FORBIDDEN_STARTER = []string{"and","or","of","the","it","because"}
+var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "with", "using", "that", "who", "to" ,"no", "because","at","but"}
+
+var FORBIDDEN_STARTER = []string{"and","or","of","the","it","because","in","that","these","those","is","are","was","were","but"}
+
+// ***************************************************************************
 
 var WORDCOUNT int = 0
 var LEGCOUNT int = 0
@@ -75,13 +79,10 @@ var TOTAL_THRESH float64 = 0
 
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
 
-const MISTRUST_THRESHOLD = 0.8
-
-const LONG_TRUST_THRESHOLD = 1
-
+const MISTRUST_THRESHOLD    = 0.8
 const DETAIL_PER_LEG_POLICY = 3
 
-// ***
+// ***************************************************************************
 
 const MAXCLUSTERS = 7
 const LEG_WINDOW = 100
