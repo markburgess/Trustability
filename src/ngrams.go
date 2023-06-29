@@ -77,7 +77,7 @@ var TOTAL_THRESH float64 = 0
 
 const MISTRUST_THRESHOLD = 0.8
 
-const LONG_TRUST_THRESHOLD = 20
+const LONG_TRUST_THRESHOLD = 10
 
 const DETAIL_PER_LEG_POLICY = 3
 
@@ -99,6 +99,7 @@ const FORGET_FRACTION = 0.001  // this amount per sentence ~ forget over 1000 wo
 
 var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
 var TOPICS = make(map[string]float64)
+var EXCLUSIONS []string
 
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
 
@@ -156,7 +157,7 @@ func main() {
 
 			// Find the longitudinal invariants that are the complements of the anomalous events.
 			// These are the normalized trusted themes, versus the "unexpected" shock items.
-			
+
 			SearchInvariants()
 
 		}
@@ -181,6 +182,10 @@ func main() {
 	})
 
 	for i := range sortable {
+
+		// SEMI EMPIRICAL RULE??
+		// use intentionality funtion here????
+
 		if sortable[i].Score > LONG_TRUST_THRESHOLD {
 			fmt.Printf("Particular theme/topic \"%s\" score %f \n", sortable[i].Key,sortable[i].Score)
 		}
@@ -360,7 +365,9 @@ func SearchInvariants() {
 
 	var thresh_count [MAXCLUSTERS]map[int][]string
 
-	for n := 1; n < MAXCLUSTERS; n++ {
+	sentences := len(SELECTED_SENTENCES)
+
+	for n := 4; n < MAXCLUSTERS; n++ {
 
 		var last,delta int
 		thresh_count[n] = make(map[int][]string)
@@ -370,13 +377,11 @@ func SearchInvariants() {
 
 		for ngram := range LTM_EVERY_NGRAM_OCCURRENCE[n] {
 
-			if (InsignificantPadding(ngram)) {
+			occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
+
+			if Intentionality(n,ngram,sentences) < 0.1  {
 				continue
 			}
-
-			// **** LONG
-
-			occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
 
 			// if ngram of occurrences exceeds an expectation threshold in terms of length
 
@@ -414,14 +419,9 @@ func SearchInvariants() {
 				// is low or the theme of the whole piece. If cluster span/total span
 				// max interdistance >> min interdistance then bursty
 				
-				const persistence_factor = 2  // measured in sentences
-				
-				if (min_delta < LEG_WINDOW/persistence_factor) && (max_delta > LEG_WINDOW*persistence_factor) {
-					//Extract the persistent invariants
+				if (float64(max_delta) > LEG_WINDOW) {
 
-					if n > 2 {
 						TOPICS[ngram]++
-					}					
 				}
 			}
 		}
@@ -535,21 +535,21 @@ func Intentionality(n int, s string, sentence_count int) float64 {
 
 	STM_NGRAM_RANK[n][s]++
 
-	work := float64(len(s)/2)
+	work := float64(len(s))
+
+	// lambda should have a cutoff for insignificant words, like "a" , "of", etc that occur most often
 
 	lambda := float64(STM_NGRAM_RANK[n][s])
 
 	// This constant is tuned to give words a growing importance up to a limit
 	// or peak occurrences, then downgrade
 
-	lambda0 := float64(sentence_count) / (float64(LEG_WINDOW) * 2 )
-
-	rho := lambda/lambda0
+	legs := float64(sentence_count) / float64(LEG_WINDOW)
 
 	// Things that are repeated too often are not important
 	// but length indicates purposeful intent
 
-	meaning := rho * work / (1.0 + math.Exp(lambda-lambda0)/lambda0)
+	meaning := lambda * work / (1.0 + math.Exp(lambda-legs))
 
 return meaning
 }
@@ -635,6 +635,10 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 //**************************************************************
 
 func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]string,total_sentences int) (float64,[MAXCLUSTERS][]string) {
+
+	// Word by word, we form a superposition of scores from n-grams of different lengths
+	// as a simple sum. This means lower lengths will dominate as there are more of them
+	// so we define intentionality proportional to the length also as compensation
 
 	var rank float64 = 0
 
@@ -728,29 +732,31 @@ return false
 // *****************************************************************
 
 func InsignificantPadding(word string) bool {
-
+	
 	// This is a shorthand for the most common words and phrases, which may be learned by scanning many docs
 	// Earlier, we learned these too, now just cache them
-
-	if len(word) < 3 {
+	
+	/* if len(word) < 3 {
 		return true
 	}
+	
+	var irrel = []string{"too","but", "and", "the", "or", "a", "an", "it", "its", "it's", "their", "your", "my", "of", "if", "whether","however", "we", "you", "i", "there", "as", "in", "then", "that", "with", "to", "is","was", "when", "where", "are", "some", "can", "also", "it", "at", "out", "like", "they", "her", "him", "them", "his", "our", "by", "more", "less", "from", "over", "under", "why", "because", "what", "every", "some", "about",  "though", "for", "around", "about", "any", "will","had","all","which","utc","has","have","would","these","those","such","only","many","most", "sometimes","often","time","than","each","every" } */
+ 	
+	for s := range EXCLUSIONS {
 
-	var irrel = []string{"hub:", "but", "and", "the", "or", "a", "an", "it", "its", "it's", "their", "your", "my", "of", "if", "we", "you", "i", "there", "as", "in", "then", "that", "with", "to", "is","was", "when", "where", "are", "some", "can", "also", "it", "at", "out", "like", "they", "her", "him", "them", "his", "our", "by", "more", "less", "from", "over", "under", "why", "because", "what", "every", "some", "about", "though", "for", "around", "about", "any", "will","had","all","which","utc" }
-
-	for s := range irrel {
-		if irrel[s] == word {
+		if EXCLUSIONS[s] == word {
 			return true
 		}
 	}
-
-return false
+	
+	return false
 }
 
 //**************************************************************
 
 func usage() {
-    fmt.Fprintf(os.Stderr, "usage: go run scan_text.go [filelist]\n")
-    flag.PrintDefaults()
-    os.Exit(2)
+	
+	fmt.Fprintf(os.Stderr, "usage: go run scan_text.go [filelist]\n")
+	flag.PrintDefaults()
+	os.Exit(2)
 }
