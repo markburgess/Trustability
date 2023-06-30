@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"sort"
 	"math"
+	"strconv"
 	"TT"
 )
 
@@ -79,7 +80,7 @@ var TOTAL_THRESH float64 = 0
 
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
 
-const MISTRUST_THRESHOLD    = 0.8
+var MISTRUST_THRESHOLD float64 = 0.8
 const DETAIL_PER_LEG_POLICY = 3
 
 // ***************************************************************************
@@ -124,8 +125,8 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	
-	if len(args) < 1 {
-		fmt.Println("file list expected")
+	if len(args) < 2 {
+		usage()
 		os.Exit(1);
 	}
 
@@ -135,6 +136,30 @@ func main() {
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
 	
+	level, err := strconv.Atoi(args[1])
+	
+	if err != nil {
+		fmt.Println("The trust threshold should be between 20 and 100 percent")
+		os.Exit(1);
+	}
+		
+	threshold := float64(level)/100
+	
+	if threshold > 1 || threshold < 0.2 {
+
+		fmt.Println("The scanning threshold should be between 20 and 100 percent")
+		os.Exit(1);
+
+	} else {
+
+		MISTRUST_THRESHOLD = threshold
+		fmt.Println("******************************************************************")
+		fmt.Println("** SEMANTIC TEXT SAMPLER, SST basis model")
+		fmt.Println("** Sampling trust threshold = ",threshold*100,"/ 100")
+		fmt.Println("******************************************************************")
+	}
+
+
 	// ***********************************************************
 
 	TT.InitializeSmartSpaceTime()
@@ -148,48 +173,14 @@ func main() {
 
 	G = TT.OpenAnalytics(dbname,url,user,pwd)
 
-	for i := range args {
+	if strings.HasSuffix(args[0],".dat") {
 
-		if strings.HasSuffix(args[i],".dat") {
-
-			ReadSentenceStream(args[i])  // Once for whole thing, reset and compare to realtime
-
-			ReviewAndSelectEvents(args[i])
-
-			// Find the longitudinal invariants that are the complements of the anomalous events.
-			// These are the normalized trusted themes, versus the "unexpected" shock items.
-
-			LongitudinalPersistence()
-
-		}
+		ReadSentenceStream(args[0])
+		ReviewAndSelectEvents(args[0])		
+		RankByIntent()
 	}
 
-	fmt.Println("\nNotable events = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
-
-	fmt.Println("----- Emergent Longitudinally Stable Concept Fragments ---------")
-
-	var sortable []Score
-	
-	for ngram := range TOPICS {
-		
-		var item Score
-		item.Key = ngram
-		item.Score = TOPICS[ngram]
-		sortable = append(sortable,item)
-	}
-	
-	sort.Slice(sortable, func(i, j int) bool {
-		return sortable[i].Score < sortable[j].Score
-	})
-
-	// The score is the average interval between repetitions
-	// If this is very long, the focus is spurious, so we look at the
-	// shortest sample
-
-	for i := 0; i < len(sortable); i++ {
-
-		fmt.Printf("Particular theme/topic \"%s = %f\"\n", sortable[i].Key, sortable[i].Score)
-	}
+	LongitudinalPersistentConcepts()
 }
 
 //**************************************************************
@@ -283,8 +274,6 @@ func FractionateSentences(text string) {
 
 		scale_factor := 1.0 + float64((midway - s_idx) * (midway - s_idx)) / float64(midway*midway)
 
-		//fmt.Println("SCALE FACTOR",scale_factor)
-
 		n := NarrationMarker(sentences[s_idx], meaning[s_idx] * scale_factor, s_idx)
 			
 		SELECTED_SENTENCES = append(SELECTED_SENTENCES,n)
@@ -348,7 +337,7 @@ func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int
 			if len(cleanword) == 0 {
 				continue
 			}
-			
+
 			// Shift all the rolling longitudinal Ngram rr-buffers by one word
 			
 			rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer,total_sentences)
@@ -361,7 +350,7 @@ func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int
 
 //**************************************************************
 
-func LongitudinalPersistence() {
+func RankByIntent() {
 
 	sentences := len(SELECTED_SENTENCES)
 
@@ -441,6 +430,36 @@ func LongitudinalPersistence() {
 
 // *****************************************************************
 
+func LongitudinalPersistentConcepts() {
+	
+	fmt.Println("----- Emergent Longitudinally Stable Concept Fragments ---------")
+	
+	var sortable []Score
+	
+	for ngram := range TOPICS {
+		
+		var item Score
+		item.Key = ngram
+		item.Score = TOPICS[ngram]
+		sortable = append(sortable,item)
+	}
+	
+	sort.Slice(sortable, func(i, j int) bool {
+		return sortable[i].Score < sortable[j].Score
+	})
+	
+	// The score is the average interval between repetitions
+	// If this is very long, the focus is spurious, so we look at the
+	// shortest sample
+	
+	for i := 0; i < len(sortable); i++ {
+		
+		fmt.Printf("Particular theme/topic \"%s = %f\"\n", sortable[i].Key, sortable[i].Score)
+	}
+}
+
+// *****************************************************************
+	
 func ReviewAndSelectEvents(filename string) {
 
 	// The importances have now all been measured in realtime, but we review them now...posthoc
@@ -520,6 +539,15 @@ func ReviewAndSelectEvents(filename string) {
 
 			this_leg_av_rank = av_rank_for_leg[leg]
 
+			// At the start of a long doc, there's insufficient weight to make an impact, so
+			// we need to compensate
+
+			const ramp_up = 60
+			
+			if (leg < ramp_up) {
+				this_leg_av_rank *= float64(LEG_WINDOW*2/ramp_up)
+			}
+
 			AnnotateLeg(filename, leg, sentence_id_by_rank[leg], this_leg_av_rank, max_all_legs)
 
 			steps = 0
@@ -536,6 +564,12 @@ func ReviewAndSelectEvents(filename string) {
 	this_leg_av_rank = av_rank_for_leg[leg]
 	
 	AnnotateLeg(filename, leg, sentence_id_by_rank[leg], this_leg_av_rank, max_all_legs)
+
+	// Summarize	
+
+	fmt.Println("------------------------------------------")
+	fmt.Println("Notable events = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
+	fmt.Println("------------------------------------------")
 }
 
 //**************************************************************
@@ -575,9 +609,6 @@ return meaning
 
 func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
 
-	const mistrust_policy_threshold = MISTRUST_THRESHOLD
-	const intra_leg_sampling_density = DETAIL_PER_LEG_POLICY
-
 	var sentence_ranks []float64
 	var ranks_in_order []int
 
@@ -593,7 +624,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 	if samples_per_leg < 1 {
 		return
 	}
-
+	
 	// Rank by importance and rescale all as dimensionless between [0,1]
 
 	sort.Float64s(sentence_ranks)
@@ -613,15 +644,15 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 	fmt.Println(" >> (Rank leg untrustworthiness (anomalous interest)",leg,"=",scale_free_trust,")")
 
-	if scale_free_trust > mistrust_policy_threshold {
+	if scale_free_trust > MISTRUST_THRESHOLD {
 
 		var start int
 
 		// top intra_leg_sampling_density = count backwards from the end
 
-		if samples_per_leg > intra_leg_sampling_density {
+		if samples_per_leg > DETAIL_PER_LEG_POLICY {
 
-			start = len(sentence_ranks) - intra_leg_sampling_density
+			start = len(sentence_ranks) - DETAIL_PER_LEG_POLICY
 
 		} else {
 
@@ -753,7 +784,7 @@ return false
 
 func usage() {
 	
-	fmt.Fprintf(os.Stderr, "usage: go run scan_text.go [filelist]\n")
+	fmt.Fprintf(os.Stderr, "usage: go run scan_text.go [file].dat [1-100]\n")
 	flag.PrintDefaults()
 	os.Exit(2)
 }
