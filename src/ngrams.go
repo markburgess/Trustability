@@ -231,7 +231,7 @@ func CleanFile(filename string) string {
 	m4 := regexp.MustCompile("[:;]+")
 	stripped4 := m4.ReplaceAllString(stripped3,".")
 
-	m5 := regexp.MustCompile("[^- a-zA-Z.,!?\n]*")
+	m5 := regexp.MustCompile("[^- a-zA-ZåøæÅØÆ.,!?\n]*")
 	stripped5 := m5.ReplaceAllString(stripped4,"")
 
 	m6 := regexp.MustCompile("[?!.]+")
