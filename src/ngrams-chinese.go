@@ -298,17 +298,14 @@ func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int
 	// of an n-gram by definition of punctuation's promises
 	// THIS IS A PT +/- constraint
 	
-	re := regexp.MustCompile("[。，]")         // period, comma
+	re := regexp.MustCompile("[。，（）《》]")         // period, comma should not be inside ngrams
 	sentence_frags := re.Split(sentence, -1)
 	
 	for f := range sentence_frags {
 		
-		fmt.Println("ZZ",sentence_frags[f])
-
 		for glyph, w := 0, 0; glyph < len(sentence_frags[f]); glyph += w {
 			runeval,width := utf8.DecodeRuneInString(string(sentence_frags[f])[glyph:])
 			w = width
-			fmt.Println("XX",glyph, runeval,string(runeval))
 
 			rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,string(runeval),rrbuffer,total_sentences)
 			sentence_meaning_rank += rank
