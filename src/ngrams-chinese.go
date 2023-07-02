@@ -21,6 +21,7 @@ package main
 import (
 	"strings"
 	"os"
+	"io"
 	"io/ioutil"
 	"flag"
 	"fmt"
@@ -104,6 +105,7 @@ var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
 var TOPICS = make(map[string]float64)
 var EXCLUSIONS []string
 
+var STROKES map[rune]int
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
 
 var G TT.Analytics
@@ -136,6 +138,8 @@ func main() {
 		STM_NGRAM_RANK[i] = make(map[string]float64)
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
+
+	STROKES = make(map[rune]int)
 	
 	level, err := strconv.Atoi(args[1])
 	
@@ -146,7 +150,7 @@ func main() {
 		
 	threshold := float64(level)/100
 	
-	if threshold > 1 || threshold < 0.2 {
+	if threshold > 1 || threshold < 0.1 {
 
 		fmt.Println("The scanning threshold should be between 20 and 100 percent")
 		os.Exit(1);
@@ -176,6 +180,7 @@ func main() {
 
 	if strings.HasSuffix(args[0],".dat") {
 
+		ReadStrokes()
 		ReadSentenceStream(args[0])
 		ReviewAndSelectEvents(args[0])		
 		RankByIntent()
@@ -298,7 +303,7 @@ func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int
 	// of an n-gram by definition of punctuation's promises
 	// THIS IS A PT +/- constraint
 	
-	re := regexp.MustCompile("[。，（）《》]")         // period, comma should not be inside ngrams
+	re := regexp.MustCompile("[。，（）《》—]")         // period, comma should not be inside ngrams
 	sentence_frags := re.Split(sentence, -1)
 	
 	for f := range sentence_frags {
@@ -546,7 +551,8 @@ func ReviewAndSelectEvents(filename string) {
 func Intentionality(n int, s string, sentence_count int) float64 {
 
 	occurrences := STM_NGRAM_RANK[n][s]
-	work := float64(len(s))
+
+	work := float64(Strokes(s))
 	legs := float64(sentence_count) / float64(LEG_WINDOW)
 
 	if occurrences < 3 {
@@ -754,4 +760,62 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "usage: go run scan_text.go [file].dat [1-100]\n")
 	flag.PrintDefaults()
 	os.Exit(2)
+}
+
+//**************************************************************
+
+func ReadStrokes() {
+
+	file, err := os.Open("chinese-strokes.dat")
+	
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	var ch rune
+	var frequency int
+	var strokes int
+	var count int = 0
+
+	fmt.Println("Reading runes...")
+
+	for {
+		strokes = 0
+
+		fmt.Fscanf(file, "%c %d %d", &ch, &frequency, &strokes)	
+
+		if err == io.EOF || strokes == 0 || count > 13000 {
+			break
+		}
+
+		STROKES[ch] = strokes
+		count++
+		//fmt.Printf("%v %v %v \n", ch, string(ch),STROKES[ch])
+	}
+
+	fmt.Println("Runes...done")
+
+}
+
+//**************************************************************
+
+func Strokes(content string) int {
+
+	var total int = 0
+
+	for i, w := 0, 0; i < len(content); i += w {
+                runeval, width := utf8.DecodeRuneInString(string(content)[i:])
+                w = width
+
+		if STROKES[runeval] > 0 {
+			total += STROKES[runeval]
+		}
+	}
+
+	if total > 0 {
+		//fmt.Println("strokes",content,total)	
+	}
+
+	return total
 }
