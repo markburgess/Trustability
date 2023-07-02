@@ -545,7 +545,7 @@ func ReviewAndSelectEvents(filename string) {
 			const ramp_up = 60
 			
 			if (leg < ramp_up) {
-				this_leg_av_rank *= float64(LEG_WINDOW*2/ramp_up)
+				this_leg_av_rank *= float64(LEG_WINDOW/ramp_up)
 			}
 
 			AnnotateLeg(filename, leg, sentence_id_by_rank[leg], this_leg_av_rank, max_all_legs)
