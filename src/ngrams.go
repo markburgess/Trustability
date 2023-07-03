@@ -220,25 +220,28 @@ func CleanFile(filename string) string {
 
 	//Strip and \begin \latex type commands
 
-	m2 := regexp.MustCompile("\\\\[^ \n]+") 
+	m2 := regexp.MustCompile("\\\\[^ –\n]+") 
 	stripped2 := m2.ReplaceAllString(stripped1," ") 
 
 	// Non-English alphabet (tricky), but leave ?!:;
 
-	m3 := regexp.MustCompile("[–{&}“#%^+_#”=$’~‘/()<>\"&]*") 
+	m3 := regexp.MustCompile("[–{&}““”#%^+_#”=$’~‘/<>\"&]*") 
 	stripped3 := m3.ReplaceAllString(stripped2,"") 
 
 	m4 := regexp.MustCompile("[:;]+")
 	stripped4 := m4.ReplaceAllString(stripped3,".")
 
-	m5 := regexp.MustCompile("[^- a-zA-ZåøæÅØÆ.,!?\n]*")
-	stripped5 := m5.ReplaceAllString(stripped4,"")
+	m5 := regexp.MustCompile("([^.,: ][\n])+")
+	stripped5 := m5.ReplaceAllString(stripped4,"$0:")
 
-	m6 := regexp.MustCompile("[?!.]+")
-	mark := m6.ReplaceAllString(stripped5,"$0#")
+	m6 := regexp.MustCompile("[^- a-zA-ZåøæÅØÆ.:,()!?\n]*")
+	stripped6 := m6.ReplaceAllString(stripped5,"")
 
-	m7 := regexp.MustCompile("[ \n]+")
-	cleaned := m7.ReplaceAllString(mark," ")
+	m7 := regexp.MustCompile("[?!.]+")
+	mark := m7.ReplaceAllString(stripped6,"$0#")
+
+	m8 := regexp.MustCompile("[ \n]+")
+	cleaned := m8.ReplaceAllString(mark," ")
 
 	return cleaned
 }
