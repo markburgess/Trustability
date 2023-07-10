@@ -33,7 +33,6 @@ import (
 
 // ****************************************************************************
 
-
 var G TT.Analytics
 
 // ****************************************************************************
@@ -82,7 +81,6 @@ func main() {
 		fmt.Println("******************************************************************")
 	}
 
-
 	// ***********************************************************
 
 	TT.InitializeSmartSpaceTime()
@@ -102,14 +100,14 @@ func main() {
 
 		proto_text := TT.ReadAndCleanFile(filename)
 
-		TT.FractionateSentences(proto_text)
+		selected_sentences := TT.FractionateSentences(proto_text)
 
-		TT.ReviewAndSelectEvents(filename)		
+		TT.ReviewAndSelectEvents(filename,selected_sentences)		
 
-		TT.RankByIntent()
+		topics := TT.RankByIntent(selected_sentences)
+
+		TT.LongitudinalPersistentConcepts(topics)
 	}
-
-	TT.LongitudinalPersistentConcepts()
 }
 
 //**************************************************************
