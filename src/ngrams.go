@@ -178,9 +178,8 @@ func main() {
 		ReadSentenceStream(args[0])
 		ReviewAndSelectEvents(args[0])		
 		RankByIntent()
+		LongitudinalPersistentConcepts()
 	}
-
-	LongitudinalPersistentConcepts()
 }
 
 //**************************************************************
