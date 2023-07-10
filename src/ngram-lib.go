@@ -94,9 +94,9 @@ func main() {
 
 	G = TT.OpenAnalytics(dbname,url,user,pwd)
 
-	if strings.HasSuffix(args[0],".dat") {
+	filename := args[0]
 
-		filename := args[0]
+	if strings.HasSuffix(filename,".dat") {
 
 		proto_text := TT.ReadAndCleanFile(filename)
 
