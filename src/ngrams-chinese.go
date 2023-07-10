@@ -14,7 +14,11 @@
 // limitations under the License.
 //
 // e.g.
-//     go run ngrams.go /home/mark/Laptop/Work/SST/data_samples/obama.dat
+//
+//  go run ngrams-chinese.go ../../chinese2.dat 20 
+
+
+// This UTF8 example is only a PoC, not integrated into the main project yet
 
 package main
 
