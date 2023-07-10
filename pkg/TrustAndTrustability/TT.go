@@ -1166,41 +1166,6 @@ func AssessPromiseOutcome(g Analytics, e PromiseHistory, assessed_quality,promis
 }
 
 // **********************************************************************
-
-func SufficientlyTrustworthy(g Analytics, collection,promise_id string) bool {
-
-	// policy response, if we have V and T
-
-	exists, kv ,_ := GetPromiseHistory(g,collection,promise_id)
-
-	if exists && (kv.V > kv.AntiT) {
-
-		return true
-	}
-
-
-	// take a chance on me.... (gut says risk not too high, we're not calculating)
-
-	return false
-}
-
-// **********************************************************************
-
-func Trusted() bool {
-
-	return false
-}
-
-// **********************************************************************
-
-func UpdateTrustworthiness(promise_id, assessment string) {
-
-	// we need to transmute an outcome "signal" back into a general reliability
-	// remember we are sampling this at the rate set by trust
-
-}
-
-// **********************************************************************
 // VARIOUS
 // **********************************************************************
 
