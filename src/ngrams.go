@@ -80,7 +80,7 @@ var TOTAL_THRESH float64 = 0
 
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
 
-var MISTRUST_THRESHOLD float64 = 0.8
+var TRUST_THRESHOLD float64 = 0.8
 const DETAIL_PER_LEG_POLICY = 3
 
 // ***************************************************************************
@@ -152,7 +152,7 @@ func main() {
 
 	} else {
 
-		MISTRUST_THRESHOLD = threshold
+		TRUST_THRESHOLD = threshold
 		fmt.Println("******************************************************************")
 		fmt.Println("** SEMANTIC TEXT SAMPLER, SST basis model")
 		fmt.Println("** Sampling trust threshold = ",threshold*100,"/ 100")
@@ -201,7 +201,7 @@ func ReadAndCleanRawStream(filename string) {
 
 	// Here we can provide different readers for different formats
 
-	proto_text := CleanFile(string(filename))
+	proto_text := CleanFile(filename)
 	
 	FractionateSentences(proto_text)
 }
@@ -647,7 +647,7 @@ func AnnotateLeg(filename string, leg int, sentence_id_by_rank map[float64]int, 
 
 	fmt.Println(" >> (Rank leg untrustworthiness (anomalous interest)",leg,"=",scale_free_trust,")")
 
-	if scale_free_trust > MISTRUST_THRESHOLD {
+	if scale_free_trust > TRUST_THRESHOLD {
 
 		var start int
 
