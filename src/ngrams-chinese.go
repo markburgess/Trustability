@@ -207,14 +207,14 @@ func ReadAndCleanRawStream(filename string) {
 
 	// Here we can provide different readers for different formats
 
-	proto_text := CleanFile(filename)
+	proto_text := ReadTUF8File(filename)
 
 	FractionateSentences(proto_text)
 }
 
 //**************************************************************
 
-func CleanFile(filename string) []rune {
+func ReadTUF8File(filename string) []rune {
 	
 	content, _ := ioutil.ReadFile(filename)
 	
