@@ -596,7 +596,6 @@ func GetNode(g Analytics, key string) string {
 	default:
 		coll = g.S_nodes
 		break
-
 	}
 
 	// if we use S_nodes reference then we don't need the Nodes/ prefix
@@ -796,8 +795,6 @@ func PrintPromiseHistoryKV(g Analytics, coll_name string) {
 // **************************************************
 
 func AddPromiseHistory(g Analytics, coll A.Collection, coll_name string, e PromiseHistory) {
-
-	fmt.Println("ADD HISTORY!",e.PromiseId)
 
 	exists,err := coll.DocumentExists(nil, e.PromiseId)
 
