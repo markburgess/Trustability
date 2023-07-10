@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 // e.g.
-//     go run ngrams.go /home/mark/Laptop/Work/SST/data_samples/obama.dat
+//     go run ngram+html.go "https://jimruttshow.blubrry.net/the-jim-rutt-show-transcripts/transcript-of-ep-190-peter-turchin-on-cliodynamics-and-end-times/" 40 | more
 
 package main
 
@@ -65,15 +65,15 @@ func main() {
 	level, err := strconv.Atoi(args[1])
 	
 	if err != nil {
-		fmt.Println("The trust threshold should be between 20 and 100 percent")
+		fmt.Println("The trust threshold should be between 0 and 100 percent")
 		os.Exit(1);
 	}
 		
 	threshold := float64(level)/100
 	
-	if threshold > 1 || threshold < 0.2 {
+	if threshold > 1 || threshold < 0 {
 
-		fmt.Println("The scanning threshold should be between 20 and 100 percent")
+		fmt.Println("The scanning threshold should be between 0 and 100 percent")
 		os.Exit(1);
 
 	} else {
