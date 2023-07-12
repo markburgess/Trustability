@@ -73,7 +73,7 @@ func main() {
 	
 	if threshold > 1 || threshold < 0 {
 
-		fmt.Println("The scanning threshold should be between 0 and 100 percent")
+		fmt.Println("The scanning threshold should be between 20 and 100 percent")
 		os.Exit(1);
 
 	} else {
