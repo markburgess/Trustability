@@ -40,15 +40,20 @@ type WikiNote struct {
 	Revert    int
 }
 
+const DAY = float64(3600 * 24 * 1000000000)
+
+
 // ***********************************************************
 
 func main() {
 
 	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history"
 
-	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
-	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
+	//url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
+
+	url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
 	changelog := MainPage(url)
 
 	Assessment(changelog)
@@ -209,8 +214,10 @@ func MainPage(url string) []WikiNote {
 
 func Assessment(changelog []WikiNote) {
 
-	var users_idemp = make(map[string]int)
+	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
+	var users_lasttime = make(map[string]int64)
+	var users_averagetime = make(map[string]float64)
 	var users []string
 
 	sort.Slice(changelog, func(i, j int) bool {
@@ -219,27 +226,37 @@ func Assessment(changelog []WikiNote) {
 	
 	for i := range changelog {
 
-		users_idemp[changelog[i].User]++
+
+		if users_lasttime[changelog[i].User] > 0 {
+			delta := float64(changelog[i].Date.UnixNano() - users_lasttime[changelog[i].User])
+			users_averagetime[changelog[i].User] = 0.4 * users_averagetime[changelog[i].User] + 0.6 * delta
+		}
+
+		users_lasttime[changelog[i].User] = changelog[i].Date.UnixNano()
+
+		users_changecount[changelog[i].User]++
 
 		if changelog[i].Revert > 0 {
 			users_revert[changelog[i].User] += changelog[i].Revert
 		}
+
+
 	}
 
-	fmt.Println("Users", len(users_idemp))
+	fmt.Println("Users", len(users_changecount))
 
-	for s := range users_idemp {
+	for s := range users_changecount {
 		users = append(users,s)
 	}
 
 	sort.Slice(users, func(i, j int) bool {
-		return users_idemp[users[i]] > users_idemp[users[j]]
+		return users_changecount[users[i]] > users_changecount[users[j]]
 	})
 
 	fmt.Println("Ranked user changes (histo)")
 
 	for s := range users {
-		fmt.Println(" >",users[s],users_idemp[users[s]])
+		fmt.Println(" >",users[s],users_changecount[users[s]],"av_delta",users_averagetime[users[s]]/DAY)
 	}
 
 	fmt.Println("Reversions (histo)")
