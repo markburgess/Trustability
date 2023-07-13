@@ -1,3 +1,20 @@
+//
+// Copyright © Mark Burgess, ChiTek-i (2023)
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// e.g.
+//
 
 package main
 
@@ -26,7 +43,9 @@ type WikiNote struct {
 
 func main() {
 
-	url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history"
+	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history"
+
+	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
 	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
 	MainPage(url)
@@ -54,7 +73,6 @@ func MainPage(url string) {
 	var date = false
 	var last string = ""
 	var history int = 0
-	var plaintext string = ""
 
 	// By entry state
 
@@ -106,8 +124,6 @@ func MainPage(url string) {
 				entry = empty
 				after_edits = false
 				message = ""
-
-				plaintext = plaintext + "----------------\n"
 			}			
 
 			// End of the list is an image box to compare versions
@@ -125,7 +141,7 @@ func MainPage(url string) {
 				entry.Date = t
 			}
 
-			if attend && strings.HasPrefix(s,"undo") {
+			if attend && (strings.HasPrefix(s,"undo") ||strings.HasPrefix(s,"cur")||strings.HasPrefix(s,"<img")) {
 				attend = false
 				entry.Message = message
 				changelog = append(changelog,entry)
