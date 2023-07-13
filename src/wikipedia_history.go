@@ -41,19 +41,20 @@ type WikiNote struct {
 }
 
 const DAY = float64(3600 * 24 * 1000000000)
+const MINUTE = float64(60 * 1000000000)
 
 
 // ***********************************************************
 
 func main() {
 
-	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history"
+	url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
 	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
 	//url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
 
-	url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
+	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
 	changelog := MainPage(url)
 
 	Assessment(changelog)
@@ -78,7 +79,8 @@ func MainPage(url string) []WikiNote {
 	var after_edits = false
 	var message string
 	var date = false
-	var last string = ""
+	var user = false
+
 	var history int = 0
 
 	// By entry state
@@ -102,8 +104,21 @@ func MainPage(url string) []WikiNote {
 
 		for i := range token.Attr {
 
+
 			if token.Attr[i].Val == "mw-contributions-list" {				
 				history++
+			}
+
+			if token.Attr[i].Val == "mw-userlink" {
+				user = true
+			}
+
+			if token.Attr[i].Val == "new mw-userlink" {
+				user = true
+			}
+
+			if token.Attr[i].Val == "mw-userlink mw-anonuserlink" {
+				user = true
 			}
 
 			if token.Attr[i].Val == "mw-changeslist-date" {				
@@ -111,7 +126,7 @@ func MainPage(url string) []WikiNote {
 			}
 		}
 
-		if len(s) == 0 {
+		if len(s) < 2 {
 			continue
 		}
 		
@@ -130,6 +145,8 @@ func MainPage(url string) []WikiNote {
 				var empty WikiNote
 				entry = empty
 				after_edits = false
+				after_editsize = true
+				user = false
 				message = ""
 			}			
 
@@ -148,14 +165,9 @@ func MainPage(url string) []WikiNote {
 				entry.Date = t
 			}
 
-			if attend && (strings.HasPrefix(s,"undo") ||strings.HasPrefix(s,"cur")||strings.HasPrefix(s,"<img")) {
-				attend = false
-				entry.Message = message
-				changelog = append(changelog,entry)
-			}
-
-			if attend && s == "talk" {
-				entry.User = last
+			if attend && user {
+				entry.User = s
+				user = false
 			}
 
 			if attend && strings.HasSuffix(s,"bytes") {
@@ -183,6 +195,7 @@ func MainPage(url string) []WikiNote {
 						entry.EditDelta = delta
 						after_editsize = false
 						after_edits = true
+						continue
 					}
 				}
 			}
@@ -196,7 +209,11 @@ func MainPage(url string) []WikiNote {
 				message += s + " "
 			}
 
-			last = s
+			if attend && (strings.HasPrefix(s,"undo") ||strings.HasPrefix(s,"cur")||strings.HasPrefix(s,"<img")) {
+				attend = false
+				entry.Message = message
+				changelog = append(changelog,entry)
+			}
 
 		case html.StartTagToken:
 
@@ -217,7 +234,8 @@ func Assessment(changelog []WikiNote) {
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
 	var users_lasttime = make(map[string]int64)
-	var users_averagetime = make(map[string]float64)
+	var users_averagetime = make(map[string]float64)	
+	var users_revert_dt = make(map[string]float64)
 	var users []string
 
 	sort.Slice(changelog, func(i, j int) bool {
@@ -226,6 +244,7 @@ func Assessment(changelog []WikiNote) {
 	
 	for i := range changelog {
 
+		//fmt.Printf(">> %15s (%v)(%d), %s\n", changelog[i].User,changelog[i].Date,changelog[i].EditDelta,changelog[i].Message)
 
 		if users_lasttime[changelog[i].User] > 0 {
 			delta := float64(changelog[i].Date.UnixNano() - users_lasttime[changelog[i].User])
@@ -236,14 +255,18 @@ func Assessment(changelog []WikiNote) {
 
 		users_changecount[changelog[i].User]++
 
-		if changelog[i].Revert > 0 {
+		if changelog[i].Revert > 0 && i > 1 {
+			
 			users_revert[changelog[i].User] += changelog[i].Revert
+
+			users_revert_dt[changelog[i].User] = float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
+			fmt.Println("dt",users_revert_dt[changelog[i].User])
 		}
 
 
 	}
 
-	fmt.Println("Users", len(users_changecount))
+	fmt.Println("Total users involved in shared process", len(users_changecount))
 
 	for s := range users_changecount {
 		users = append(users,s)
@@ -253,13 +276,17 @@ func Assessment(changelog []WikiNote) {
 		return users_changecount[users[i]] > users_changecount[users[j]]
 	})
 
-	fmt.Println("Ranked user changes (histo)")
+	fmt.Println("Ranked user changes: number and average time interval")
 
 	for s := range users {
-		fmt.Println(" >",users[s],users_changecount[users[s]],"av_delta",users_averagetime[users[s]]/DAY)
+		if users_changecount[users[s]] > 1 {
+			fmt.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",users[s],users_changecount[users[s]],users_averagetime[users[s]]/DAY)
+		} else {
+			fmt.Print(users[s],", ")
+		}
 	}
 
-	fmt.Println("Reversions (histo)")
+	fmt.Println("\n\nReversions (agents exhibiting contentious behaviour)")
 
 	users = nil
 
@@ -272,7 +299,7 @@ func Assessment(changelog []WikiNote) {
 	})
 
 	for s := range users {
-		fmt.Println(" R",users[s],users_revert[users[s]])
+		fmt.Printf(" R  %20s (%d) of %d after %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
 	}
 
 	// Time intervals between user changes (specific user and any user) -- Apply ML
