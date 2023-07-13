@@ -14,7 +14,8 @@
 // limitations under the License.
 //
 // e.g.
-//
+//      go run wikipedia_history.go
+// ***********************************************************
 
 package main
 
@@ -40,9 +41,10 @@ type WikiNote struct {
 	Revert    int
 }
 
+// ***********************************************************
+
 const DAY = float64(3600 * 24 * 1000000000)
 const MINUTE = float64(60 * 1000000000)
-
 
 // ***********************************************************
 
@@ -80,10 +82,7 @@ func MainPage(url string) []WikiNote {
 	var message string
 	var date = false
 	var user = false
-
 	var history int = 0
-
-	// By entry state
 
 	var entry WikiNote
 	var changelog []WikiNote
@@ -298,8 +297,5 @@ func Assessment(changelog []WikiNote) {
 	for s := range users {
 		fmt.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
 	}
-
-	// Time intervals between user changes (specific user and any user) -- Apply ML
-
 }
 
