@@ -48,9 +48,9 @@ const MINUTE = float64(60 * 1000000000)
 
 func main() {
 
-	url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
+	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
-	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
 	//url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
 
@@ -260,7 +260,6 @@ func Assessment(changelog []WikiNote) {
 			users_revert[changelog[i].User] += changelog[i].Revert
 
 			users_revert_dt[changelog[i].User] = float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
-			fmt.Println("dt",users_revert_dt[changelog[i].User])
 		}
 
 
