@@ -45,16 +45,17 @@ func main() {
 
 	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history"
 
-	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
-	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
-	MainPage(url)
+	url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
+	changelog := MainPage(url)
 
+	Assessment(changelog)
 }
 
 // ***********************************************************
 
-func MainPage(url string) {
+func MainPage(url string) []WikiNote {
 
 	response, err := http.Get(url)
 
@@ -88,7 +89,7 @@ func MainPage(url string) {
 		token := tokenizer.Token()
 
 		if tokenizer.Err() == io.EOF {
-			return
+			return changelog
 		}
 
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
@@ -113,7 +114,7 @@ func MainPage(url string) {
 		case html.ErrorToken:
 			
 			fmt.Printf("Error: %v", tokenizer.Err())
-			return
+			return changelog
 			
 		case html.TextToken:
 
@@ -191,14 +192,8 @@ func MainPage(url string) {
 		case html.EndTagToken:
 
 			if token.Data == "body" {
-				
-				sort.Slice(changelog, func(i, j int) bool {
-					return changelog[i].Date.Before(changelog[j].Date)
-				})
 
-				for i := range changelog {
-					fmt.Println(changelog[i])
-				}
+				return changelog				
 			}
 		}
 	}
@@ -206,8 +201,33 @@ func MainPage(url string) {
 
 // *******************************************************************************
 
-func Assessment(entry WikiNote) string {
+func Assessment(changelog []WikiNote) {
 
-	return ""
+	var users_idemp = make(map[string]int)
+	var users []string
+
+	sort.Slice(changelog, func(i, j int) bool {
+		return changelog[i].Date.Before(changelog[j].Date)
+	})
+	
+	for i := range changelog {
+		users_idemp[changelog[i].User]++
+	}
+
+	fmt.Println("Users", len(users_idemp))
+
+	for s := range users_idemp {
+		users = append(users,s)
+	}
+
+	sort.Slice(users, func(i, j int) bool {
+		return users_idemp[users[i]] > users_idemp[users[j]]
+	})
+
+	fmt.Println("Ranked user changes (histo)")
+
+	for s := range users {
+		fmt.Println(" >",users[s],users_idemp[users[s]])
+	}
 }
 
