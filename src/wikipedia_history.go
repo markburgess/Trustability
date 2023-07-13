@@ -258,11 +258,9 @@ func Assessment(changelog []WikiNote) {
 		if changelog[i].Revert > 0 && i > 1 {
 			
 			users_revert[changelog[i].User] += changelog[i].Revert
-
-			users_revert_dt[changelog[i].User] = float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
+			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
+			users_revert_dt[changelog[i].User] = 0.6 * dt + 0.4 * users_revert_dt[changelog[i].User]
 		}
-
-
 	}
 
 	fmt.Println("Total users involved in shared process", len(users_changecount))
@@ -298,7 +296,7 @@ func Assessment(changelog []WikiNote) {
 	})
 
 	for s := range users {
-		fmt.Printf(" R  %20s (%d) of %d after %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+		fmt.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
 	}
 
 	// Time intervals between user changes (specific user and any user) -- Apply ML
