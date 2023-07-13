@@ -37,6 +37,7 @@ type WikiNote struct {
 	EditSize  int
 	EditDelta int
 	Message   string
+	Revert    int
 }
 
 // ***********************************************************
@@ -45,9 +46,9 @@ func main() {
 
 	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history"
 
-	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
-	url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
+	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=500"
 	changelog := MainPage(url)
 
 	Assessment(changelog)
@@ -182,6 +183,11 @@ func MainPage(url string) []WikiNote {
 			}
 
 			if attend && after_edits {
+
+				if strings.Contains(s,"Revert") {
+					entry.Revert++
+				}
+
 				message += s + " "
 			}
 
@@ -204,6 +210,7 @@ func MainPage(url string) []WikiNote {
 func Assessment(changelog []WikiNote) {
 
 	var users_idemp = make(map[string]int)
+	var users_revert = make(map[string]int)
 	var users []string
 
 	sort.Slice(changelog, func(i, j int) bool {
@@ -211,7 +218,12 @@ func Assessment(changelog []WikiNote) {
 	})
 	
 	for i := range changelog {
+
 		users_idemp[changelog[i].User]++
+
+		if changelog[i].Revert > 0 {
+			users_revert[changelog[i].User] += changelog[i].Revert
+		}
 	}
 
 	fmt.Println("Users", len(users_idemp))
@@ -229,5 +241,24 @@ func Assessment(changelog []WikiNote) {
 	for s := range users {
 		fmt.Println(" >",users[s],users_idemp[users[s]])
 	}
+
+	fmt.Println("Reversions (histo)")
+
+	users = nil
+
+	for s := range users_revert {
+		users = append(users,s)
+	}
+
+	sort.Slice(users, func(i, j int) bool {
+		return users_revert[users[i]] > users_revert[users[j]]
+	})
+
+	for s := range users {
+		fmt.Println(" R",users[s],users_revert[users[s]])
+	}
+
+	// Time intervals between user changes (specific user and any user) -- Apply ML
+
 }
 
