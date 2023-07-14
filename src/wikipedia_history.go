@@ -13,8 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// e.g.
+// e.g. set url variable and
 //      go run wikipedia_history.go
+//
+// This is tuned specifically to Wikipedia scanning. using the general methods
 // ***********************************************************
 
 package main
@@ -53,14 +55,19 @@ var G TT.Analytics
 
 func main() {
 
+	// Example pages, some familiar some notorious
+
+	subject := "Mark Burgess"
+	url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+
+	//subject := "Jan Bergstra"
 	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
-	subject := "Michael Jackson"
+	//subject := "Michael Jackson"
 	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
-	url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
-
-	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	// subject := "George W. Bush"
+	//url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
 
 	// ***********************************************************
 
@@ -73,7 +80,8 @@ func main() {
 
 	// ***********************************************************
 
-	TT.LEG_WINDOW = 10
+	TT.LEG_WINDOW = 10 // Need a smaller window than normal for fragmented text
+
 	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
 
 	TT.SetTrustThreshold(0.1)
@@ -252,7 +260,7 @@ func MainPage(url string) []WikiNote {
 					entry.Revert++
 				}
 
-				if attend && (strings.HasPrefix(s,"Tag") || strings.HasPrefix(s,"bot") || strings.HasPrefix(s,"New page:") ||strings.HasPrefix(s,"Category:") || strings.HasPrefix(s,"undo") ||strings.HasPrefix(s,"cur")||strings.HasPrefix(s,"<img")) {
+				if attend && (strings.HasPrefix(s,"Tag") || strings.HasPrefix(s,"bot") || strings.HasPrefix(s,"New page:") ||strings.HasPrefix(s,"Category:") || strings.HasPrefix(s,"undo") || strings.HasPrefix(s,"cur")|| strings.HasPrefix(s,"<img") || strings.Contains(s,"|")) {
 				} else if len(s) > 0 {
 
 					message += strings.TrimSpace(s) + " "
