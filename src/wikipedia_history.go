@@ -57,14 +57,14 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subject := "Mark Burgess"
-	url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	//subject := "Mark Burgess"
+	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
 
 	//subject := "Jan Bergstra"
 	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
-	//subject := "Michael Jackson"
-	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	subject := "Michael Jackson"
+	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
 	// subject := "George W. Bush"
 	//url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
@@ -154,6 +154,7 @@ func MainPage(url string) []WikiNote {
 		s = strings.ReplaceAll(s,"}}","")
 		s = strings.ReplaceAll(s,"(","")
 		s = strings.ReplaceAll(s,")","")
+		s = strings.ReplaceAll(s,"|","")
 		s = strings.ReplaceAll(s,"No edit summary","")
 		s = strings.ReplaceAll(s,"External links:","")
 		s = strings.TrimSpace(html.UnescapeString(s))
@@ -260,7 +261,7 @@ func MainPage(url string) []WikiNote {
 					entry.Revert++
 				}
 
-				if attend && (strings.HasPrefix(s,"Tag") || strings.HasPrefix(s,"bot") || strings.HasPrefix(s,"New page:") ||strings.HasPrefix(s,"Category:") || strings.HasPrefix(s,"undo") || strings.HasPrefix(s,"cur")|| strings.HasPrefix(s,"<img") || strings.Contains(s,"|")) {
+				if attend && (strings.HasPrefix(s,"Tag") || strings.HasPrefix(s,"bot") || strings.HasPrefix(s,"New page:") ||strings.HasPrefix(s,"Category:") || strings.HasPrefix(s,"undo") || strings.HasPrefix(s,"cur")|| strings.HasPrefix(s,"<img")) {
 				} else if len(s) > 0 {
 
 					message += strings.TrimSpace(s) + " "
