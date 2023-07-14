@@ -210,7 +210,8 @@ const DETAIL_PER_LEG_POLICY = 3
 // ***************************************************************************
 
 const MAXCLUSTERS = 7
-const LEG_WINDOW = 100
+
+var LEG_WINDOW int = 100
 
 var ATTENTION_LEVEL float64 = 1.0
 var SENTENCE_THRESH float64 = 100 // chars
@@ -2954,7 +2955,7 @@ func LongitudinalPersistentConcepts(topics map[string]float64) {
 	
 	for i := 0; i < len(sortable); i++ {
 		
-		fmt.Printf("Particular theme/topic \"%s = %f\"\n", sortable[i].Key, sortable[i].Score)
+		fmt.Printf("Particular theme/topic \"%s\" (= %f)\n", sortable[i].Key, sortable[i].Score)
 	}
 }
 
@@ -3140,7 +3141,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	fmt.Println(" >> (Rank leg untrustworthiness (anomalous interest)",leg,"=",scale_free_trust,")")
+	fmt.Println(" >> (Rank leg trustworthiness (anomalous interest)",leg,"=",scale_free_trust,")")
 
 	if scale_free_trust > TRUST_THRESHOLD {
 
@@ -3153,7 +3154,6 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 			start = len(sentence_ranks) - DETAIL_PER_LEG_POLICY
 
 		} else {
-
 			start = 0
 		}
 
