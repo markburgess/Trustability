@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 	"io"
+	"TT"
 )
 
 // ***********************************************************
@@ -46,20 +47,55 @@ type WikiNote struct {
 const DAY = float64(3600 * 24 * 1000000000)
 const MINUTE = float64(60 * 1000000000)
 
+var G TT.Analytics
+
 // ***********************************************************
 
 func main() {
 
 	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
-	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	subject := "Michael Jackson"
+	//url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
-	//url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
+	url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
 
 	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+
+	// ***********************************************************
+
+	TT.InitializeSmartSpaceTime()
+
+	var dbname string = "SemanticSpacetime"
+	var dburl string = "http://localhost:8529"
+	var user string = "root"
+	var pwd string = "mark"
+
+	// ***********************************************************
+
+	TT.LEG_WINDOW = 10
+	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
+
+	TT.SetTrustThreshold(0.1)
+
 	changelog := MainPage(url)
 
+	sort.Slice(changelog, func(i, j int) bool {
+		return changelog[i].Date.Before(changelog[j].Date)
+	})
+
 	Assessment(changelog)
+
+	fulltext := TotalText(changelog)
+
+	selected_sentences := TT.FractionateSentences(fulltext)
+	
+	TT.ReviewAndSelectEvents(subject,selected_sentences)		
+	
+	topics := TT.RankByIntent(selected_sentences)
+	
+	TT.LongitudinalPersistentConcepts(topics)
+
 }
 
 // ***********************************************************
@@ -99,10 +135,23 @@ func MainPage(url string) []WikiNote {
 			return changelog
 		}
 
+		// Strip out junk characters
+
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
+		s = strings.ReplaceAll(s,"→","")
+		s = strings.ReplaceAll(s,"←","")
+		s = strings.ReplaceAll(s,"'","")
+		s = strings.ReplaceAll(s,".","")
+		s = strings.ReplaceAll(s,"{{","")
+		s = strings.ReplaceAll(s,"}}","")
+		s = strings.ReplaceAll(s,"(","")
+		s = strings.ReplaceAll(s,")","")
+		s = strings.ReplaceAll(s,"No edit summary","")
+		s = strings.ReplaceAll(s,"External links:","")
+		s = strings.TrimSpace(html.UnescapeString(s))
+		s = strings.TrimSpace(s)
 
 		for i := range token.Attr {
-
 
 			if token.Attr[i].Val == "mw-contributions-list" {				
 				history++
@@ -123,10 +172,6 @@ func MainPage(url string) []WikiNote {
 			if token.Attr[i].Val == "mw-changeslist-date" {				
 				date = true
 			}
-		}
-
-		if len(s) < 2 {
-			continue
 		}
 		
 		switch tokenType {
@@ -162,11 +207,13 @@ func MainPage(url string) []WikiNote {
 				}
 
 				entry.Date = t
+				continue
 			}
 
 			if attend && user {
 				entry.User = s
 				user = false
+				continue
 			}
 
 			if attend && strings.HasSuffix(s,"bytes") {
@@ -205,12 +252,17 @@ func MainPage(url string) []WikiNote {
 					entry.Revert++
 				}
 
-				message += s + " "
+				if attend && (strings.HasPrefix(s,"Tag") || strings.HasPrefix(s,"bot") || strings.HasPrefix(s,"New page:") ||strings.HasPrefix(s,"Category:") || strings.HasPrefix(s,"undo") ||strings.HasPrefix(s,"cur")||strings.HasPrefix(s,"<img")) {
+				} else if len(s) > 0 {
+
+					message += strings.TrimSpace(s) + " "
+				}
 			}
 
-			if attend && (strings.HasPrefix(s,"undo") ||strings.HasPrefix(s,"cur")||strings.HasPrefix(s,"<img")) {
+			if attend && (strings.HasPrefix(s,"undo") || strings.HasPrefix(s,"cur") || strings.HasPrefix(s,"<img")) {
+
 				attend = false
-				entry.Message = message
+				entry.Message = strings.TrimSpace(message) + ". "
 				changelog = append(changelog,entry)
 			}
 
@@ -236,10 +288,6 @@ func Assessment(changelog []WikiNote) {
 	var users_averagetime = make(map[string]float64)	
 	var users_revert_dt = make(map[string]float64)
 	var users []string
-
-	sort.Slice(changelog, func(i, j int) bool {
-		return changelog[i].Date.Before(changelog[j].Date)
-	})
 	
 	for i := range changelog {
 
@@ -299,3 +347,17 @@ func Assessment(changelog []WikiNote) {
 	}
 }
 
+// *******************************************************************************
+
+func TotalText(changelog []WikiNote) string {
+
+	var text string = ""
+
+	for i := range changelog {
+
+		text += changelog[i].Message
+
+	}
+
+	return text
+}
