@@ -2993,6 +2993,7 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 		// to a list/array indexed by legs sequentially (append)
 
 		if steps > LEG_WINDOW {
+
 			steps = 0
 			leg_rank_average := rank_sum / float64(LEG_WINDOW)
 			av_rank_for_leg = append(av_rank_for_leg,leg_rank_average)
@@ -3043,10 +3044,10 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 			// At the start of a long doc, there's insufficient weight to make an impact, so
 			// we need to compensate
 
-			const ramp_up = 60
+			const ramp_up = 60.0
 			
 			if (leg < ramp_up) {
-				this_leg_av_rank *= float64(LEG_WINDOW/ramp_up)
+				this_leg_av_rank *= float64(LEG_WINDOW)/ramp_up
 			}
 
 			AnnotateLeg(filename, selected_sentences, leg, sentence_id_by_rank[leg], this_leg_av_rank, max_all_legs)
@@ -3123,7 +3124,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 	if samples_per_leg < 1 {
 		return
 	}
-	
+
 	// Rank by importance and rescale all as dimensionless between [0,1]
 
 	sort.Float64s(sentence_ranks)
@@ -3141,7 +3142,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	fmt.Println(" >> (Rank leg trustworthiness (anomalous interest)",leg,"=",scale_free_trust,")")
+	fmt.Println(" >> (Rank leg interest level (anomalous interest)",leg,"=",scale_free_trust,")")
 
 	if scale_free_trust > TRUST_THRESHOLD {
 
