@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"regexp"
 	"time"
 	"io"
 	"TT"
@@ -57,17 +58,17 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	//subject := "Mark Burgess"
-	//page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
-	//log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	subject := "Mark Burgess"
+	page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
+	log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
 
 	//subject := "Jan Bergstra"
 	//page_url := "https://en.wikipedia.org/wiki/Jan_Bergstra"
 	//log_url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
-	subject := "Michael Jackson"
-	page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
-	log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	//subject := "Michael Jackson"
+	//page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
+	//log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
 	//subject := "George W. Bush"
 	//page_url := "https://en.wikipedia.org/wiki/George_W._Bush"
@@ -90,7 +91,23 @@ func main() {
 
 	TT.SetTrustThreshold(0.4)     // Balanced level
 
-	MainPage(page_url)
+	mainpage := MainPage(page_url)
+	
+	textlength := len(mainpage)
+
+	selected := TT.FractionateSentences(mainpage)
+
+	fmt.Println("*********************************************")
+	fmt.Println("* Mainpage length",subject,textlength)
+	fmt.Println("* Sentences",len(selected))
+	fmt.Println("* Legs",1+len(selected)/TT.LEG_WINDOW)
+	fmt.Println("*********************************************")
+	
+	TT.ReviewAndSelectEvents(subject,selected)		
+	
+	pagetopics := TT.RankByIntent(selected)
+	
+	TT.LongitudinalPersistentConcepts(pagetopics)
 
 	// ***********************************************************
 
@@ -108,13 +125,21 @@ func main() {
 
 	Assessment(changelog)
 
-	fulltext := TotalText(changelog)
+	talkpage := TotalText(changelog)
 
-	selected_sentences := TT.FractionateSentences(fulltext)
+	talklength := len(talkpage)
+
+	remarks := TT.FractionateSentences(talkpage)
+
+	fmt.Println("*********************************************")
+	fmt.Println("* Talkpage length",subject,talklength)
+	fmt.Println("* Sentences",len(remarks))
+	fmt.Println("* Legs",1+len(remarks)/TT.LEG_WINDOW)
+	fmt.Println("*********************************************")
 	
-	TT.ReviewAndSelectEvents(subject,selected_sentences)		
+	TT.ReviewAndSelectEvents(subject,remarks)		
 	
-	topics := TT.RankByIntent(selected_sentences)
+	topics := TT.RankByIntent(remarks)
 	
 	TT.LongitudinalPersistentConcepts(topics)
 
@@ -122,10 +147,114 @@ func main() {
 
 // ***********************************************************
 
-func MainPage(url string) []WikiNote {
+func MainPage(url string) string {
 
-	var pagetext []WikiNote
-	return pagetext
+	var capture bool = false
+
+	response, err := http.Get(url)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer response.Body.Close()
+	
+	// Parse HTML
+	
+	var plaintext string = ""
+	
+	tokenizer := html.NewTokenizer(response.Body)
+	
+	for {
+		tokenType := tokenizer.Next()
+		token := tokenizer.Token()
+		
+		if tokenizer.Err() == io.EOF {
+			fmt.Println("EOT",err)
+			return plaintext
+		}
+		
+		r := regexp.MustCompile("[?!.]+")
+		s := strings.TrimSpace(html.UnescapeString(token.String()))
+		s = r.ReplaceAllString(s,"$0#")
+		s = strings.ReplaceAll(s,"→","")
+		s = strings.ReplaceAll(s,"←","")
+		s = strings.ReplaceAll(s,"'","")
+		s = strings.ReplaceAll(s,"{{","")
+		s = strings.ReplaceAll(s,"}}","")
+		s = strings.ReplaceAll(s,"(","")
+		s = strings.ReplaceAll(s,")","")
+		s = strings.ReplaceAll(s,"|","")
+		s = strings.TrimSpace(html.UnescapeString(s))
+		s = strings.TrimSpace(s)
+		
+		for i := range token.Attr {
+			
+			if token.Attr[i].Val == "mw-content-text" {				
+				capture = true
+			}
+		}
+		if len(s) == 0 {
+			continue
+		}
+		
+		switch tokenType {
+			
+		case html.ErrorToken:
+			
+			fmt.Printf("Error: %v\n", tokenizer.Err())
+			return plaintext
+			
+		case html.TextToken:
+			
+			if capture {
+				
+				if Bracketed(s) {
+					continue
+				}
+				
+				if IsCode(s) {
+					continue
+				}
+				
+				//fmt.Printf("Token-body: %v\n", s)
+				
+				if IsLegal(s) {
+					continue
+				}
+				
+				if s == "citation needed" {
+					fmt.Println("MISSING CITATION trustworthiness negative??")
+					continue
+				}
+				
+				if s == "edit" {
+					continue
+				}
+				
+				
+				if s == "References" {
+					return plaintext
+				}
+				
+				// Strip commas etc for the n-grams
+
+				plaintext += strings.TrimSpace(s) + ". "
+
+			}
+			
+		case html.StartTagToken:
+			
+		case html.EndTagToken:
+			
+			if token.Data == "body" {
+				capture = false
+				return plaintext
+			}
+		}
+	}
+	
+	return plaintext
 }
 
 // ***********************************************************
@@ -167,11 +296,12 @@ func TalkPage(url string) []WikiNote {
 
 		// Strip out junk characters
 
+		r := regexp.MustCompile("[?!.]+")
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
+		s = r.ReplaceAllString(s,"$0#")
 		s = strings.ReplaceAll(s,"→","")
 		s = strings.ReplaceAll(s,"←","")
 		s = strings.ReplaceAll(s,"'","")
-		s = strings.ReplaceAll(s,".","")
 		s = strings.ReplaceAll(s,"{{","")
 		s = strings.ReplaceAll(s,"}}","")
 		s = strings.ReplaceAll(s,"(","")
@@ -391,4 +521,65 @@ func TotalText(changelog []WikiNote) string {
 	}
 
 	return text
+}
+
+// **************************************************************************
+
+func Bracketed(s string) bool {
+
+	if strings.HasPrefix(s,"[") || strings.HasSuffix(s,"]") {
+
+		return true
+	}
+
+return false
+}
+
+// **************************************************************************
+
+func IsCode(s string) bool {
+
+	if strings.Contains(s,"{") || strings.HasSuffix(s,"}")  || strings.HasSuffix(s,"^") {
+
+		return true
+	}
+
+	if strings.Contains(s,"Categories :") || strings.Contains(s,"Hidden categories :") {
+		return true
+	}
+return false
+}
+
+// **************************************************************************
+
+func IsLegal(s string) bool {
+
+	if strings.Contains(s,"terms may appl") {
+
+		return true
+	}
+
+	if strings.Contains(s,"Creative Commons") {
+
+		return true
+	}
+
+	if strings.Contains(s,"last edited") {
+
+		return true
+	}
+
+	if strings.Contains(s,"Terms of Use") {
+
+		return true
+	}
+
+	if strings.Contains(s,"Privacy Policy") {
+
+		return true
+	}
+
+
+
+return false
 }
