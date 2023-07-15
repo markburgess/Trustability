@@ -58,17 +58,17 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subject := "Mark Burgess"
-	page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
-	log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	//subject := "Mark Burgess"
+	//page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
+	//log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
 
 	//subject := "Jan Bergstra"
 	//page_url := "https://en.wikipedia.org/wiki/Jan_Bergstra"
 	//log_url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
-	//subject := "Michael Jackson"
-	//page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
-	//log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	subject := "Michael Jackson"
+	page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
+	log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
 	//subject := "George W. Bush"
 	//page_url := "https://en.wikipedia.org/wiki/George_W._Bush"
@@ -100,7 +100,7 @@ func main() {
 	fmt.Println("*********************************************")
 	fmt.Println("* Mainpage length",subject,textlength)
 	fmt.Println("* Sentences",len(selected))
-	fmt.Println("* Legs",1+len(selected)/TT.LEG_WINDOW)
+	fmt.Println("* Legs",float64(len(selected))/float64(TT.LEG_WINDOW))
 	fmt.Println("*********************************************")
 	
 	TT.ReviewAndSelectEvents(subject,selected)		
@@ -134,7 +134,7 @@ func main() {
 	fmt.Println("*********************************************")
 	fmt.Println("* Talkpage length",subject,talklength)
 	fmt.Println("* Sentences",len(remarks))
-	fmt.Println("* Legs",1+len(remarks)/TT.LEG_WINDOW)
+	fmt.Println("* Legs",float64(len(remarks))/float64(TT.LEG_WINDOW))
 	fmt.Println("*********************************************")
 	
 	TT.ReviewAndSelectEvents(subject,remarks)		
