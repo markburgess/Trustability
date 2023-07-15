@@ -58,17 +58,17 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	//subject := "Mark Burgess"
-	//page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
-	//log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	subject := "Mark Burgess"
+	page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
+	log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
 
 	//subject := "Jan Bergstra"
 	//page_url := "https://en.wikipedia.org/wiki/Jan_Bergstra"
 	//log_url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
-	subject := "Michael Jackson"
-	page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
-	log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	//subject := "Michael Jackson"
+	//page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
+	//log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
 	//subject := "George W. Bush"
 	//page_url := "https://en.wikipedia.org/wiki/George_W._Bush"
@@ -123,7 +123,9 @@ func main() {
 		return changelog[i].Date.Before(changelog[j].Date)
 	})
 
-	Assessment(changelog)
+	// Look at signals
+
+	TalkAssessment(changelog)
 
 	talkpage := TotalText(changelog)
 
@@ -441,7 +443,7 @@ func TalkPage(url string) []WikiNote {
 
 // *******************************************************************************
 
-func Assessment(changelog []WikiNote) {
+func TalkAssessment(changelog []WikiNote) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -505,6 +507,24 @@ func Assessment(changelog []WikiNote) {
 
 	for s := range users {
 		fmt.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+	}
+
+	// If a users changes are ALL reversions, they are police
+
+
+	fmt.Println("**************************")
+	fmt.Println("Infer user promise/intent")
+	fmt.Println("> 100% changes are reversions, then they are police")
+	fmt.Println("> 30% of changes are reversions contentious")
+	fmt.Println("**************************\n")
+
+	for s := range users {
+
+		if users_revert[users[s]] == users_changecount[users[s]] {
+			fmt.Printf(" POLICING  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+		} else if users_revert[users[s]] > 1 && float64(users_revert[users[s]]) / float64(users_changecount[users[s]]) > 0.3 {
+			fmt.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+		}
 	}
 }
 
