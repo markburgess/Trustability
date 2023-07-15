@@ -3042,7 +3042,8 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 			this_leg_av_rank = av_rank_for_leg[leg]
 
 			// At the start of a long doc, there's insufficient weight to make an impact, so
-			// we need to compensate
+			// we need to compensate by some arbitrary amount, this needs to be replaced by a ratio?
+			// Based on word density...
 
 			const ramp_up = 60.0
 			
