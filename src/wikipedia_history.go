@@ -58,16 +58,20 @@ func main() {
 	// Example pages, some familiar some notorious
 
 	//subject := "Mark Burgess"
-	//url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	//page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
+	//log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
 
 	//subject := "Jan Bergstra"
-	//url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
+	//page_url := "https://en.wikipedia.org/wiki/Jan_Bergstra"
+	//log_url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
 
 	subject := "Michael Jackson"
-	url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
+	page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
+	log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
 
-	// subject := "George W. Bush"
-	//url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
+	//subject := "George W. Bush"
+	//page_url := "https://en.wikipedia.org/wiki/George_W._Bush"
+	//log_url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
 
 	// ***********************************************************
 
@@ -78,15 +82,25 @@ func main() {
 	var user string = "root"
 	var pwd string = "mark"
 
+	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
+
 	// ***********************************************************
+
+	TT.LEG_WINDOW = 100           // Standard for narrative text
+
+	TT.SetTrustThreshold(0.4)     // Balanced level
+
+	MainPage(page_url)
+
+	// ***********************************************************
+
+	// Examine the change log
 
 	TT.LEG_WINDOW = 10 // Need a smaller window than normal for fragmented text
 
-	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
-
 	TT.SetTrustThreshold(0.1)
 
-	changelog := MainPage(url)
+	changelog := TalkPage(log_url)
 
 	sort.Slice(changelog, func(i, j int) bool {
 		return changelog[i].Date.Before(changelog[j].Date)
@@ -109,6 +123,14 @@ func main() {
 // ***********************************************************
 
 func MainPage(url string) []WikiNote {
+
+	var pagetext []WikiNote
+	return pagetext
+}
+
+// ***********************************************************
+
+func TalkPage(url string) []WikiNote {
 
 	response, err := http.Get(url)
 
