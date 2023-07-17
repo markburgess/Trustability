@@ -3072,7 +3072,7 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 
 	fmt.Println("------------------------------------------")
 	fmt.Println("Notable events = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
-	fmt.Println("------------------------------------------")
+	fmt.Println("------------------------------------------\n")
 }
 
 //**************************************************************
