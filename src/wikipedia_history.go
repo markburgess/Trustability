@@ -100,7 +100,7 @@ func main() {
 	selected := TT.FractionateSentences(mainpage)
 
 	fmt.Println("*********************************************")
-	fmt.Println("* Mainpage length",subject,textlength)
+	fmt.Println("* Mainpage for",subject,"-- length",textlength,"chars")
 	fmt.Println("* Sentences",len(selected))
 	fmt.Println("* Legs",float64(len(selected))/float64(TT.LEG_WINDOW))
 	fmt.Println("*********************************************")
@@ -127,7 +127,7 @@ func main() {
 
 	// Look at signals
 
-	HistoryAssessment(subject,changelog)
+	history_users, episodes, avt := HistoryAssessment(subject,changelog)
 
 	talkpage := TotalText(changelog)
 
@@ -139,15 +139,20 @@ func main() {
 	fmt.Println("* Historypage length",subject,talklength)
 	fmt.Println("* Sentences",len(remarks))
 	fmt.Println("* Legs",float64(len(remarks))/float64(TT.LEG_WINDOW))
+	fmt.Println("* Total users involved in shared process", history_users)
+	fmt.Println("* Change episodes with discernable punctuation", episodes)
+	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
 	fmt.Println("*********************************************")
 	
-	TT.ReviewAndSelectEvents(subject,remarks)		
+	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
 	topics := TT.RankByIntent(remarks)
 	
 	TT.LongitudinalPersistentConcepts(topics)
 
-	fmt.Println("Total contentious article issues for",subject,"=",ARTICLE_ISSUES)
+	fmt.Println("*********************************************")
+	fmt.Println("* Total contentious article issues for",subject,"=",ARTICLE_ISSUES)
+	fmt.Println("*********************************************")
 }
 
 // ***********************************************************
@@ -377,6 +382,7 @@ func HistoryPage(url string) []WikiNote {
 			}
 
 			if attend && user {
+				s = strings.ReplaceAll(s,"#","") // remove formatting from IP addresses
 				entry.User = s
 				user = false
 				continue
@@ -446,7 +452,7 @@ func HistoryPage(url string) []WikiNote {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiNote) {
+func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -461,10 +467,13 @@ func HistoryAssessment(subject string, changelog []WikiNote) {
 	var all_users_averagetime float64 = float64(MINUTE)
 	var delta_t float64 = float64(MINUTE)
 	var burst_size int = 0
+	var episodes int = 0
 
-	fmt.Println("\n==============================================")
-	fmt.Println("Starting assessment of history for",subject)
-	fmt.Println("==============================================\n")
+	fmt.Println("\n==============================================\n")
+	fmt.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
+	fmt.Println("\n==============================================\n")
+
+	fmt.Println("\n----------- EDITS --------------------")
 
 	for i := range changelog {
 
@@ -496,8 +505,9 @@ func HistoryAssessment(subject string, changelog []WikiNote) {
 
 		if delta_t > all_users_averagetime * punctuation_scale {
 
-			fmt.Println("End of change burst containing",burst_size,"edits (",delta_t/float64(MINUTE),"/",all_users_averagetime/float64(MINUTE),")")
+			//fmt.Println("End of change burst containing",burst_size,"edits (",delta_t/float64(MINUTE),"/",all_users_averagetime/float64(MINUTE),")")
 			burst_size = 0
+			episodes++
 
 		}
 
@@ -509,8 +519,13 @@ func HistoryAssessment(subject string, changelog []WikiNote) {
 
 		if changelog[i].Revert > 0 && i > 1 {
 			
-			ARTICLE_ISSUES++
 			users_revert[changelog[i].User] += changelog[i].Revert
+
+			if last_user != changelog[i].User {
+				fmt.Println(" .. Explicit undo of",last_user,"by",changelog[i].User)
+				ARTICLE_ISSUES++
+			}
+
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
 			users_revert_dt[changelog[i].User] = 0.6 * dt + 0.4 * users_revert_dt[changelog[i].User]
 		}
@@ -519,7 +534,8 @@ func HistoryAssessment(subject string, changelog []WikiNote) {
 
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
 
-			fmt.Println("Effective undo of",last_user,"by",changelog[i].User)
+			ARTICLE_ISSUES++
+			fmt.Println(" .. Effective undo of",last_user,"by",changelog[i].User)
 			users_revert[changelog[i].User]++
 		}
 
@@ -527,7 +543,7 @@ func HistoryAssessment(subject string, changelog []WikiNote) {
 		last_user = changelog[i].User
 	}
 
-	fmt.Println("\nTotal users involved in shared process", len(users_changecount))
+	fmt.Println("\n----------- EDITS --------------------")
 
 	for s := range users_changecount {
 		users = append(users,s)
@@ -566,7 +582,7 @@ func HistoryAssessment(subject string, changelog []WikiNote) {
 	// If a users changes are ALL reversions, they are police
 
 	fmt.Println("\n**************************")
-	fmt.Println("Infer user promise/intent")
+	fmt.Println("> Infer user promise/intent")
 	fmt.Println("> 100% changes are reversions, then they are police")
 	fmt.Println("> 30% of changes are reversions contentious")
 	fmt.Println("**************************\n")
@@ -580,9 +596,8 @@ func HistoryAssessment(subject string, changelog []WikiNote) {
 		}
 	}
 
-	fmt.Println("\nTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
-	fmt.Println("The average time between changes is",all_users_averagetime/float64(MINUTE),"mins")
-	fmt.Println("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\n")
+
+	return len(users_changecount), episodes, all_users_averagetime
 }
 
 // *******************************************************************************
