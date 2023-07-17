@@ -2968,6 +2968,11 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
         // `leg' counter when it fills up to measure story progress. 
 	// This determines the sampling density of "important sentences" - pick a few from each leg
 
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	fmt.Println("> Select inferred intentional content summary ...about",filename)
+	fmt.Println("> At sampling trust threshold",TRUST_THRESHOLD)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+
 	var steps,leg int
 
 	// Sentences to summarize per leg of the story journey
