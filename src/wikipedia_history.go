@@ -29,6 +29,7 @@ import (
 	"strings"
 	"regexp"
 	"time"
+	"math"
 	"io"
 	"TT"
 )
@@ -51,6 +52,7 @@ const DAY = float64(3600 * 24 * 1000000000)
 const MINUTE = float64(60 * 1000000000)
 
 var G TT.Analytics
+var ARTICLE_ISSUES int = 0
 
 // ***********************************************************
 
@@ -117,7 +119,7 @@ func main() {
 
 	TT.SetTrustThreshold(0.1)
 
-	changelog := TalkPage(log_url)
+	changelog := HistoryPage(log_url)
 
 	sort.Slice(changelog, func(i, j int) bool {
 		return changelog[i].Date.Before(changelog[j].Date)
@@ -125,7 +127,7 @@ func main() {
 
 	// Look at signals
 
-	TalkAssessment(changelog)
+	HistoryAssessment(subject,changelog)
 
 	talkpage := TotalText(changelog)
 
@@ -134,7 +136,7 @@ func main() {
 	remarks := TT.FractionateSentences(talkpage)
 
 	fmt.Println("*********************************************")
-	fmt.Println("* Talkpage length",subject,talklength)
+	fmt.Println("* Historypage length",subject,talklength)
 	fmt.Println("* Sentences",len(remarks))
 	fmt.Println("* Legs",float64(len(remarks))/float64(TT.LEG_WINDOW))
 	fmt.Println("*********************************************")
@@ -145,6 +147,7 @@ func main() {
 	
 	TT.LongitudinalPersistentConcepts(topics)
 
+	fmt.Println("Total contentious article issues for",subject,"=",ARTICLE_ISSUES)
 }
 
 // ***********************************************************
@@ -226,7 +229,7 @@ func MainPage(url string) string {
 				}
 				
 				if s == "citation needed" {
-					fmt.Println("MISSING CITATION trustworthiness negative??")
+					ARTICLE_ISSUES++
 					continue
 				}
 				
@@ -261,7 +264,7 @@ func MainPage(url string) string {
 
 // ***********************************************************
 
-func TalkPage(url string) []WikiNote {
+func HistoryPage(url string) []WikiNote {
 
 	response, err := http.Get(url)
 
@@ -443,7 +446,7 @@ func TalkPage(url string) []WikiNote {
 
 // *******************************************************************************
 
-func TalkAssessment(changelog []WikiNote) {
+func HistoryAssessment(subject string, changelog []WikiNote) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -451,29 +454,80 @@ func TalkAssessment(changelog []WikiNote) {
 	var users_averagetime = make(map[string]float64)	
 	var users_revert_dt = make(map[string]float64)
 	var users []string
-	
+	var last_delta int = 0
+	var last_user string
+	var lasttime float64 = 0
+	var user_delta_t float64
+	var all_users_averagetime float64 = float64(MINUTE)
+	var delta_t float64 = float64(MINUTE)
+	var burst_size int = 0
+
+	fmt.Println("\n==============================================")
+	fmt.Println("Starting assessment of history for",subject)
+	fmt.Println("==============================================\n")
+
 	for i := range changelog {
 
 		//fmt.Printf(">> %15s (%v)(%d), %s\n", changelog[i].User,changelog[i].Date,changelog[i].EditDelta,changelog[i].Message)
 
-		if users_lasttime[changelog[i].User] > 0 {
-			delta := float64(changelog[i].Date.UnixNano() - users_lasttime[changelog[i].User])
-			users_averagetime[changelog[i].User] = 0.4 * users_averagetime[changelog[i].User] + 0.6 * delta
+		// Bootstrap difference
+
+		if users_lasttime[changelog[i].User] == 0 {
+			user_delta_t = float64(MINUTE)
+			users_averagetime[changelog[i].User] = user_delta_t
 		}
 
+		// For each user independently
+
+		if users_lasttime[changelog[i].User] > 0 {
+
+			user_delta_t = float64(changelog[i].Date.UnixNano() - users_lasttime[changelog[i].User])
+			users_averagetime[changelog[i].User] = 0.4 * users_averagetime[changelog[i].User] + 0.6 * user_delta_t
+		}
+
+		// For all users collectively
+
+		delta_t = float64(changelog[i].Date.UnixNano()) - lasttime
 		users_lasttime[changelog[i].User] = changelog[i].Date.UnixNano()
+		lasttime = float64(changelog[i].Date.UnixNano())
+		burst_size++
+
+		const punctuation_scale = 10.0
+
+		if delta_t > all_users_averagetime * punctuation_scale {
+
+			fmt.Println("End of change burst containing",burst_size,"edits (",delta_t/float64(MINUTE),"/",all_users_averagetime/float64(MINUTE),")")
+			burst_size = 0
+
+		}
+
+		all_users_averagetime = 0.4 * all_users_averagetime + 0.6 * delta_t
+
+		// Changes
 
 		users_changecount[changelog[i].User]++
 
 		if changelog[i].Revert > 0 && i > 1 {
 			
+			ARTICLE_ISSUES++
 			users_revert[changelog[i].User] += changelog[i].Revert
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
 			users_revert_dt[changelog[i].User] = 0.6 * dt + 0.4 * users_revert_dt[changelog[i].User]
 		}
+
+		// This is a real undo if the next change cancels 90% of the previous
+
+		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
+
+			fmt.Println("Effective undo of",last_user,"by",changelog[i].User)
+			users_revert[changelog[i].User]++
+		}
+
+		last_delta = changelog[i].EditDelta
+		last_user = changelog[i].User
 	}
 
-	fmt.Println("Total users involved in shared process", len(users_changecount))
+	fmt.Println("\nTotal users involved in shared process", len(users_changecount))
 
 	for s := range users_changecount {
 		users = append(users,s)
@@ -483,11 +537,11 @@ func TalkAssessment(changelog []WikiNote) {
 		return users_changecount[users[i]] > users_changecount[users[j]]
 	})
 
-	fmt.Println("Ranked user changes: number and average time interval")
+	fmt.Println("\nRanked number of user changes: number and average time interval")
 
 	for s := range users {
 		if users_changecount[users[s]] > 1 {
-			fmt.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",users[s],users_changecount[users[s]],users_averagetime[users[s]]/DAY)
+			fmt.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",users[s],users_changecount[users[s]],users_averagetime[users[s]]/float64(DAY))
 		} else {
 			fmt.Print(users[s],", ")
 		}
@@ -511,8 +565,7 @@ func TalkAssessment(changelog []WikiNote) {
 
 	// If a users changes are ALL reversions, they are police
 
-
-	fmt.Println("**************************")
+	fmt.Println("\n**************************")
 	fmt.Println("Infer user promise/intent")
 	fmt.Println("> 100% changes are reversions, then they are police")
 	fmt.Println("> 30% of changes are reversions contentious")
@@ -526,6 +579,10 @@ func TalkAssessment(changelog []WikiNote) {
 			fmt.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
 		}
 	}
+
+	fmt.Println("\nTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+	fmt.Println("The average time between changes is",all_users_averagetime/float64(MINUTE),"mins")
+	fmt.Println("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\n")
 }
 
 // *******************************************************************************
