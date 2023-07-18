@@ -60,9 +60,9 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subject := "Mark Burgess"
-	page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
-	log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	//subject := "Mark Burgess"
+	//page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
+	//log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
 
 	//subject := "Jan Bergstra"
 	//page_url := "https://en.wikipedia.org/wiki/Jan_Bergstra"
@@ -75,6 +75,11 @@ func main() {
 	//subject := "George W. Bush"
 	//page_url := "https://en.wikipedia.org/wiki/George_W._Bush"
 	//log_url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
+
+	subject := "Promise Theory"
+	page_url := "https://en.wikipedia.org/wiki/Promise_theory"
+	log_url := "https://en.wikipedia.org/w/index.php?title=Promise_theory&action=history&offset=&limit=1000"
+
 
 	// ***********************************************************
 
@@ -230,6 +235,11 @@ func MainPage(url string) string {
 				//fmt.Printf("Token-body: %v\n", s)
 				
 				if IsLegal(s) {
+					continue
+				}
+
+				if strings.Contains(s,"remove this template message") {
+					// Ignore administrivia
 					continue
 				}
 				
