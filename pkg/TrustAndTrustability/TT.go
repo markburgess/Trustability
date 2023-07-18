@@ -3050,12 +3050,6 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 			// we need to compensate by some arbitrary amount, this needs to be replaced by a ratio?
 			// Based on word density...
 
-			const ramp_up = 60.0
-			
-			if (leg < ramp_up) {
-				this_leg_av_rank *= float64(LEG_WINDOW)/ramp_up
-			}
-
 			AnnotateLeg(filename, selected_sentences, leg, sentence_id_by_rank[leg], this_leg_av_rank, max_all_legs)
 
 			steps = 0
@@ -3150,15 +3144,25 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 
 	fmt.Println(" >> (Rank leg interest level (anomalous interest)",leg,"=",scale_free_trust,")")
 
+	// How do we quantitatively adjust output rate/velocity based on above threshold deviation
+
+	var detail_per_leg_policy int = DETAIL_PER_LEG_POLICY // default has to be int
+
 	if scale_free_trust > TRUST_THRESHOLD {
 
 		var start int
 
+		// Scale processing velocity like sqrt of probable mistrust event rate per leg
+
+		detail_per_leg_policy = int(0.5 + math.Sqrt(float64(LEG_WINDOW) * (scale_free_trust - TRUST_THRESHOLD)))
+
+		fmt.Println("Dynamic kinetic", detail_per_leg_policy,"/",LEG_WINDOW)
+
 		// top intra_leg_sampling_density = count backwards from the end
 
-		if samples_per_leg > DETAIL_PER_LEG_POLICY {
+		if samples_per_leg > detail_per_leg_policy {
 
-			start = len(sentence_ranks) - DETAIL_PER_LEG_POLICY
+			start = len(sentence_ranks) - detail_per_leg_policy
 
 		} else {
 			start = 0
