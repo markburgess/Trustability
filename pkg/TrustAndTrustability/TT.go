@@ -3141,7 +3141,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 
 		// Scale processing velocity like sqrt of probable mistrust event rate per leg
 
-		detail_per_leg_policy = int(0.5 + math.Sqrt(float64(LEG_WINDOW) * (scale_free_trust - TRUST_THRESHOLD)))
+		detail_per_leg_policy = int(0.5 + math.Sqrt(float64(LEG_WINDOW) * scale_free_trust))
 
 		fmt.Println("Dynamic kinetic", detail_per_leg_policy,"/",LEG_WINDOW)
 
