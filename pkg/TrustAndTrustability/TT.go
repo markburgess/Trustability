@@ -206,7 +206,7 @@ var TOTAL_THRESH float64 = 0
 
 const MAXCLUSTERS = 7
 
-var LEG_WINDOW int = 100
+var LEG_WINDOW int = 100  // sentences per leg
 
 var ATTENTION_LEVEL float64 = 1.0
 var SENTENCE_THRESH float64 = 100 // chars
@@ -3129,7 +3129,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	fmt.Println(" >> (Rank leg interest level (anomalous interest)",leg,"=",scale_free_trust,")")
+	fmt.Println("\n >> (Rank leg interest potential (anomalous intent)",leg,"=",scale_free_trust,")")
 
 	// How do we quantitatively adjust output rate/velocity based on above threshold deviation
 
@@ -3143,7 +3143,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 
 		detail_per_leg_policy = int(0.5 + math.Sqrt(float64(LEG_WINDOW) * scale_free_trust))
 
-		fmt.Println("Dynamic kinetic", detail_per_leg_policy,"/",LEG_WINDOW)
+		fmt.Println(" >> (Dynamic kinetic event selection velocity", detail_per_leg_policy,"(events per leg)",LEG_WINDOW,")")
 
 		// top intra_leg_sampling_density = count backwards from the end
 

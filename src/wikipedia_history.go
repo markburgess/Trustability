@@ -151,9 +151,9 @@ func main() {
 	
 	TT.LongitudinalPersistentConcepts(topics)
 
-	fmt.Println("*********************************************")
-	fmt.Println("* Total contentious article issues for",subject,"=",ARTICLE_ISSUES)
-	fmt.Println("*********************************************")
+	fmt.Println("\n*********************************************")
+	fmt.Println("* Total contentious article assessments for",subject,"=",ARTICLE_ISSUES)
+	fmt.Println("*********************************************\n")
 }
 
 // ***********************************************************
