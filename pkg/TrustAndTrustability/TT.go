@@ -204,11 +204,6 @@ var TOTAL_THRESH float64 = 0
 
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
 
-var TRUST_THRESHOLD float64 = 0.8
-const DETAIL_PER_LEG_POLICY = 3
-
-// ***************************************************************************
-
 const MAXCLUSTERS = 7
 
 var LEG_WINDOW int = 100
@@ -2692,13 +2687,6 @@ func Here(depth int) string {
 // FRACTIONATION
 // ****************************************************************************
 
-func SetTrustThreshold(level float64) {
-
-	TRUST_THRESHOLD = level
-}
-
-//**************************************************************
-
 func ReadAndCleanFile(filename string) string {
 
 	content, _ := ioutil.ReadFile(filename)
@@ -2970,7 +2958,6 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	fmt.Println("> Select inferred intentional content summary ...about",filename)
-	fmt.Println("> At sampling trust threshold",TRUST_THRESHOLD)
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 
 	var steps,leg int
@@ -3146,9 +3133,9 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 
 	// How do we quantitatively adjust output rate/velocity based on above threshold deviation
 
-	var detail_per_leg_policy int = DETAIL_PER_LEG_POLICY // default has to be int
+	var detail_per_leg_policy int
 
-	if scale_free_trust > TRUST_THRESHOLD {
+	if scale_free_trust > 0 { // Always true (legacy)
 
 		var start int
 

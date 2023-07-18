@@ -96,8 +96,6 @@ func main() {
 
 	TT.LEG_WINDOW = 100           // Standard for narrative text
 
-	TT.SetTrustThreshold(0.4)     // Balanced level
-
 	mainpage := MainPage(page_url)
 	
 	textlength := len(mainpage)
@@ -121,8 +119,6 @@ func main() {
 	// Examine the change log
 
 	TT.LEG_WINDOW = 10 // Need a smaller window than normal for fragmented text
-
-	TT.SetTrustThreshold(0.1)
 
 	changelog := HistoryPage(log_url)
 
