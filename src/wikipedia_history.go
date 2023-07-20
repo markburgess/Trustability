@@ -60,25 +60,20 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	//subject := "Mark Burgess"
-	//page_url := "https://en.wikipedia.org/wiki/Mark_Burgess_(computer_scientist)"
-	//log_url := "https://en.wikipedia.org/w/index.php?title=Mark_Burgess_(computer_scientist)&action=history&offset=&limit=1000"
+	//subject := "Mark_Burgess_(computer_scientist)"
+	//subject := "Jan_Bergstra"
+	//subject := "Michael_Jackson"
+	//subject := "George_W._Bush"
+	//subject := "Promise_theory"
+	//subject := "Quantum_mechanics"
+	//subject := "String_Theory"
+	//subject := "Algebraic geometry"
+	//subject := "Boredom"
+	subject := "Air"
+	//subject := "Estonia"
 
-	//subject := "Jan Bergstra"
-	//page_url := "https://en.wikipedia.org/wiki/Jan_Bergstra"
-	//log_url := "https://en.wikipedia.org/w/index.php?title=Jan_Bergstra&action=history&offset=&limit=1000"
-
-	//subject := "Michael Jackson"
-	//page_url := "https://en.wikipedia.org/wiki/Michael_Jackson"
-	//log_url := "https://en.wikipedia.org/w/index.php?title=Michael_Jackson&action=history&offset=&limit=1000"
-
-	//subject := "George W. Bush"
-	//page_url := "https://en.wikipedia.org/wiki/George_W._Bush"
-	//log_url := "https://en.wikipedia.org/w/index.php?title=George_W._Bush&action=history&offset=&limit=1000"
-
-	subject := "Promise Theory"
-	page_url := "https://en.wikipedia.org/wiki/Promise_theory"
-	log_url := "https://en.wikipedia.org/w/index.php?title=Promise_theory&action=history&offset=&limit=1000"
+	page_url := "https://en.wikipedia.org/wiki/" + subject
+	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
 
 	// ***********************************************************
@@ -128,13 +123,13 @@ func main() {
 
 	// Look at signals
 
-	history_users, episodes, avt := HistoryAssessment(subject,changelog)
+	history_users, episodes, avt, avep := HistoryAssessment(subject,changelog)
 
-	talkpage := TotalText(changelog)
+	historypage := TotalText(changelog)
 
-	talklength := len(talkpage)
+	talklength := len(historypage)
 
-	remarks := TT.FractionateSentences(talkpage)
+	remarks := TT.FractionateSentences(historypage)
 
 	fmt.Println("*********************************************")
 	fmt.Println("* Historypage length",subject,talklength)
@@ -152,7 +147,14 @@ func main() {
 	TT.LongitudinalPersistentConcepts(topics)
 
 	fmt.Println("\n*********************************************")
+	fmt.Println("* SUMMARY")
 	fmt.Println("* Total contentious article assessments for",subject,"=",ARTICLE_ISSUES)
+	fmt.Println("* Contention per unit length =",float64(ARTICLE_ISSUES)/float64(len(selected)))
+	fmt.Println("* Process history length =",len(remarks))
+	fmt.Println("* Total users involved in shared process", history_users)
+	fmt.Println("* Change episodes with discernable punctuation", episodes)
+	fmt.Println("* Average episode size (sentences)", avep)
+	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
 	fmt.Println("*********************************************\n")
 }
 
@@ -242,6 +244,10 @@ func MainPage(url string) string {
 				if s == "citation needed" {
 					ARTICLE_ISSUES++
 					continue
+				}
+
+				if strings.Contains(s,"vandalism") {
+					ARTICLE_ISSUES++
 				}
 				
 				if s == "edit" {
@@ -458,7 +464,7 @@ func HistoryPage(url string) []WikiNote {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64) {
+func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64,float64) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -473,7 +479,8 @@ func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64) {
 	var all_users_averagetime float64 = float64(MINUTE)
 	var delta_t float64 = float64(MINUTE)
 	var burst_size int = 0
-	var episodes int = 0
+	var sum_burst_size int = 0
+	var episodes int = 1
 
 	fmt.Println("\n==============================================\n")
 	fmt.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
@@ -497,12 +504,22 @@ func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64) {
 		if users_lasttime[changelog[i].User] > 0 {
 
 			user_delta_t = float64(changelog[i].Date.UnixNano() - users_lasttime[changelog[i].User])
+
+			if user_delta_t < 0 {
+				user_delta_t = 0
+			}
+
 			users_averagetime[changelog[i].User] = 0.4 * users_averagetime[changelog[i].User] + 0.6 * user_delta_t
 		}
 
 		// For all users collectively
 
 		delta_t = float64(changelog[i].Date.UnixNano()) - lasttime
+
+		if delta_t < 0 {
+			delta_t = 0
+		}
+
 		users_lasttime[changelog[i].User] = changelog[i].Date.UnixNano()
 		lasttime = float64(changelog[i].Date.UnixNano())
 		burst_size++
@@ -512,6 +529,7 @@ func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64) {
 		if delta_t > all_users_averagetime * punctuation_scale {
 
 			//fmt.Println("End of change burst containing",burst_size,"edits (",delta_t/float64(MINUTE),"/",all_users_averagetime/float64(MINUTE),")")
+			sum_burst_size += burst_size
 			burst_size = 0
 			episodes++
 
@@ -602,8 +620,9 @@ func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64) {
 		}
 	}
 
+	av_burst_size := float64(sum_burst_size + burst_size) / float64(episodes)
 
-	return len(users_changecount), episodes, all_users_averagetime
+	return len(users_changecount), episodes, all_users_averagetime, av_burst_size
 }
 
 // *******************************************************************************
