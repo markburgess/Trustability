@@ -66,11 +66,18 @@ func main() {
 	//subject := "George_W._Bush"
 	//subject := "Promise_theory"
 	//subject := "Quantum_mechanics"
-	//subject := "String_Theory"
-	//subject := "Algebraic geometry"
+	//subject := "String_theory"
+	//subject := "Algebraic_geometry"
 	//subject := "Boredom"
-	subject := "Air"
+	//subject := "Air"
+	//subject := "Atmosphere_of_Earth"
 	//subject := "Estonia"
+	//subject := "NLnet"
+	//subject := "Jean_Sibelius"
+	//subject := "Gustav_Mahler"
+	//subject := "Edvard_Grieg"
+	//subject := "Ludwig_van_Beethoven"
+	subject := "Wolfgang_Amadeus_Mozart"
 
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
@@ -153,7 +160,7 @@ func main() {
 	fmt.Println("* Process history length =",len(remarks))
 	fmt.Println("* Total users involved in shared process", history_users)
 	fmt.Println("* Change episodes with discernable punctuation", episodes)
-	fmt.Println("* Average episode size (sentences)", avep)
+	fmt.Println("* Average episode size (notes/remarks)", avep)
 	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
 	fmt.Println("*********************************************\n")
 }
