@@ -62,7 +62,7 @@ func main() {
 
 	//subject := "Mark_Burgess_(computer_scientist)"
 	//subject := "Jan_Bergstra"
-	subject := "Michael_Jackson"
+	//subject := "Michael_Jackson"
 	//subject := "George_W._Bush"
 	//subject := "Promise_theory"
 	//subject := "Quantum_mechanics"
@@ -74,7 +74,7 @@ func main() {
 	//subject := "Estonia"
 	//subject := "NLnet"
 	//subject := "Jean_Sibelius"
-	//subject := "Gustav_Mahler"
+	subject := "Gustav_Mahler"
 	//subject := "Edvard_Grieg"
 	//subject := "Ludwig_van_Beethoven"
 	//subject := "Wolfgang_Amadeus_Mozart"
@@ -185,7 +185,7 @@ func main() {
 	for g := 1; g <= len(usergroups); g++ {
 		duration := float64(episode_duration[g])/float64(DAY)
 		users := float64(len(usergroups[g]))
-		fmt.Println("\n",g," Episode ","w",users,"users",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
+		fmt.Println("\n",g," Episode with",users,"users\n        ",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
 	}
 
 }
@@ -578,7 +578,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 		if delta_t > all_users_averagetime * punctuation_scale {
 
-			//fmt.Println("End of change burst containing",burst_size,"edits (",delta_t/float64(MINUTE),"/",all_users_averagetime/float64(MINUTE),")")
 			sum_burst_size += burst_size
 			episode_duration[episodes] = changelog[i].Date.UnixNano() - burststart
 			episode_bytes[episodes] = sum_burst_bytes
