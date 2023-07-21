@@ -62,10 +62,10 @@ func main() {
 
 	//subject := "Mark_Burgess_(computer_scientist)"
 	//subject := "Jan_Bergstra"
-	//subject := "Michael_Jackson"
+	subject := "Michael_Jackson"
 	//subject := "George_W._Bush"
 	//subject := "Promise_theory"
-	subject := "Quantum_mechanics"
+	//subject := "Quantum_mechanics"
 	//subject := "String_theory"
 	//subject := "Algebraic_geometry"
 	//subject := "Boredom"
@@ -134,7 +134,7 @@ func main() {
 
 	// Look at signals
 
-	history_users, episodes, avt, avep, useredits, usergroups, episode_duration := HistoryAssessment(subject,changelog)
+	history_users, episodes, avt, avep, useredits, usergroups, episode_duration, episode_bytes := HistoryAssessment(subject,changelog)
 
 	historypage := TotalText(changelog)
 
@@ -171,6 +171,8 @@ func main() {
 	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
 	fmt.Println("*********************************************\n")
 
+	fmt.Println("\nUser/agent persistence on this page ....\n")
+
 	for u := range useredits {
 		lifetime := float64(useredits[u][len(useredits[u])-1]-useredits[u][0])/float64(DAY)
 		if lifetime > 1 {
@@ -178,9 +180,12 @@ func main() {
 		}
 	}
 
-	for g := range usergroups {
+	fmt.Println("\nEDITING EPISODIC BURSTS....\n")
+
+	for g := 1; g <= len(usergroups); g++ {
 		duration := float64(episode_duration[g])/float64(DAY)
-		fmt.Println(" Group ",g,usergroups[g],"duration (days)",duration,"dur/user",duration/float64(len(usergroups[g])))
+		users := float64(len(usergroups[g]))
+		fmt.Println("\n",g," Episode ","w",users,"users",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
 	}
 
 }
@@ -491,7 +496,7 @@ func HistoryPage(url string) []WikiProcess {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int]map[string]int,map[int]int64) {
+func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int]map[string]int,map[int]int64,map[int]float64) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -507,12 +512,14 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var delta_t float64 = float64(MINUTE)
 	var burst_size int = 0
 	var sum_burst_size int = 0
+	var sum_burst_bytes float64 = 0
 	var episodes int = 1
 	var burststart int64
 
 	var allusers = make(map[string][]int64)
 	var allepisodes = make(map[int]map[string]int)
 	var episode_duration = make(map[int]int64)
+	var episode_bytes = make(map[int]float64)
 
 	fmt.Println("\n==============================================\n")
 	fmt.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
@@ -532,6 +539,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 		allusers[changelog[i].User] = append(allusers[changelog[i].User],changelog[i].Date.UnixNano())
 		allepisodes[episodes][changelog[i].User]++
+
+		sum_burst_bytes += math.Abs(float64(changelog[i].EditDelta))
 
 		// Bootstrap difference
 
@@ -572,6 +581,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			//fmt.Println("End of change burst containing",burst_size,"edits (",delta_t/float64(MINUTE),"/",all_users_averagetime/float64(MINUTE),")")
 			sum_burst_size += burst_size
 			episode_duration[episodes] = changelog[i].Date.UnixNano() - burststart
+			episode_bytes[episodes] = sum_burst_bytes
+			sum_burst_bytes = 0
 			burst_size = 0
 			burststart = changelog[i].Date.UnixNano()
 			episodes++
@@ -665,7 +676,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	av_burst_size := float64(sum_burst_size + burst_size) / float64(episodes)
 
-	return len(users_changecount), episodes, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration
+	return len(users_changecount), episodes, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes
 }
 
 // *******************************************************************************
