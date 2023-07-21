@@ -60,7 +60,7 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	//subject := "Mark_Burgess_(computer_scientist)"
+	subject := "Mark_Burgess_(computer_scientist)"
 	//subject := "Jan_Bergstra"
 	//subject := "Michael_Jackson"
 	//subject := "George_W._Bush"
@@ -74,7 +74,7 @@ func main() {
 	//subject := "Estonia"
 	//subject := "NLnet"
 	//subject := "Jean_Sibelius"
-	subject := "Gustav_Mahler"
+	//subject := "Gustav_Mahler"
 	//subject := "Edvard_Grieg"
 	//subject := "Ludwig_van_Beethoven"
 	//subject := "Wolfgang_Amadeus_Mozart"
@@ -159,8 +159,10 @@ func main() {
 
 	fmt.Println("\n*********************************************")
 	fmt.Println("* SUMMARY")
-	fmt.Println("* Total contentious article assessments for",subject,"=",ARTICLE_ISSUES)
-	fmt.Println("* Contention per unit length =",float64(ARTICLE_ISSUES)/float64(len(selected)))
+	fmt.Printf("* Total contentious article assessments for %s = %d\n",subject,ARTICLE_ISSUES)
+	fmt.Printf("* Contention x1000 per unit length = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(textlength))
+	fmt.Printf("* Contention x1000 per user = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users))
+	fmt.Printf("* Contention x1000 per user^2 = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users))
 	fmt.Println("* Process history length =",len(remarks))
 	fmt.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
 	fmt.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
