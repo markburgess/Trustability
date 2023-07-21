@@ -60,12 +60,12 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subject := "Mark_Burgess_(computer_scientist)"
+	//subject := "Mark_Burgess_(computer_scientist)"
 	//subject := "Jan_Bergstra"
 	//subject := "Michael_Jackson"
 	//subject := "George_W._Bush"
 	//subject := "Promise_theory"
-	//subject := "Quantum_mechanics"
+	subject := "Quantum_mechanics"
 	//subject := "String_theory"
 	//subject := "Algebraic_geometry"
 	//subject := "Boredom"
@@ -134,7 +134,7 @@ func main() {
 
 	// Look at signals
 
-	history_users, episodes, avt, avep, useredits, usergroups := HistoryAssessment(subject,changelog)
+	history_users, episodes, avt, avep, useredits, usergroups, episode_duration := HistoryAssessment(subject,changelog)
 
 	historypage := TotalText(changelog)
 
@@ -172,11 +172,15 @@ func main() {
 	fmt.Println("*********************************************\n")
 
 	for u := range useredits {
-		fmt.Println(" Ed ",u,useredits[u])
+		lifetime := float64(useredits[u][len(useredits[u])-1]-useredits[u][0])/float64(DAY)
+		if lifetime > 1 {
+			fmt.Println(" Lifetime ",u,lifetime,"days")
+		}
 	}
 
 	for g := range usergroups {
-		fmt.Println(" Gr ",g,usergroups[g])
+		duration := float64(episode_duration[g])/float64(DAY)
+		fmt.Println(" Group ",g,usergroups[g],"duration (days)",duration,"dur/user",duration/float64(len(usergroups[g])))
 	}
 
 }
@@ -487,7 +491,7 @@ func HistoryPage(url string) []WikiProcess {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int][]string) {
+func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int]map[string]int,map[int]int64) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -504,15 +508,21 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var burst_size int = 0
 	var sum_burst_size int = 0
 	var episodes int = 1
+	var burststart int64
 
 	var allusers = make(map[string][]int64)
-	var allepisodes = make(map[int][]string)
+	var allepisodes = make(map[int]map[string]int)
+	var episode_duration = make(map[int]int64)
 
 	fmt.Println("\n==============================================\n")
 	fmt.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
 	fmt.Println("\n==============================================\n")
 
 	fmt.Println("\n----------- EDITS --------------------")
+
+	allepisodes[episodes] = make(map[string]int)
+
+	burststart = changelog[0].Date.UnixNano()
 
 	for i := range changelog {
 
@@ -521,7 +531,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// Setup lists of edits for each user
 
 		allusers[changelog[i].User] = append(allusers[changelog[i].User],changelog[i].Date.UnixNano())
-		allepisodes[episodes] = append(allepisodes[episodes],changelog[i].User)
+		allepisodes[episodes][changelog[i].User]++
 
 		// Bootstrap difference
 
@@ -561,9 +571,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 			//fmt.Println("End of change burst containing",burst_size,"edits (",delta_t/float64(MINUTE),"/",all_users_averagetime/float64(MINUTE),")")
 			sum_burst_size += burst_size
+			episode_duration[episodes] = changelog[i].Date.UnixNano() - burststart
 			burst_size = 0
+			burststart = changelog[i].Date.UnixNano()
 			episodes++
-
+			allepisodes[episodes] = make(map[string]int)
 		}
 
 		all_users_averagetime = 0.4 * all_users_averagetime + 0.6 * delta_t
@@ -653,7 +665,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	av_burst_size := float64(sum_burst_size + burst_size) / float64(episodes)
 
-	return len(users_changecount), episodes, all_users_averagetime, av_burst_size, allusers, allepisodes
+	return len(users_changecount), episodes, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration
 }
 
 // *******************************************************************************
