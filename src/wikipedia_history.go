@@ -36,7 +36,7 @@ import (
 
 // ***********************************************************
 
-type WikiNote struct {
+type WikiProcess struct {       // A list of all edit events
 	
 	Date      time.Time
 	User      string
@@ -60,7 +60,7 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	//subject := "Mark_Burgess_(computer_scientist)"
+	subject := "Mark_Burgess_(computer_scientist)"
 	//subject := "Jan_Bergstra"
 	//subject := "Michael_Jackson"
 	//subject := "George_W._Bush"
@@ -77,7 +77,11 @@ func main() {
 	//subject := "Gustav_Mahler"
 	//subject := "Edvard_Grieg"
 	//subject := "Ludwig_van_Beethoven"
-	subject := "Wolfgang_Amadeus_Mozart"
+	//subject := "Wolfgang_Amadeus_Mozart"
+	//subject := "Church_of_Scientology"
+	//subject := "Holy_Roman_Empire"
+	//subject := "Napoleonic_Wars"
+	//subject := "Chinese_cuisine"
 
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
@@ -130,7 +134,7 @@ func main() {
 
 	// Look at signals
 
-	history_users, episodes, avt, avep := HistoryAssessment(subject,changelog)
+	history_users, episodes, avt, avep, useredits, usergroups := HistoryAssessment(subject,changelog)
 
 	historypage := TotalText(changelog)
 
@@ -158,11 +162,23 @@ func main() {
 	fmt.Println("* Total contentious article assessments for",subject,"=",ARTICLE_ISSUES)
 	fmt.Println("* Contention per unit length =",float64(ARTICLE_ISSUES)/float64(len(selected)))
 	fmt.Println("* Process history length =",len(remarks))
+	fmt.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
+	fmt.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
+	fmt.Println("* Efficiency History/Article  =",float64(talklength)/(float64(textlength)*float64(len(remarks)))*float64(len(selected)))
 	fmt.Println("* Total users involved in shared process", history_users)
 	fmt.Println("* Change episodes with discernable punctuation", episodes)
 	fmt.Println("* Average episode size (notes/remarks)", avep)
 	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
 	fmt.Println("*********************************************\n")
+
+	for u := range useredits {
+		fmt.Println(" Ed ",u,useredits[u])
+	}
+
+	for g := range usergroups {
+		fmt.Println(" Gr ",g,usergroups[g])
+	}
+
 }
 
 // ***********************************************************
@@ -288,7 +304,7 @@ func MainPage(url string) string {
 
 // ***********************************************************
 
-func HistoryPage(url string) []WikiNote {
+func HistoryPage(url string) []WikiProcess {
 
 	response, err := http.Get(url)
 
@@ -308,8 +324,8 @@ func HistoryPage(url string) []WikiNote {
 	var user = false
 	var history int = 0
 
-	var entry WikiNote
-	var changelog []WikiNote
+	var entry WikiProcess
+	var changelog []WikiProcess
 
 	// Start parsing
 
@@ -376,7 +392,7 @@ func HistoryPage(url string) []WikiNote {
 			if s == "prev" {
 
 				attend = true
-				var empty WikiNote
+				var empty WikiProcess
 				entry = empty
 				after_edits = false
 				after_editsize = true
@@ -471,7 +487,7 @@ func HistoryPage(url string) []WikiNote {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64,float64) {
+func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int][]string) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -489,6 +505,9 @@ func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64,fl
 	var sum_burst_size int = 0
 	var episodes int = 1
 
+	var allusers = make(map[string][]int64)
+	var allepisodes = make(map[int][]string)
+
 	fmt.Println("\n==============================================\n")
 	fmt.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
 	fmt.Println("\n==============================================\n")
@@ -498,6 +517,11 @@ func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64,fl
 	for i := range changelog {
 
 		//fmt.Printf(">> %15s (%v)(%d), %s\n", changelog[i].User,changelog[i].Date,changelog[i].EditDelta,changelog[i].Message)
+
+		// Setup lists of edits for each user
+
+		allusers[changelog[i].User] = append(allusers[changelog[i].User],changelog[i].Date.UnixNano())
+		allepisodes[episodes] = append(allepisodes[episodes],changelog[i].User)
 
 		// Bootstrap difference
 
@@ -629,12 +653,12 @@ func HistoryAssessment(subject string, changelog []WikiNote) (int,int,float64,fl
 
 	av_burst_size := float64(sum_burst_size + burst_size) / float64(episodes)
 
-	return len(users_changecount), episodes, all_users_averagetime, av_burst_size
+	return len(users_changecount), episodes, all_users_averagetime, av_burst_size, allusers, allepisodes
 }
 
 // *******************************************************************************
 
-func TotalText(changelog []WikiNote) string {
+func TotalText(changelog []WikiProcess) string {
 
 	var text string = ""
 
