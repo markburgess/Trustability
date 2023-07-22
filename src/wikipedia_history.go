@@ -60,7 +60,7 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subject := "Mark_Burgess_(computer_scientist)"
+	//subject := "Mark_Burgess_(computer_scientist)"
 	//subject := "Jan_Bergstra"
 	//subject := "Michael_Jackson"
 	//subject := "George_W._Bush"
@@ -81,7 +81,7 @@ func main() {
 	//subject := "Church_of_Scientology"
 	//subject := "Holy_Roman_Empire"
 	//subject := "Napoleonic_Wars"
-	//subject := "Chinese_cuisine"
+	subject := "Chinese_cuisine"
 
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
@@ -157,23 +157,7 @@ func main() {
 	
 	TT.LongitudinalPersistentConcepts(topics)
 
-	fmt.Println("\n*********************************************")
-	fmt.Println("* SUMMARY")
-	fmt.Printf("* Total contentious article assessments for %s = %d\n",subject,ARTICLE_ISSUES)
-	fmt.Printf("* Contention x1000 per unit length = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(textlength))
-	fmt.Printf("* Contention x1000 per user = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users))
-	fmt.Printf("* Contention x1000 per user^2 = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users))
-	fmt.Println("* Process history length =",len(remarks))
-	fmt.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
-	fmt.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
-	fmt.Println("* Efficiency History/Article  =",float64(talklength)/(float64(textlength)*float64(len(remarks)))*float64(len(selected)))
-	fmt.Println("* Total users involved in shared process", history_users)
-	fmt.Println("* Change episodes with discernable punctuation", episodes)
-	fmt.Println("* Average episode size (notes/remarks)", avep)
-	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
-	fmt.Println("*********************************************\n")
-
-	fmt.Println("\nUser/agent persistence on this page ....\n")
+	fmt.Println("\n****** User/agent persistence on this page ....\n")
 
 	for u := range useredits {
 		lifetime := float64(useredits[u][len(useredits[u])-1]-useredits[u][0])/float64(DAY)
@@ -182,7 +166,7 @@ func main() {
 		}
 	}
 
-	fmt.Println("\nEDITING EPISODIC BURSTS....\n")
+	fmt.Println("\n******* EDITING EPISODIC BURSTS....\n")
 
 	for g := 1; g <= len(usergroups); g++ {
 		duration := float64(episode_duration[g])/float64(DAY)
@@ -190,6 +174,38 @@ func main() {
 		fmt.Println("\n",g," Episode with",users,"users\n        ",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
 	}
 
+	fmt.Println("\n*********************************************")
+	fmt.Println("* SUMMARY")
+	fmt.Println("* Mainpage for",subject,"-- length",textlength,"chars")
+	fmt.Printf("* Total contentious article assessments for %s = %d\n",subject,ARTICLE_ISSUES)
+	fmt.Printf("* I/L = Contention x1000 per unit length = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(textlength))
+	fmt.Printf("* Contention x1000 per user = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users))
+	fmt.Printf("* Contention x1000 per user^2 = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users))
+	fmt.Println("* Process history length =",len(remarks))
+	fmt.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
+	fmt.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
+	E := float64(len(selected))/float64(textlength)
+	e := float64(len(remarks))/float64(talklength)
+	fmt.Println("* Efficiency History/Article  =",e/E)
+	fmt.Println("* Total users involved in shared process", history_users)
+	fmt.Println("* Change episodes with discernable punctuation", episodes)
+	fmt.Println("* Average episode size (notes/remarks)", avep)
+	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
+	fmt.Println("*********************************************\n")
+
+	fmt.Println("\nGraph table:\n")
+	fmt.Println("text L, users N, issues I, history H, selected text = S, selected history = s\n")
+	fmt.Println("L, U, I/L, I/N, I/N^2, H/L, s/S, E = S/L, e = s/H, e/E")
+	fmt.Println(textlength,
+		history_users,
+		1000*float64(ARTICLE_ISSUES)/float64(textlength),
+		1000*float64(ARTICLE_ISSUES)/float64(history_users),
+		1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users),
+		float64(talklength)/float64(textlength),
+		float64(len(remarks))/float64(len(selected)),
+		E,
+		e,
+		e/E)
 }
 
 // ***********************************************************
