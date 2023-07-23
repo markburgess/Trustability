@@ -60,35 +60,295 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	//subject := "Mark_Burgess_(computer_scientist)"
-	//subject := "Jan_Bergstra"
-	//subject := "Michael_Jackson"
-	//subject := "George_W._Bush"
-	//subject := "Promise_theory"
-	//subject := "Quantum_mechanics"
-	//subject := "String_theory"
-	//subject := "Algebraic_geometry"
-	//subject := "Boredom"
-	//subject := "Air"
-	//subject := "Atmosphere_of_Earth"
-	//subject := "Estonia"
-	//subject := "NLnet"
-	//subject := "Jean_Sibelius"
-	//subject := "Gustav_Mahler"
-	//subject := "Edvard_Grieg"
-	//subject := "Ludwig_van_Beethoven"
-	//subject := "Wolfgang_Amadeus_Mozart"
-	//subject := "Church_of_Scientology"
-	//subject := "Holy_Roman_Empire"
-	//subject := "Napoleonic_Wars"
-	subject := "Chinese_cuisine"
+	var subjects = []string{ "Mark_Burgess_(computer_scientist)",
+		"Jan_Bergstra",
+		"Michael_Jackson",
+		"George_W._Bush",
+		"Promise_theory",
+		"Quantum_mechanics",
+		"String_theory",
+		"Algebraic_geometry",
+		"Boredom",
+		"Air",
+		"Atmosphere_of_Earth",
+		"Estonia",
+		"NLnet",
+		"Jean_Sibelius",
+		"Gustav_Mahler",
+		"Edvard_Grieg",
+		"Ludwig_van_Beethoven",
+		"Wolfgang_Amadeus_Mozart",
+		"Church_of_Scientology",
+		"Holy_Roman_Empire",
+		"Napoleonic_Wars",
+		"Chinese_cuisine",
+		"Jerry_Goldsmith",
+		"Basic_Instinct",
+		"Stinson_Beach,_California",
+		"Mount_Tamalpais_State_Park",
+		"London",
+		"Financial_centre",
+		"Boston",
+		"Shanghai",
+		"Amsterdam",
+		"Language",
+		"Productivity_(linguistics)",
+		"Germanic_strong_verb",
+		"Verner's_law",
+		"Africa",
+		"Scramble_for_Africa",
+		"Cold_War",
+		"Soviet_empire",
+		"Sino-Soviet_split",
+		"On_the_Cult_of_Personality_and_Its_Consequences",
+		"Speaker_of_the_United_States_House_of_Representatives",
+		"Minister_(Christianity)",
+		"Minister_(government)",
+		"Politician",
+		"Venture_capital",
+		"Economic_development",
+		"Industrialisation",
+		"Child_labour",
+		"Colony",
+		"Marseille",
+		"Olivier_Messiaen",
+		"Mode_of_limited_transposition",
+		"Diminished_seventh_chord",
+		"Minor_third",
+		"Light_My_Fire",
+		"Grammy_Awards",
+		"Phonograph",
+		"Stethoscope",
+		"Victor_Henri_Hutinel",
+		"Pericarditis",
+		"Palpitations",
+		"Anxiety",
+		"Exaggeration",
+		"Poetry",
+		"Sumerian_language",
+		"Assyria",
+		"Bronze_Age",
+		"Copper",
+		"Electrical_resistivity_and_conductivity",
+		"Electric_current",
+		"Incandescent_light_bulb",
+		"Easy-Bake_Oven",
+		"Big_Bird",
+		"Caroll_Spinney",
+		"Waltham,_Massachusetts",
+		"Frederick_Law_Olmsted",
+		"Biltmore_Estate",
+		"Carom_billiards",
+		"Ivory",
+		"Dentin",
+		"Dentinogenesis",
+		"Cell_(biology)",
+		"DNA_repair",
+		"Apoptosis",
+		"Nobel_Prize_in_Physiology_or_Medicine",
+		"Prague",
+		"Gerty_Cori",
+		"Charles_IV,_Holy_Roman_Emperor",
+		"List_of_kings_of_Burgundy",
+		"Conrad_I_of_Burgundy",
+		"Gisela_of_Burgundy",
+		"Yello",
+		"Yellow",
+		"Electronic_music",
+		"Telharmonium",
+		"Hammond_organ",
+		"The_Muppets",
+		"Self-referential_humor",
+		"Aristophanes",
+		"Plato",
+		"Philosophy",
+		"Chinese_philosophy",
+		"School_of_Names",
+		"Liu_Xiang_(scholar)",
+		"Chinese_surname",
+		"Qin_dynasty",
+		"Warring_States_period",
+		"Dujiangyan",
+		"Brazil",
+		"Paul_the_Apostle",
+		"List_of_largest_cities",
+		"Paulista_Avenue",
+		"Favela",
+		"Bahia",
+		"Northeast_Region,_Brazil",
+		"Portugal",
+		"Iberian_Peninsula",
+		"Ecosystem",
+		"Decomposition",
+		"Nutrient_cycle",
+		"Oxygen_cycle",
+		"Oxide",
+		"Aluminium_foil",
+		"Aluminium_recycling",
+		"Drink_can",
+		"Alcoholic_beverage",
+		"Alcohol_packaging_warning_messages",
+		"EBSCO_Information_Services",
+		"Elton_Bryson_Stephens_Sr.",
+		"Orchestra",
+		"Brass_instrument",
+		"Harmonic_series_(music)",
+		"Oscillation",
+		"Newton's_laws_of_motion",
+		"Motion",
+		"Initial_condition",
+		"Kinematics",
+		"Differential_equation",
+		"Closed-form_expression",
+		"Inverse_hyperbolic_functions",
+		"Hyperbolic_sector",
+		"Domain_(mathematical_analysis)",
+		"Accumulation_point",
+		"Real_coordinate_space",
+		"Bijection",
+		"Isomorphism",
+		"Alpha",
+		"Phoenician_alphabet",
+		"Civilization",
+		"Mining",
+		"Limestone",
+		"Diagenesis",
+		"Metamorphism",
+		"Statistical_mechanics",
+		"Ludwig_Boltzmann",
+		"Second_law_of_thermodynamics",
+		"Isolated_system",
+		"Boundary_value_problem",
+		"Laplace's_equation",
+		"Poisson's_equation",
+		"Trilinear_interpolation",
+		"Simplex",
+		"Tetrahedron",
+		"Coxeter-Dynkin_diagram",
+		"Hyperplane",
+		"Affine_space",
+		"Associative_property",
+		"Exclusive_economic_zone",
+		"Sovereignty",
+		"English_Channel",
+		"Strait_of_Dover",
+		"Pleistocene",
+		"Afro-Eurasia",
+		"Classical_antiquity",
+		"Homer",
+		"Homer's_Ithaca",
+		"Greg_Bear",
+		"Darwin's_Children",
+		"Sherlock_(TV_series)",
+		"Masterpiece_(TV_series)",
+		"Susan_Hampshire",
+		"James_Horner",
+		"Academy_Awards",
+		"Emmy_Awards",
+		"George_Clooney",
+		"AFI_Life_Achievement_Award",
+		"Richard_Nixon",
+		"United_States_Navy_Reserve",
+		"Individual_Ready_Reserve",
+		"Philip_Hammond",
+		"Conservative_Party_(UK)",
+		"Liberal_Unionist_Party",
+		"Charles_Stewart_Parnell",
+		"Home_Rule_League",
+		"Church_of_Ireland",
+		"Reformation",
+		"Martin_Luther",
+		"Sacerdotalism",
+		"Divino_afflante_Spiritu",
+		"Magna_Carta",
+		"Treaty_of_Lambeth",
+		"Chertsey",
+		"South_Western_Railway_(train_operating_company)",
+		"British_Rail_Class_483",
+		"London_Underground",
+		"Buckinghamshire",
+		"Aylesbury",
+		"Old_English",
+		"Northumbrian_Old_English",
+		"Old_Norse",
+		"Middle_English",
+		"Norman_Conquest",
+		"Harold_Godwinson",
+		"Godwin,_Earl_of_Wessex",
+		"Tostig_Godwinson",
+		"Anglo-Saxons",
+		"Romano-British_culture",
+		"Peregrinus_(Roman)",
+		"Civitas",
+		"Livy",
+		"Augustus",
+		"Second_Triumvirate",
+		"Rubicon",
+		"Fall_of_the_Western_Roman_Empire",
+		"Endemic_(epidemiology)",
+		"Chickenpox",
+		"Encephalitis",
+		"Aciclovir",
+		"Generic_drug",
+		"International_nonproprietary_name",
+		"Citalopram",
+		"Prevention_of_migraine_attacks",
+		"Topiramate",
+		"European_Federation_of_Neurological_Societies",
+		"European_Menopause_and_Andropause_Society",
+		"Obstetrics",
+		"Obstetric_ultrasonography",
+		"Multiple_birth",
+		"Egg_cell",
+		"Sperm",
+		"Amniote",
+		"Chorion",
+		"Mesoderm",
+		"Connective_tissue",
+		"White_blood_cell",
+		"T_helper_cell",
+		"Macrophage",
+		"Anti-inflammatory",
+		"Steroid",
+		"Cyclopentane",
+		"Birefringence",
+		"Nonlinear_optics",
+		"Kerr-lens_modelocking",
+		"Electromagnetic_radiation",
+		"Magnetic_field",
+		"Physical_constant",
+		"Dimensionless_physical_constant",
+		"Fine-structure_constant",
+		"Edward_W._Morley",
+		"West_Hartford,_Connecticut",
+		"Hartford-Springfield",
+		"Liberal_arts_college",
+		"Law",
+		"Precedent",
+		"Fact",
+		"Charles_Sanders_Peirce",
+		"Categories_(Peirce)",
+		"Categories_(Aristotle)",
+		"Haecceity",
+		"Quiddity",
+		"Hypokeimenon",
+	}
 
+	for n := range subjects {
+		result := AnalyzeTopic(subjects[n])
+		TT.AppendStringToFile("/tmp/trust.dat",result)
+	}
+}
+
+// ***********************************************************
+
+func AnalyzeTopic(subject string) string {
+	
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
-
 	// ***********************************************************
-
+	
 	TT.InitializeSmartSpaceTime()
 
 	var dbname string = "SemanticSpacetime"
@@ -168,11 +428,43 @@ func main() {
 
 	fmt.Println("\n******* EDITING EPISODIC BURSTS....\n")
 
+	var average_cluster float64 = 0
+
 	for g := 1; g <= len(usergroups); g++ {
 		duration := float64(episode_duration[g])/float64(DAY)
 		users := float64(len(usergroups[g]))
+		average_cluster += users/float64(len(usergroups))
 		fmt.Println("\n",g," Episode with",users,"users\n        ",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
 	}
+
+
+	I := float64(ARTICLE_ISSUES)            // counted altercations
+	IL := math.Log(I)
+
+	N := average_cluster                // av users per episode
+	NL := math.Log(N)
+
+	N2 := (N*N-N)
+	N2L := math.Log(N2)
+
+	L := float64(textlength)            // article length in sentences
+	LL := math.Log(L)
+
+	H := float64(talklength)            // change process in sentence/entries
+	//HL := math.Log(H)
+
+	s := float64(len(remarks))          // changes subsampled on trust
+	S := float64(len(selected))         // article subsampled on trust
+
+	e := s/H  // trusted process watch list fraction
+	E := S/L  // trusted article watch list fraction
+
+	// work and sampled(untrusted)
+
+	w := H/L
+	wL := math.Log(w)
+	u := s/S
+	uL := math.Log(u)
 
 	fmt.Println("\n*********************************************")
 	fmt.Println("* SUMMARY")
@@ -184,28 +476,41 @@ func main() {
 	fmt.Println("* Process history length =",len(remarks))
 	fmt.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
 	fmt.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
-	E := float64(len(selected))/float64(textlength)
-	e := float64(len(remarks))/float64(talklength)
 	fmt.Println("* Efficiency History/Article  =",e/E)
 	fmt.Println("* Total users involved in shared process", history_users)
+	fmt.Println("* Average user cluster size per episode", average_cluster)
 	fmt.Println("* Change episodes with discernable punctuation", episodes)
 	fmt.Println("* Average episode size (notes/remarks)", avep)
 	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
 	fmt.Println("*********************************************\n")
 
 	fmt.Println("\nGraph table:\n")
-	fmt.Println("text L, users N, issues I, history H, selected text = S, selected history = s\n")
-	fmt.Println("L, U, I/L, I/N, I/N^2, H/L, s/S, E = S/L, e = s/H, e/E")
-	fmt.Println(textlength,
-		history_users,
-		1000*float64(ARTICLE_ISSUES)/float64(textlength),
-		1000*float64(ARTICLE_ISSUES)/float64(history_users),
-		1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users),
-		float64(talklength)/float64(textlength),
-		float64(len(remarks))/float64(len(selected)),
-		E,
-		e,
-		e/E)
+
+	output := fmt.Sprintln(
+		L,   // 1 text
+		LL,  // 2
+		N,   // 3 users
+		NL,  // 4
+		N2,  // 5 users-cluster
+		N2L, // 6
+		I,   // 7
+		IL,  // 8
+ 		w,  // 9
+		wL, // 10
+		u,  // 11
+		uL, // 12
+	)
+	// Look for the dynamics of the change process as fn of L and N
+	// I(N)  -> (3,7), exp(3,8), pow(4,8)
+	// I(N2) -> (5,7), exp(5,8), pow(6,8) 
+	// I(L)  -> (1,7), exp(1,8), pow(2,8)
+	
+	// Relaxation of history activity per length of article H/L and its trusted fraction s/S
+	// R(L) as time goes on, L converges and issues come to a halt, L is a proxy for tau
+	// Rw(L)  -> (1,9), exp(1,10), pow(2,10)
+	// Ru(L)  -> (1,11), exp(1,12), pow(2,12)
+
+	return output
 }
 
 // ***********************************************************

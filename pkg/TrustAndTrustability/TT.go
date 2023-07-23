@@ -2370,7 +2370,7 @@ func SecondDerivative(e PromiseHistory, qscale,tscale float64) float64 {
 // Generate graphs
 // ****************************************************************************
 
-func AppendFileValue(name string, value float64) {
+func AppendStringToFile(name string, s string) {
 
 	f, err := os.OpenFile(name,os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
@@ -2379,8 +2379,6 @@ func AppendFileValue(name string, value float64) {
 		return
 	}
 
-	s := fmt.Sprintf("%f\n",value)
-
 	_, err = f.WriteString(s)
 
 	if err != nil {
@@ -2388,6 +2386,14 @@ func AppendFileValue(name string, value float64) {
 	}
 
 	f.Close()
+}
+
+// ****************************************************************************
+
+func AppendFileValue(name string, value float64) {
+
+	s := fmt.Sprintf("%f\n",value)
+	AppendStringToFile(name,s)
 }
 
 // ****************************************************************************
