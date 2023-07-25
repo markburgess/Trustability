@@ -56,14 +56,14 @@ set output "gr_6.pdf"
 plot "/tmp/trust.dat" using 5:7 
 
 set xlabel "N^2-N"
-set ylabel "I"
+set ylabel "log I"
 set title "7"
 set term pdf monochrome
 set output "gr_7.pdf"
 plot "/tmp/trust.dat" using 5:8 
 
 set xlabel "log N^2-N"
-set ylabel "I"
+set ylabel "log I"
 set title "8"
 set term pdf monochrome
 set output "gr_8.pdf"
@@ -78,8 +78,8 @@ set term pdf monochrome
 set output "gr_9.pdf"
 plot "/tmp/trust.dat" using 1:7
 
-set xlabel "log L"
-set ylabel "I(L)"
+set xlabel "L"
+set ylabel "log I(L)"
 set title "10"
 set term pdf monochrome
 set output "gr_10.pdf"
@@ -102,8 +102,8 @@ set output "gr_12.pdf"
 plot "/tmp/trust.dat" using 1:9
 
 
-set xlabel "log L"
-set ylabel "Rw"
+set xlabel "L"
+set ylabel "log Rw"
 set title "13"
 set term pdf monochrome
 set output "gr_13.pdf"
@@ -127,8 +127,8 @@ set output "gr_15.pdf"
 plot "/tmp/trust.dat" using 1:11
 
 
-set xlabel "log L"
-set ylabel "Ru"
+set xlabel "L"
+set ylabel "log Ru"
 set title "16"
 set term pdf monochrome
 set output "gr_16.pdf"
