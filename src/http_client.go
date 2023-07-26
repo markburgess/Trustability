@@ -1,3 +1,8 @@
+
+//
+// Simple stub for connecting to HTTP server
+//
+
 import (
     "bufio"
     "fmt"

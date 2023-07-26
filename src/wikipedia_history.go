@@ -13,8 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// e.g. set url variable and
+// To run, edit the list of pages if necessary and simply run 
+// (takes a long time to complete and generates a lot of output)
+// It generates/appends to a file /tmp/trust.dat (should not exist in advance)
+//
 //      go run wikipedia_history.go
+//
+// To generate graphs, install GNUplot and run script in gnuplot.in
 //
 // This is tuned specifically to Wikipedia scanning. using the general methods
 // ***********************************************************

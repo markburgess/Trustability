@@ -16,7 +16,8 @@
 
 // ***************************************************************************
 //*
-//* Cellibrium v3 in golang - on Arango
+//* Cellibrium derived code, in golang -using ArangoDB
+//* Applied to Trust and Semantics Learning
 //*
 // ***************************************************************************
 

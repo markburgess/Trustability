@@ -14,7 +14,9 @@
 // limitations under the License.
 //
 // e.g.
-//     go run ngrams.go /home/mark/Laptop/Work/SST/data_samples/obama.dat
+//     go run ngrams-lib.go /home/mark/Laptop/Work/SST/data_samples/obama.dat
+//
+// ****************************************************************************
 
 package main
 
@@ -35,16 +37,6 @@ import (
 
 var G TT.Analytics
 
-// ****************************************************************************
-// SCAN themed stories as text to understand their components
-//
-//   go run scan_stream.go ~/LapTop/SST/test3.dat 
-//
-// We want to input streams of narrative and extract phrase fragments to see
-// which become statistically significant - maybe forming a hierarchy of significance.
-// Try to measure some metrics/disrtibutions as a function of "amount", where
-// amount is measured in characters, words, sentences, paragraphs, since these
-// have different semantics.
 // ****************************************************************************
 
 func main() {

@@ -14,7 +14,10 @@
 // limitations under the License.
 //
 // e.g.
+//     go get golang.org/x/net/html
 //     go run ngram+html.go "https://jimruttshow.blubrry.net/the-jim-rutt-show-transcripts/transcript-of-ep-190-peter-turchin-on-cliodynamics-and-end-times/" 40 | more
+//
+// ****************************************************************************
 
 package main
 
