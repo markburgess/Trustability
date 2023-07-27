@@ -267,7 +267,10 @@ func ReadSubjects(filename string) []string {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		list = append(list,scanner.Text())
+
+		s := scanner.Text()
+		s = strings.ReplaceAll(s,"–","-")
+		list = append(list,s)
 	}
 	
 	return list
