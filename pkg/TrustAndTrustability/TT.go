@@ -2368,7 +2368,7 @@ func SecondDerivative(e PromiseHistory, qscale,tscale float64) float64 {
 }
 
 // ****************************************************************************
-// Generate graphs
+// Generate data graphs
 // ****************************************************************************
 
 func AppendStringToFile(name string, s string) {
