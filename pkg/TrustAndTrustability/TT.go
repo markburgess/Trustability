@@ -2598,6 +2598,8 @@ func BelongsToLinSet(sets LinSet,member string) (bool,string,string) {
 }
 
 // ****************************************************************************
+// Semantic 2D time
+// ****************************************************************************
 
 var GR_DAY_TEXT = []string{
         "Monday",
