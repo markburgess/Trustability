@@ -151,7 +151,6 @@ const ASSESS_EXCELLENT = 1.0
 const ASSESS_PAR = 0.5
 const ASSESS_WEAK = 0.25
 const ASSESS_SUBPAR = 0.0
-
 const NOT_EXIST = 0
 
 // ****************************************************************************
@@ -226,6 +225,7 @@ var EXCLUSIONS []string
 
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
 
+var VERBOSE bool = false
 
 // ****************************************************************************
 // Knowledge graph SST structures
@@ -3284,3 +3284,52 @@ func ExcludedByBindings(firstword,lastword string) bool {
 return false 
 }
 
+// *****************************************************************
+
+func HubUniqueName(cluster map[string]int) string {
+
+	// Create a unique name from a unique set of names
+	// in a map index by ordering, composing, and hashing
+
+	var sortnames []string
+
+	for name := range cluster {
+		sortnames = append(sortnames,name)
+	}
+
+	sort.Strings(sortnames)
+
+	var ordered_string string
+
+	for n := range sortnames {
+		ordered_string += sortnames[n]
+	}
+
+	key := fnvhash([]byte(ordered_string))
+	return key
+}
+
+
+// *****************************************************************
+// * OUTPUT control
+// *****************************************************************
+
+func Printf(format string, a ...any) (n int, err error) {
+
+	if VERBOSE {
+		return fmt.Printf(format,a)
+	} else {
+		return fmt.Printf(format,"")
+	}
+}
+
+// *****************************************************************
+
+func Println(a ...any) (n int, err error) {
+
+	if VERBOSE {
+		return fmt.Println(a)
+	} else {
+		return fmt.Println("")
+	}
+}
