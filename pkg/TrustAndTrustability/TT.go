@@ -2850,7 +2850,7 @@ func RankByIntent(selected_sentences []Narrative) map[string]float64 {
 
 	sentences := len(selected_sentences)
 
-	fmt.Println("--------- Sumarize ngram Intentionality threshold selection ---------------------------")
+	Println("--------- Sumarize ngram Intentionality threshold selection ---------------------------")
 
 	for n := 1; n < MAXCLUSTERS; n++ {
 
@@ -2869,7 +2869,7 @@ func RankByIntent(selected_sentences []Narrative) map[string]float64 {
 				continue
 			}
 
-			fmt.Println(n,ngram,occurrences,STM_NGRAM_RANK[n][ngram],"---------",intent)
+			Println(n,ngram,occurrences,STM_NGRAM_RANK[n][ngram],"---------",intent)
 
 			// if ngram of occurrences exceeds an expectation threshold in terms of length
 
@@ -2930,7 +2930,7 @@ return topics
 
 func LongitudinalPersistentConcepts(topics map[string]float64) {
 	
-	fmt.Println("----- Emergent Longitudinally Stable Concept Fragments ---------")
+	Println("----- Emergent Longitudinally Stable Concept Fragments ---------")
 	
 	var sortable []Score
 	
@@ -2952,7 +2952,7 @@ func LongitudinalPersistentConcepts(topics map[string]float64) {
 	
 	for i := 0; i < len(sortable); i++ {
 		
-		fmt.Printf("Particular theme/topic \"%s\" (= %f)\n", sortable[i].Key, sortable[i].Score)
+		Printf("Particular theme/topic \"%s\" (= %f)\n", sortable[i].Key, sortable[i].Score)
 	}
 }
 
@@ -2965,9 +2965,9 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
         // `leg' counter when it fills up to measure story progress. 
 	// This determines the sampling density of "important sentences" - pick a few from each leg
 
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-	fmt.Println("> Select inferred intentional content summary ...about",filename)
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	Println("> Select inferred intentional content summary ...about",filename)
+	Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 
 	var steps,leg int
 
@@ -3065,9 +3065,9 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 
 	// Summarize	
 
-	fmt.Println("------------------------------------------")
-	fmt.Println("Notable events = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
-	fmt.Println("------------------------------------------\n")
+	Println("------------------------------------------")
+	Println("Notable events = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
+	Println("------------------------------------------\n")
 }
 
 //**************************************************************
@@ -3138,7 +3138,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 	// Hubs will overlap with each other, so some will be "near" others i.e. "approx" them
 	// We want the degree of overlap between hubs TT.CompareContexts()
 
-	fmt.Println("\n >> (Rank leg interest potential (anomalous intent)",leg,"=",scale_free_trust,")")
+	Println("\n >> (Rank leg interest potential (anomalous intent)",leg,"=",scale_free_trust,")")
 
 	// How do we quantitatively adjust output rate/velocity based on above threshold deviation
 
@@ -3152,7 +3152,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 
 		detail_per_leg_policy = int(0.5 + math.Sqrt(float64(LEG_WINDOW) * scale_free_trust))
 
-		fmt.Println(" >> (Dynamic kinetic event selection velocity", detail_per_leg_policy,"(events per leg)",LEG_WINDOW,")")
+		Println(" >> (Dynamic kinetic event selection velocity", detail_per_leg_policy,"(events per leg)",LEG_WINDOW,")")
 
 		// top intra_leg_sampling_density = count backwards from the end
 
@@ -3180,7 +3180,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 
 	for r := range ranks_in_order {
 
-		fmt.Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[r],selected_sentences[ranks_in_order[r]].text)
+		Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[r],selected_sentences[ranks_in_order[r]].text)
 		KEPT++
 	}
 }
@@ -3314,12 +3314,12 @@ func HubUniqueName(cluster map[string]int) string {
 // * OUTPUT control
 // *****************************************************************
 
-func Printf(format string, a ...any) (n int, err error) {
+func Printf(format string, args ...interface{}) (n int, err error) {
 
 	if VERBOSE {
-		return fmt.Printf(format,a)
+		return fmt.Printf(format,args...)
 	} else {
-		return fmt.Printf(format,"")
+		return fmt.Printf("")
 	}
 }
 
@@ -3328,8 +3328,19 @@ func Printf(format string, a ...any) (n int, err error) {
 func Println(a ...any) (n int, err error) {
 
 	if VERBOSE {
-		return fmt.Println(a)
+		return fmt.Println(a...)
 	} else {
-		return fmt.Println("")
+		return fmt.Print("")
+	}
+}
+
+// *****************************************************************
+
+func Print(a ...any) (n int, err error) {
+
+	if VERBOSE {
+		return fmt.Print(a...)
+	} else {
+		return fmt.Print("")
 	}
 }

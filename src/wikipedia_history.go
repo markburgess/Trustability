@@ -106,11 +106,11 @@ func AnalyzeTopic(subject string) string {
 
 	selected := TT.FractionateSentences(mainpage)
 
-	fmt.Println("*********************************************")
-	fmt.Println("* Mainpage for",subject,"-- length",textlength,"chars")
-	fmt.Println("* Sentences",len(selected))
-	fmt.Println("* Legs",float64(len(selected))/float64(TT.LEG_WINDOW))
-	fmt.Println("*********************************************")
+	TT.Println("*********************************************")
+	TT.Println("* Mainpage for",subject,"-- length",textlength,"chars")
+	TT.Println("* Sentences",len(selected))
+	TT.Println("* Legs",float64(len(selected))/float64(TT.LEG_WINDOW))
+	TT.Println("*********************************************")
 	
 	TT.ReviewAndSelectEvents(subject,selected)		
 	
@@ -140,14 +140,14 @@ func AnalyzeTopic(subject string) string {
 
 	remarks := TT.FractionateSentences(historypage)
 
-	fmt.Println("*********************************************")
-	fmt.Println("* Historypage length",subject,talklength)
-	fmt.Println("* Sentences",len(remarks))
-	fmt.Println("* Legs",float64(len(remarks))/float64(TT.LEG_WINDOW))
-	fmt.Println("* Total users involved in shared process", history_users)
-	fmt.Println("* Change episodes with discernable punctuation", episodes)
-	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
-	fmt.Println("*********************************************")
+	TT.Println("*********************************************")
+	TT.Println("* Historypage length",subject,talklength)
+	TT.Println("* Sentences",len(remarks))
+	TT.Println("* Legs",float64(len(remarks))/float64(TT.LEG_WINDOW))
+	TT.Println("* Total users involved in shared process", history_users)
+	TT.Println("* Change episodes with discernable punctuation", episodes)
+	TT.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
+	TT.Println("*********************************************")
 	
 	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
@@ -155,16 +155,16 @@ func AnalyzeTopic(subject string) string {
 	
 	TT.LongitudinalPersistentConcepts(topics)
 
-	fmt.Println("\n****** User/agent persistence on this page ....\n")
+	TT.Println("\n****** User/agent persistence on this page ....\n")
 
 	for u := range useredits {
 		lifetime := float64(useredits[u][len(useredits[u])-1]-useredits[u][0])/float64(DAY)
 		if lifetime > 1 {
-			fmt.Println(" Lifetime ",u,lifetime,"days")
+			TT.Println(" Lifetime ",u,lifetime,"days")
 		}
 	}
 
-	fmt.Println("\n******* EDITING EPISODIC BURSTS....\n")
+	TT.Println("\n******* EDITING EPISODIC BURSTS....\n")
 
 	var average_cluster float64 = 0
 
@@ -172,7 +172,7 @@ func AnalyzeTopic(subject string) string {
 		duration := float64(episode_duration[g])/float64(DAY)
 		users := float64(len(usergroups[g]))
 		average_cluster += users/float64(len(usergroups))
-		fmt.Println("\n",g," Episode with",users,"users\n        ",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
+		TT.Println("\n",g," Episode with",users,"users\n        ",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
 	}
 
 
@@ -204,23 +204,23 @@ func AnalyzeTopic(subject string) string {
 	u := s/S
 	uL := math.Log(u)
 
-	fmt.Println("\n*********************************************")
-	fmt.Println("* SUMMARY")
-	fmt.Println("* Mainpage for",subject,"-- length",textlength,"chars")
-	fmt.Printf("* Total contentious article assessments for %s = %d\n",subject,ARTICLE_ISSUES)
-	fmt.Printf("* I/L = Contention x1000 per unit length = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(textlength))
-	fmt.Printf("* Contention x1000 per user = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users))
-	fmt.Printf("* Contention x1000 per user^2 = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users))
-	fmt.Println("* Process history length =",len(remarks))
-	fmt.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
-	fmt.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
-	fmt.Println("* Efficiency History/Article  =",e/E)
-	fmt.Println("* Total users involved in shared process", history_users)
-	fmt.Println("* Average user cluster size per episode", average_cluster)
-	fmt.Println("* Change episodes with discernable punctuation", episodes)
-	fmt.Println("* Average episode size (notes/remarks)", avep)
-	fmt.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
-	fmt.Println("*********************************************\n")
+	TT.Println("\n*********************************************")
+	TT.Println("* SUMMARY")
+	TT.Println("* Mainpage for",subject,"-- length",textlength,"chars")
+	TT.Printf("* Total contentious article assessments for %s = %d\n",subject,ARTICLE_ISSUES)
+	TT.Printf("* I/L = Contention x1000 per unit length = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(textlength))
+	TT.Printf("* Contention x1000 per user = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users))
+	TT.Printf("* Contention x1000 per user^2 = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users))
+	TT.Println("* Process history length =",len(remarks))
+	TT.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
+	TT.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
+	TT.Println("* Efficiency History/Article  =",e/E)
+	TT.Println("* Total users involved in shared process", history_users)
+	TT.Println("* Average user cluster size per episode", average_cluster)
+	TT.Println("* Change episodes with discernable punctuation", episodes)
+	TT.Println("* Average episode size (notes/remarks)", avep)
+	TT.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
+	TT.Println("*********************************************\n")
 
 	output := fmt.Sprintln(
 		L,   // 1 text
@@ -607,11 +607,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var episode_duration = make(map[int]int64)
 	var episode_bytes = make(map[int]float64)
 
-	fmt.Println("\n==============================================\n")
-	fmt.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
-	fmt.Println("\n==============================================\n")
+	TT.Println("\n==============================================\n")
+	TT.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
+	TT.Println("\n==============================================\n")
 
-	fmt.Println("\n----------- EDITS --------------------")
+	TT.Println("\n----------- EDITS --------------------")
 
 	allepisodes[episodes] = make(map[string]int)
 
@@ -685,7 +685,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			users_revert[changelog[i].User] += changelog[i].Revert
 
 			if last_user != changelog[i].User {
-				fmt.Println(" .. Explicit undo of",last_user,"by",changelog[i].User)
+				TT.Println(" .. Explicit undo of",last_user,"by",changelog[i].User)
 				ARTICLE_ISSUES++
 			}
 
@@ -698,7 +698,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
 
 			ARTICLE_ISSUES++
-			fmt.Println(" .. Effective undo of",last_user,"by",changelog[i].User)
+			TT.Println(" .. Effective undo of",last_user,"by",changelog[i].User)
 			users_revert[changelog[i].User]++
 		}
 
@@ -706,7 +706,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		last_user = changelog[i].User
 	}
 
-	fmt.Println("\n----------- EDITS --------------------")
+	TT.Println("\n----------- EDITS --------------------")
 
 	for s := range users_changecount {
 		users = append(users,s)
@@ -716,17 +716,17 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		return users_changecount[users[i]] > users_changecount[users[j]]
 	})
 
-	fmt.Println("\nRanked number of user changes: number and average time interval")
+	TT.Println("\nRanked number of user changes: number and average time interval")
 
 	for s := range users {
 		if users_changecount[users[s]] > 1 {
-			fmt.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",users[s],users_changecount[users[s]],users_averagetime[users[s]]/float64(DAY))
+			TT.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",users[s],users_changecount[users[s]],users_averagetime[users[s]]/float64(DAY))
 		} else {
-			fmt.Print(users[s],", ")
+			TT.Print(users[s],", ")
 		}
 	}
 
-	fmt.Println("\n\nReversions (agents exhibiting contentious behaviour)")
+	TT.Println("\n\nReversions (agents exhibiting contentious behaviour)")
 
 	users = nil
 
@@ -739,23 +739,23 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	})
 
 	for s := range users {
-		fmt.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+		TT.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
 	}
 
 	// If a users changes are ALL reversions, they are police
 
-	fmt.Println("\n**************************")
-	fmt.Println("> Infer user promise/intent")
-	fmt.Println("> 100% changes are reversions, then they are police")
-	fmt.Println("> 30% of changes are reversions contentious")
-	fmt.Println("**************************\n")
+	TT.Println("\n**************************")
+	TT.Println("> Infer user promise/intent")
+	TT.Println("> 100% changes are reversions, then they are police")
+	TT.Println("> 30% of changes are reversions contentious")
+	TT.Println("**************************\n")
 
 	for s := range users {
 
 		if users_revert[users[s]] == users_changecount[users[s]] {
-			fmt.Printf(" POLICING  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+			TT.Printf(" POLICING  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
 		} else if users_revert[users[s]] > 1 && float64(users_revert[users[s]]) / float64(users_changecount[users[s]]) > 0.3 {
-			fmt.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+			TT.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
 		}
 	}
 
