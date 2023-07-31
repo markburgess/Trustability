@@ -39,6 +39,7 @@ import (
 	"TT"
 	"os"
 	"bufio"
+	"flag"
 )
 
 // ***********************************************************
@@ -66,6 +67,19 @@ var ARTICLE_ISSUES int = 0
 
 func main() {
 
+        flag.Usage = usage
+        flag.Parse()
+        args := flag.Args()
+
+	if len(args) == 1 && (args[0] != "verbose" || args[0] != "-v") {
+		TT.VERBOSE = true
+	} else if len(args) > 0 {
+                usage()
+                os.Exit(1);
+        }
+	
+
+
 	// Example pages, some familiar some notorious
 
 	subjects := ReadSubjects("wiki_samples.in")
@@ -76,6 +90,15 @@ func main() {
 	}
 
 	fmt.Println("\nWrote",len(subjects),"lines to graph table:\n",OUTPUT_FILE)
+}
+
+//**************************************************************
+
+func usage() {
+
+        fmt.Fprintf(os.Stderr, "usage: go run wikipedia_history.go [verbose]\n")
+        flag.PrintDefaults()
+        os.Exit(2)
 }
 
 // ***********************************************************
