@@ -85,6 +85,7 @@ func main() {
 	subjects := ReadSubjects("wiki_samples.in")
 
 	for n := range subjects {
+
 		result := AnalyzeTopic(subjects[n])
 		TT.AppendStringToFile(OUTPUT_FILE,result)
 	}
@@ -295,6 +296,8 @@ func ReadSubjects(filename string) []string {
 		s = strings.ReplaceAll(s,"–","-")
 		list = append(list,s)
 	}
+
+	fmt.Println("Reading",len(list),"topics in",filename)
 	
 	return list
 }
@@ -668,6 +671,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 				user_delta_t = 0
 			}
 
+			// Update running average delta t per user
 			users_averagetime[changelog[i].User] = 0.4 * users_averagetime[changelog[i].User] + 0.6 * user_delta_t
 		}
 
@@ -679,11 +683,17 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			delta_t = 0
 		}
 
+		// Last time is running value to enable computing time interval since last (delta)
+
 		users_lasttime[changelog[i].User] = changelog[i].Date.UnixNano()
 		lasttime = float64(changelog[i].Date.UnixNano())
+
+		// Keep track of how many edits in this burst, before reset below
 		burst_size++
 
 		const punctuation_scale = 10.0
+
+		// End of burst
 
 		if delta_t > all_users_averagetime * punctuation_scale {
 
@@ -697,9 +707,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			allepisodes[episodes] = make(map[string]int)
 		}
 
+		// Update running average for all users
 		all_users_averagetime = 0.4 * all_users_averagetime + 0.6 * delta_t
 
-		// Changes
+		// Changes with reversions
 
 		users_changecount[changelog[i].User]++
 
@@ -729,7 +740,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		last_user = changelog[i].User
 	}
 
-	TT.Println("\n----------- EDITS --------------------")
+	TT.Println("\n----------- EDITS ANALYSIS --------------------")
 
 	for s := range users_changecount {
 		users = append(users,s)
@@ -775,10 +786,23 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	for s := range users {
 
+		// If all the changes were reversions without additions, policing user, if more than say a third then just contentious
+
 		if users_revert[users[s]] == users_changecount[users[s]] {
-			TT.Printf(" POLICING  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+
+			TT.Printf(" POLICING  %20s (%d) of %d after average of %3.2f mins\n",
+				users[s],users_revert[users[s]],
+				users_changecount[users[s]],
+				users_revert_dt[users[s]]/MINUTE)
+
 		} else if users_revert[users[s]] > 1 && float64(users_revert[users[s]]) / float64(users_changecount[users[s]]) > 0.3 {
-			TT.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+
+			TT.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",
+				users[s],
+				users_revert[users[s]],
+				users_changecount[users[s]],
+				users_revert_dt[users[s]]/MINUTE)
+
 		}
 	}
 
@@ -802,6 +826,8 @@ func TotalText(changelog []WikiProcess) string {
 	return text
 }
 
+// **************************************************************************
+// Some helpers
 // **************************************************************************
 
 func Bracketed(s string) bool {
