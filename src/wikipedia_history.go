@@ -182,21 +182,31 @@ func AnalyzeTopic(subject string) string {
 	TT.Println("\n****** User/agent persistence on this page ....\n")
 
 	for u := range useredits {
+
 		lifetime := float64(useredits[u][len(useredits[u])-1]-useredits[u][0])/float64(DAY)
+
 		if lifetime > 1 {
 			TT.Println(" Lifetime ",u,lifetime,"days")
 		}
 	}
 
-	TT.Println("\n******* EDITING EPISODIC BURSTS....\n")
+	TT.Println("\n******* EDITING EPISODIC BURSTS....(user clusters)\n")
 
 	var average_cluster float64 = 0
 
 	for g := 1; g <= len(usergroups); g++ {
+
 		duration := float64(episode_duration[g])/float64(DAY)
 		users := float64(len(usergroups[g]))
+
 		average_cluster += users/float64(len(usergroups))
-		TT.Println("\n",g," Episode with",users,"users\n        ",usergroups[g],"\n        duration (days)",duration,"\n        dur/user",duration/users,"\n        Byte changes",episode_bytes[g],"\n        Changes/user",episode_bytes[g]/users)
+
+		TT.Println("\n",g," Episode with",users,
+			"users\n        ",usergroups[g],
+			"\n        duration (days)",duration,
+			"\n        dur/user",duration/users,
+			"\n        Byte changes",episode_bytes[g],
+			"\n        Changes/user",episode_bytes[g]/users)
 	}
 
 
@@ -330,6 +340,8 @@ func MainPage(url string) string {
 			fmt.Println("EOT",err)
 			return plaintext
 		}
+
+		// Strip out unwanted characters and mark end of sentence with a # symbol
 		
 		r := regexp.MustCompile("[?!.]+")
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
@@ -625,7 +637,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var burst_size int = 0
 	var sum_burst_size int = 0
 	var sum_burst_bytes float64 = 0
-	var episodes int = 1
+	var episode int = 1
 	var burststart int64
 
 	var allusers = make(map[string][]int64)
@@ -634,12 +646,12 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var episode_bytes = make(map[int]float64)
 
 	TT.Println("\n==============================================\n")
-	TT.Println("CHANGE ANALYSIS: Starting assessment of history for",subject)
+	TT.Println("HISTORY OF CHANGE ANALYSIS: Starting assessment of history for",subject)
 	TT.Println("\n==============================================\n")
 
 	TT.Println("\n----------- EDITS --------------------")
 
-	allepisodes[episodes] = make(map[string]int)
+	allepisodes[episode] = make(map[string]int)
 
 	burststart = changelog[0].Date.UnixNano()
 
@@ -650,7 +662,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// Setup lists of edits for each user
 
 		allusers[changelog[i].User] = append(allusers[changelog[i].User],changelog[i].Date.UnixNano())
-		allepisodes[episodes][changelog[i].User]++
+		allepisodes[episode][changelog[i].User]++
 
 		sum_burst_bytes += math.Abs(float64(changelog[i].EditDelta))
 
@@ -698,13 +710,13 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		if delta_t > all_users_averagetime * punctuation_scale {
 
 			sum_burst_size += burst_size
-			episode_duration[episodes] = changelog[i].Date.UnixNano() - burststart
-			episode_bytes[episodes] = sum_burst_bytes
+			episode_duration[episode] = changelog[i].Date.UnixNano() - burststart
+			episode_bytes[episode] = sum_burst_bytes
 			sum_burst_bytes = 0
 			burst_size = 0
 			burststart = changelog[i].Date.UnixNano()
-			episodes++
-			allepisodes[episodes] = make(map[string]int)
+			episode++
+			allepisodes[episode] = make(map[string]int)
 		}
 
 		// Update running average for all users
@@ -742,9 +754,13 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	TT.Println("\n----------- EDITS ANALYSIS --------------------")
 
-	for s := range users_changecount {
-		users = append(users,s)
+	// Get a list of all users for this topic's history
+
+	for username := range users_changecount {
+		users = append(users,username)
 	}
+
+	// Sort by number of changes
 
 	sort.Slice(users, func(i, j int) bool {
 		return users_changecount[users[i]] > users_changecount[users[j]]
@@ -753,10 +769,17 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	TT.Println("\nRanked number of user changes: number and average time interval")
 
 	for s := range users {
+
 		if users_changecount[users[s]] > 1 {
-			TT.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",users[s],users_changecount[users[s]],users_averagetime[users[s]]/float64(DAY))
+
+			TT.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",
+				users[s],
+				users_changecount[users[s]],
+				users_averagetime[users[s]]/float64(DAY))
 		} else {
+
 			TT.Print(users[s],", ")
+
 		}
 	}
 
@@ -773,7 +796,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	})
 
 	for s := range users {
-		TT.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",users[s],users_revert[users[s]],users_changecount[users[s]],users_revert_dt[users[s]]/MINUTE)
+		TT.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",
+			users[s],
+			users_revert[users[s]],
+			users_changecount[users[s]],
+			users_revert_dt[users[s]]/MINUTE)
 	}
 
 	// If a users changes are ALL reversions, they are police
@@ -806,9 +833,9 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		}
 	}
 
-	av_burst_size := float64(sum_burst_size + burst_size) / float64(episodes)
+	av_burst_size := float64(sum_burst_size + burst_size) / float64(episode)
 
-	return len(users_changecount), episodes, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes
+	return len(users_changecount), episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes
 }
 
 // *******************************************************************************
