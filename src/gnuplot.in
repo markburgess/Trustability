@@ -143,21 +143,21 @@ plot "/tmp/trust.dat" using 2:12
 #
 
 set xlabel "N"
-set ylabel "duration/group(N)"
+set ylabel "duration per episode/group(N)"
 set title "18"
 set term pdf monochrome
 set output "gr_18.pdf"
 plot "/tmp/trust.dat" using 3:15 
 
 set xlabel "N"
-set ylabel "Log duration/group(N)"
+set ylabel "Log duration per episode/group(N)"
 set title "19"
 set term pdf monochrome
 set output "gr_19.pdf"
 plot "/tmp/trust.dat" using 3:17
 
 set xlabel "log N"
-set ylabel "log duration/group(N)"
+set ylabel "log duration per episode/group(N)"
 set title "20"
 set term pdf monochrome
 set output "gr_20.pdf"
@@ -166,21 +166,21 @@ plot "/tmp/trust.dat" using 4:17
 #
 
 set xlabel "N2"
-set ylabel "duration/group(N2)"
+set ylabel "duration per episode/group(N2)"
 set title "21"
 set term pdf monochrome
 set output "gr_21.pdf"
 plot "/tmp/trust.dat" using 5:15 
 
 set xlabel "N2"
-set ylabel "Log duration/group(N2)"
+set ylabel "Log duration per episode/group(N2)"
 set title "22"
 set term pdf monochrome
 set output "gr_22.pdf"
 plot "/tmp/trust.dat" using 5:17
 
 set xlabel "log N2"
-set ylabel "log duration/group(N2)"
+set ylabel "log duration per episode/group(N2)"
 set title "23"
 set term pdf monochrome
 set output "gr_23.pdf"
@@ -189,21 +189,21 @@ plot "/tmp/trust.dat" using 6:17
 #
 
 set xlabel "L"
-set ylabel "duration/group(L)"
+set ylabel "duration per episode"
 set title "24"
 set term pdf monochrome
 set output "gr_24.pdf"
 plot "/tmp/trust.dat" using 1:15 
 
 set xlabel "L"
-set ylabel "Log duration/group(L)"
+set ylabel "Log duration per episode"
 set title "25"
 set term pdf monochrome
 set output "gr_25.pdf"
 plot "/tmp/trust.dat" using 1:17
 
 set xlabel "log L"
-set ylabel "log duration/group(L)"
+set ylabel "log duration per episode"
 set title "26"
 set term pdf monochrome
 set output "gr_26.pdf"
@@ -213,21 +213,21 @@ plot "/tmp/trust.dat" using 2:17
 #
 
 set xlabel "N"
-set ylabel "duration/user(N)"
+set ylabel "duration per episode user"
 set title "27"
 set term pdf monochrome
 set output "gr_27.pdf"
 plot "/tmp/trust.dat" using 3:16 
 
 set xlabel "N"
-set ylabel "Log duration/user(N)"
+set ylabel "Log duration per episode user"
 set title "28"
 set term pdf monochrome
 set output "gr_28.pdf"
 plot "/tmp/trust.dat" using 3:18
 
 set xlabel "log N"
-set ylabel "log duration/user(N)"
+set ylabel "log duration per episode user"
 set title "29"
 set term pdf monochrome
 set output "gr_29.pdf"
@@ -236,21 +236,21 @@ plot "/tmp/trust.dat" using 4:18
 #
 
 set xlabel "N2"
-set ylabel "duration/user(N2)"
+set ylabel "duration per episode user"
 set title "30"
 set term pdf monochrome
 set output "gr_30.pdf"
 plot "/tmp/trust.dat" using 5:16
 
 set xlabel "N2"
-set ylabel "Log duration/group(N2)"
+set ylabel "Log duration per episode user"
 set title "31"
 set term pdf monochrome
 set output "gr_31.pdf"
 plot "/tmp/trust.dat" using 5:18
 
 set xlabel "log N2"
-set ylabel "log duration/group(N2)"
+set ylabel "log duration per episode user"
 set title "32"
 set term pdf monochrome
 set output "gr_32.pdf"
@@ -259,25 +259,168 @@ plot "/tmp/trust.dat" using 6:18
 #
 
 set xlabel "L"
-set ylabel "duration/user(L)"
+set ylabel "duration per episode user"
 set title "33"
 set term pdf monochrome
 set output "gr_33.pdf"
 plot "/tmp/trust.dat" using 1:16 
 
 set xlabel "L"
-set ylabel "Log duration/user(L)"
+set ylabel "Log duration per episode user"
 set title "34"
 set term pdf monochrome
 set output "gr_34.pdf"
 plot "/tmp/trust.dat" using 1:18
 
 set xlabel "log L"
-set ylabel "log duration/user(L)"
+set ylabel "log duration per episode user"
 set title "35"
 set term pdf monochrome
 set output "gr_35.pdf"
 plot "/tmp/trust.dat" using 2:18
+
+
+# mistrust
+
+set xlabel "L"
+set ylabel "mistrust(L)"
+set title "36"
+set term pdf monochrome
+set output "gr_36.pdf"
+plot "/tmp/trust.dat" using 1:13 
+
+set xlabel "L"
+set ylabel "Log mistrust(L)"
+set title "37"
+set term pdf monochrome
+set output "gr_37.pdf"
+plot "/tmp/trust.dat" using 1:14
+
+set xlabel "log L"
+set ylabel "log mistrust(L)"
+set title "38"
+set term pdf monochrome
+set output "gr_38.pdf"
+plot "/tmp/trust.dat" using 2:14
+
+# mistrust
+
+set xlabel "N"
+set ylabel "mistrust(N)"
+set title "39"
+set term pdf monochrome
+set output "gr_39.pdf"
+plot "/tmp/trust.dat" using 3:13 
+
+set xlabel "N"
+set ylabel "Log mistrust(N)"
+set title "40"
+set term pdf monochrome
+set output "gr_40.pdf"
+plot "/tmp/trust.dat" using 3:14
+
+set xlabel "log N"
+set ylabel "log mistrust(N)"
+set title "41"
+set term pdf monochrome
+set output "gr_41.pdf"
+plot "/tmp/trust.dat" using 4:14
+
+# mistrust
+
+set xlabel "N2"
+set ylabel "mistrust(N2)"
+set title "42"
+set term pdf monochrome
+set output "gr_42.pdf"
+plot "/tmp/trust.dat" using 5:13 
+
+set xlabel "N2"
+set ylabel "Log mistrust(N2)"
+set title "43"
+set term pdf monochrome
+set output "gr_43.pdf"
+plot "/tmp/trust.dat" using 5:14
+
+set xlabel "log N2"
+set ylabel "log mistrust(N2)"
+set title "44"
+set term pdf monochrome
+set output "gr_44.pdf"
+plot "/tmp/trust.dat" using 6:14
+
+
+#
+
+set xlabel "N"
+set ylabel "duration per episode user^2"
+set title "45"
+set term pdf monochrome
+set output "gr_45.pdf"
+plot "/tmp/trust.dat" using 3:19 
+
+set xlabel "N"
+set ylabel "Log duration per episode user^2"
+set title "46"
+set term pdf monochrome
+set output "gr_46.pdf"
+plot "/tmp/trust.dat" using 3:20
+
+set xlabel "log N"
+set ylabel "log duration per episode user^2"
+set title "47"
+set term pdf monochrome
+set output "gr_47.pdf"
+plot "/tmp/trust.dat" using 4:20
+
+
+#
+
+set xlabel "N2"
+set ylabel "duration per episode user^2"
+set title "48"
+set term pdf monochrome
+set output "gr_48.pdf"
+plot "/tmp/trust.dat" using 5:19 
+
+set xlabel "N2"
+set ylabel "Log duration per episode user^2"
+set title "49"
+set term pdf monochrome
+set output "gr_49.pdf"
+plot "/tmp/trust.dat" using 5:20
+
+set xlabel "log N2"
+set ylabel "log duration per episode user^2"
+set title "50"
+set term pdf monochrome
+set output "gr_50.pdf"
+plot "/tmp/trust.dat" using 6:20
+
+
+#
+
+set xlabel "L"
+set ylabel "duration per episode user^2"
+set title "51"
+set term pdf monochrome
+set output "gr_51.pdf"
+plot "/tmp/trust.dat" using 1:19 
+
+set xlabel "L"
+set ylabel "Log duration per episode user^2"
+set title "52"
+set term pdf monochrome
+set output "gr_52.pdf"
+plot "/tmp/trust.dat" using 1:20
+
+set xlabel "log L"
+set ylabel "log duration per episode user^2"
+set title "53"
+set term pdf monochrome
+set output "gr_53.pdf"
+plot "/tmp/trust.dat" using 2:20
+
 
 
 

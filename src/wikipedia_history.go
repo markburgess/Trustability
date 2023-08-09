@@ -163,7 +163,7 @@ func AnalyzeTopic(subject string) string {
 
 	// Look at signals
 
-	history_users, episodes, avt, avep, useredits, usergroups, episode_duration, episode_bytes := HistoryAssessment(subject,changelog)
+	history_users, episodes, avt, avep, useredits, episode_clusters, episode_duration, episode_bytes := HistoryAssessment(subject,changelog)
 
 	historypage := TotalText(changelog)
 
@@ -199,33 +199,37 @@ func AnalyzeTopic(subject string) string {
 
 	TT.Println("\n******* EDITING EPISODIC BURSTS....(user clusters)\n")
 
-	var average_cluster float64 = 0
-	var duration_per_group float64 = 0
+	var average_tribe_cluster float64 = 0
+	var duration_per_episode float64 = 0
 	var duration_per_user float64 = 0
+	var duration_per_user2 float64 = 0
 
-	for g := 1; g <= len(usergroups); g++ {
+	episode_count := float64(episodes) // == len(episode_clusters)
+
+	for g := 1; g <= len(episode_clusters); g++ {
 
 		duration := float64(episode_duration[g])/float64(DAY)
-		users := float64(len(usergroups[g]))
-		groups := float64(len(usergroups))
+		users_N := float64(len(episode_clusters[g]))
+		users_N2 := users_N*(users_N-1)
 
-		average_cluster += users/groups
-		duration_per_group += duration/groups
-		duration_per_user += duration/users
+		average_tribe_cluster += users_N/episode_count
+		duration_per_episode += duration/episode_count
+		duration_per_user += duration/users_N
+		duration_per_user2 += duration/users_N2
 
-		TT.Println("\n",g," Episode with",users,
-			"users\n        ",usergroups[g],
+		TT.Println("\n",g," Episode with",users_N,
+			"users\n        ",episode_clusters[g],
 			"\n        duration (days)",duration,
-			"\n        dur/user",duration/users,
+			"\n        dur/user",duration/users_N,
 			"\n        Byte changes",episode_bytes[g],
-			"\n        Changes/user",episode_bytes[g]/users)
+			"\n        Changes/user",episode_bytes[g]/users_N)
 	}
 
 
 	I := float64(ARTICLE_ISSUES)            // counted altercations
 	IL := math.Log(I)
 
-	N := average_cluster                // av users per episode
+	N := average_tribe_cluster                // av users per episode
 	NL := math.Log(N)
 
 	N2 := (N*N-N)
@@ -253,10 +257,12 @@ func AnalyzeTopic(subject string) string {
 	mistrust := s/H
 	mistrustL := math.Log(mistrust)
 
-	TG := duration_per_group
+	TG := duration_per_episode
 	TU := duration_per_user
+	TU2 := duration_per_user2
 	TGL := math.Log(TG)
 	TUL := math.Log(TU)
+	TU2L := math.Log(TU2)
 
 	TT.Println("\n*********************************************")
 	TT.Println("* SUMMARY")
@@ -270,7 +276,7 @@ func AnalyzeTopic(subject string) string {
 	TT.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
 	TT.Println("* Efficiency History/Article  =",e/E)
 	TT.Println("* Total users involved in shared process", history_users)
-	TT.Println("* Average user cluster size per episode", average_cluster)
+	TT.Println("* Average user (tribe) cluster size per episode", average_tribe_cluster)
 	TT.Println("* Change episodes with discernable punctuation", episodes)
 	TT.Println("* Average episode size (notes/remarks)", avep)
 	TT.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
@@ -291,30 +297,46 @@ func AnalyzeTopic(subject string) string {
 		uL,        // 12
 		mistrust,  // 13 s/H
 		mistrustL, // 14
-		TG,        // 15 av episode duration per group
+		TG,        // 15 av episode duration i.e. group interaction duration
 		TU,        // 16 av episode duration per user
 		TGL,       // 17
 		TUL,       // 18
+		TU2,       // 19 av episode duration per user
+		TU2L,      // 20 av episode duration per user
 	)
 	// Look for the dynamics of the change process as fn of L and N
 	// I(N)  -> (3,7), exp(3,8), pow(4,8)
 	// I(N2) -> (5,7), exp(5,8), pow(6,8) 
 	// I(L)  -> (1,7), exp(1,8), pow(2,8)
 	
-	// Duration of bursts by group size and by user
+	// Average duration per episode 
 	// TG(N)  -> (3,15), exp (3,17), pow(4,17)
 	// TG(N2) -> (5,15), exp (5,17), pow(6,17)
 	// TG(L)  -> (1,15), exp (1,17), pow(2,17)
+
+	// Average duration per episode user
 	// TU(N)  -> (3,16), exp (3,18), pow(4,18)
 	// TU(N2) -> (5,16), exp (5,18), pow(6,18)
 	// TU(L)  -> (1,16), exp (1,18), pow(2,18)
+
+	// Average duration per episode tribe N2
+	// TU2(N)  -> (3,19), exp (3,20), pow(4,20)
+	// TU2(N2) -> (5,19), exp (5,20), pow(6,20)
+	// TU2(L)  -> (1,19), exp (1,20), pow(2,20)
 
 	// Relaxation of history activity per length of article H/L and its trusted fraction s/S
 	// R(L) as time goes on, L converges and issues come to a halt, L is a proxy for tau
 	// Rw(L)  -> (1,9), exp(1,10), pow(2,10)
 	// Ru(L)  -> (1,11), exp(1,12), pow(2,12)
 
+        // Mistrust as function of length
+	// M(L)   -> (1,13), exp(1,14), pow(2,14)
 
+        // Mistrust as function of N
+	// M(N)   -> (3,13), exp(3,14), pow(4,14)
+
+        // Mistrust as function of N2
+	// M(N)   -> (5,13), exp(5,14), pow(6,14)
 
 	return output
 }
@@ -879,7 +901,9 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	AddUserBursts(users_bursts)
 
-	return len(users_changecount), episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes
+	active_users := len(users_changecount)
+
+	return active_users, episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes
 }
 
 // *******************************************************************************
