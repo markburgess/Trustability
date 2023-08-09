@@ -59,9 +59,11 @@ type WikiProcess struct {       // A list of all edit events
 const DAY = float64(3600 * 24 * 1000000000)
 const MINUTE = float64(60 * 1000000000)
 const OUTPUT_FILE = "/tmp/trust.dat"
+const WORKGROUP_FILE = "/tmp/workclusters.dat"
 
 var G TT.Analytics
 var ARTICLE_ISSUES int = 0
+var WORK_EVENTS = make(map[int]int)
 
 // ***********************************************************
 
@@ -77,20 +79,36 @@ func main() {
                 usage()
                 os.Exit(1);
         }
-	
 
+	// ***********************************************************
 
 	// Example pages, some familiar some notorious
 
 	subjects := ReadSubjects("wiki_samples.in")
 
+	// ***********************************************************
+	
+	TT.InitializeSmartSpaceTime()
+
+	var dbname string = "SemanticSpacetime"
+	var dburl string = "http://localhost:8529"
+	var user string = "root"
+	var pwd string = "mark"
+
+	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
+
+	// ***********************************************************
+
 	for n := range subjects {
 
+		fmt.Println(n,subjects[n],"...")
 		result := AnalyzeTopic(subjects[n])
 		TT.AppendStringToFile(OUTPUT_FILE,result)
 	}
 
 	fmt.Println("\nWrote",len(subjects),"lines to graph table:\n",OUTPUT_FILE)
+
+	PlotUserBursts(WORK_EVENTS)
 }
 
 //**************************************************************
@@ -108,17 +126,6 @@ func AnalyzeTopic(subject string) string {
 	
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
-
-	// ***********************************************************
-	
-	TT.InitializeSmartSpaceTime()
-
-	var dbname string = "SemanticSpacetime"
-	var dburl string = "http://localhost:8529"
-	var user string = "root"
-	var pwd string = "mark"
-
-	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
 
 	// ***********************************************************
 
@@ -193,13 +200,18 @@ func AnalyzeTopic(subject string) string {
 	TT.Println("\n******* EDITING EPISODIC BURSTS....(user clusters)\n")
 
 	var average_cluster float64 = 0
+	var duration_per_group float64 = 0
+	var duration_per_user float64 = 0
 
 	for g := 1; g <= len(usergroups); g++ {
 
 		duration := float64(episode_duration[g])/float64(DAY)
 		users := float64(len(usergroups[g]))
+		groups := float64(len(usergroups))
 
-		average_cluster += users/float64(len(usergroups))
+		average_cluster += users/groups
+		duration_per_group += duration/groups
+		duration_per_user += duration/users
 
 		TT.Println("\n",g," Episode with",users,
 			"users\n        ",usergroups[g],
@@ -238,6 +250,14 @@ func AnalyzeTopic(subject string) string {
 	u := s/S
 	uL := math.Log(u)
 
+	mistrust := s/H
+	mistrustL := math.Log(mistrust)
+
+	TG := duration_per_group
+	TU := duration_per_user
+	TGL := math.Log(TG)
+	TUL := math.Log(TU)
+
 	TT.Println("\n*********************************************")
 	TT.Println("* SUMMARY")
 	TT.Println("* Mainpage for",subject,"-- length",textlength,"chars")
@@ -257,28 +277,44 @@ func AnalyzeTopic(subject string) string {
 	TT.Println("*********************************************\n")
 
 	output := fmt.Sprintln(
-		L,   // 1 text
-		LL,  // 2
-		N,   // 3 users
-		NL,  // 4
-		N2,  // 5 users-cluster
-		N2L, // 6
-		I,   // 7
-		IL,  // 8
- 		w,  // 9
-		wL, // 10
-		u,  // 11
-		uL, // 12
+		L,         // 1 text
+		LL,        // 2
+		N,         // 3 users
+		NL,        // 4
+		N2,        // 5 users-cluster
+		N2L,       // 6
+		I,         // 7 issues
+		IL,        // 8
+ 		w,         // 9 process work ratio (talk/article)
+		wL,        // 10
+		u,         // 11 mistrust sample work ratio
+		uL,        // 12
+		mistrust,  // 13 s/H
+		mistrustL, // 14
+		TG,        // 15 av episode duration per group
+		TU,        // 16 av episode duration per user
+		TGL,       // 17
+		TUL,       // 18
 	)
 	// Look for the dynamics of the change process as fn of L and N
 	// I(N)  -> (3,7), exp(3,8), pow(4,8)
 	// I(N2) -> (5,7), exp(5,8), pow(6,8) 
 	// I(L)  -> (1,7), exp(1,8), pow(2,8)
 	
+	// Duration of bursts by group size and by user
+	// TG(N)  -> (3,15), exp (3,17), pow(4,17)
+	// TG(N2) -> (5,15), exp (5,17), pow(6,17)
+	// TG(L)  -> (1,15), exp (1,17), pow(2,17)
+	// TU(N)  -> (3,16), exp (3,18), pow(4,18)
+	// TU(N2) -> (5,16), exp (5,18), pow(6,18)
+	// TU(L)  -> (1,16), exp (1,18), pow(2,18)
+
 	// Relaxation of history activity per length of article H/L and its trusted fraction s/S
 	// R(L) as time goes on, L converges and issues come to a halt, L is a proxy for tau
 	// Rw(L)  -> (1,9), exp(1,10), pow(2,10)
 	// Ru(L)  -> (1,11), exp(1,12), pow(2,12)
+
+
 
 	return output
 }
@@ -645,6 +681,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var episode_duration = make(map[int]int64)
 	var episode_bytes = make(map[int]float64)
 
+	var users_bursts = make(TT.Set)
+
 	TT.Println("\n==============================================\n")
 	TT.Println("HISTORY OF CHANGE ANALYSIS: Starting assessment of history for",subject)
 	TT.Println("\n==============================================\n")
@@ -703,9 +741,12 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// Keep track of how many edits in this burst, before reset below
 		burst_size++
 
-		const punctuation_scale = 10.0
+		// Track user group interactions
+		AttachUserToEpisodicBurst(users_bursts,subject,episode,changelog[i].User)
 
 		// End of burst
+
+		const punctuation_scale = 10.0
 
 		if delta_t > all_users_averagetime * punctuation_scale {
 
@@ -720,6 +761,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		}
 
 		// Update running average for all users
+
 		all_users_averagetime = 0.4 * all_users_averagetime + 0.6 * delta_t
 
 		// Changes with reversions
@@ -835,7 +877,57 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	av_burst_size := float64(sum_burst_size + burst_size) / float64(episode)
 
+	AddUserBursts(users_bursts)
+
 	return len(users_changecount), episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes
+}
+
+// *******************************************************************************
+
+func AttachUserToEpisodicBurst(bursts TT.Set, subject string, episode int, username string) {
+	
+	burst_name := fmt.Sprintf("%s_%d",subject,episode)
+
+	TT.TogetherWith(bursts,burst_name,username)
+}
+
+// *******************************************************************************
+
+func AddUserBursts(users_bursts TT.Set) {
+
+	// sum the groups intoa histogram
+
+	for group := range users_bursts {
+		WORK_EVENTS[1+len(users_bursts[group])]++
+	}
+}
+
+// *******************************************************************************
+
+func PlotUserBursts(histogram map[int]int) {
+	
+	// sum the groups intoa histogram
+
+	f, err := os.OpenFile(WORKGROUP_FILE,os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		fmt.Println("Couldn't open for write/append to",WORKGROUP_FILE,err)
+		return
+	}
+
+	for n := range histogram {
+
+		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(histogram[n]),math.Log(float64(n)),math.Log(float64(histogram[n])))
+
+		_, err = f.WriteString(s)
+		if err != nil {
+			fmt.Println("Couldn't write/append to",WORKGROUP_FILE,err)
+		}
+	}
+
+	f.Close()
+
+
 }
 
 // *******************************************************************************
