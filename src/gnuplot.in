@@ -422,6 +422,15 @@ set output "gr_53.pdf"
 plot "/tmp/trust.dat" using 2:20
 
 
+####### Workgroups
+
+set xlabel "aggregate size"
+set ylabel "frequency"
+set title "Episode coagulation"
+set term pdf monochrome
+set output "workclusters.pdf"
+plot "/tmp/workclusters.dat" using 2:20
+
 
 
 
