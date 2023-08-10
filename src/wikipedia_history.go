@@ -99,14 +99,17 @@ func main() {
 
 	// ***********************************************************
 
+	var total_users int = 0
+
 	for n := range subjects {
 
 		fmt.Println(n,subjects[n],"...")
-		result := AnalyzeTopic(subjects[n])
+		result,users := AnalyzeTopic(subjects[n])
 		TT.AppendStringToFile(OUTPUT_FILE,result)
+		total_users += users
 	}
 
-	fmt.Println("\nWrote",len(subjects),"lines to graph table:\n",OUTPUT_FILE)
+	fmt.Println("\nWrote",len(subjects),"lines from",total_users,"users to graph table:\n",OUTPUT_FILE)
 
 	PlotUserBursts(WORK_EVENTS)
 }
@@ -122,7 +125,7 @@ func usage() {
 
 // ***********************************************************
 
-func AnalyzeTopic(subject string) string {
+func AnalyzeTopic(subject string) (string,int) {
 	
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
@@ -210,7 +213,7 @@ func AnalyzeTopic(subject string) string {
 
 		duration := float64(episode_duration[g])/float64(DAY)
 		users_N := float64(len(episode_clusters[g]))
-		users_N2 := users_N*(users_N-1)
+		users_N2 := 1+users_N*(users_N - 1)
 
 		average_tribe_cluster += users_N/episode_count
 		duration_per_episode += duration/episode_count
@@ -257,12 +260,14 @@ func AnalyzeTopic(subject string) string {
 	mistrust := s/H
 	mistrustL := math.Log(mistrust)
 
+	// These involve some roundings to avoid infinities
+
 	TG := duration_per_episode
 	TU := duration_per_user
 	TU2 := duration_per_user2
-	TGL := math.Log(TG)
-	TUL := math.Log(TU)
-	TU2L := math.Log(TU2)
+	TGL := math.Log(1+TG)
+	TUL := math.Log(1+TU)
+	TU2L := math.Log(1+TU2)
 
 	TT.Println("\n*********************************************")
 	TT.Println("* SUMMARY")
@@ -338,7 +343,7 @@ func AnalyzeTopic(subject string) string {
         // Mistrust as function of N2
 	// M(N)   -> (5,13), exp(5,14), pow(6,14)
 
-	return output
+	return output, history_users
 }
 
 // ***********************************************************
@@ -769,11 +774,17 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// End of burst
 
 		const punctuation_scale = 10.0
+		const min_episode_duration = int64(DAY)
+		last_duration := changelog[i].Date.UnixNano() - burststart
 
-		if delta_t > all_users_averagetime * punctuation_scale {
+
+
+		// We need a minimum size for a busrt to protect against average being zero
+
+		if (delta_t > all_users_averagetime * punctuation_scale) && last_duration > min_episode_duration {
 
 			sum_burst_size += burst_size
-			episode_duration[episode] = changelog[i].Date.UnixNano() - burststart
+			episode_duration[episode] = last_duration
 			episode_bytes[episode] = sum_burst_bytes
 			sum_burst_bytes = 0
 			burst_size = 0
@@ -940,6 +951,9 @@ func PlotUserBursts(histogram map[int]int) {
 	}
 
 	for n := range histogram {
+
+		// Workgroup events from TT.Set: size of an aggregate associative cluster (potentially growing)
+		// size of cluster, frequency/how many, log size, log frequency
 
 		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(histogram[n]),math.Log(float64(n)),math.Log(float64(histogram[n])))
 
