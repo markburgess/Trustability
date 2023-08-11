@@ -795,7 +795,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			episode++
 			allepisodes[episode] = make(map[string]int)
 			EPISODE_CLUSTER_FREQ[len(episode_users)]++
-			episode_users = nil
+			episode_users = make(map[string]int)
 		}
 
 		// Update running average for all users
