@@ -384,10 +384,22 @@ func MainPage(url string) string {
 
 	var capture bool = false
 
+	// If at first you don't succeed, the network timed out
+
 	response, err := http.Get(url)
 
 	if err != nil {
-		fmt.Println(err)
+		for {
+			
+			response, err = http.Get(url)
+			
+			if err == nil {
+				break
+			}
+			
+			fmt.Println("Retrying (",err,")")
+			time.Sleep(1)
+		}
 	}
 
 	defer response.Body.Close()
