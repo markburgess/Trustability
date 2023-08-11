@@ -143,21 +143,21 @@ plot "/tmp/trust.dat" using 2:12
 #
 
 set xlabel "N"
-set ylabel "duration per episode/group(N)"
+set ylabel "duration per episode"
 set title "18"
 set term pdf monochrome
 set output "gr_18.pdf"
 plot "/tmp/trust.dat" using 3:15 
 
 set xlabel "N"
-set ylabel "Log duration per episode/group(N)"
+set ylabel "Log duration per episode"
 set title "19"
 set term pdf monochrome
 set output "gr_19.pdf"
 plot "/tmp/trust.dat" using 3:17
 
 set xlabel "log N"
-set ylabel "log duration per episode/group(N)"
+set ylabel "log duration per episode"
 set title "20"
 set term pdf monochrome
 set output "gr_20.pdf"
@@ -213,14 +213,14 @@ plot "/tmp/trust.dat" using 2:17
 #
 
 set xlabel "N"
-set ylabel "duration per episode user"
+set ylabel "fractional episode duration per user"
 set title "27"
 set term pdf monochrome
 set output "gr_27.pdf"
 plot "/tmp/trust.dat" using 3:16 
 
 set xlabel "N"
-set ylabel "Log duration per episode user"
+set ylabel "Log duration per user"
 set title "28"
 set term pdf monochrome
 set output "gr_28.pdf"
@@ -422,7 +422,7 @@ set output "gr_53.pdf"
 plot "/tmp/trust.dat" using 2:20
 
 
-####### Workgroups
+####### Giant cluster Workgroups
 
 set xlabel "aggregate size"
 set ylabel "frequency"
@@ -446,6 +446,30 @@ set title "Episode coagulation"
 set term pdf monochrome
 set output "exp-workclusters.pdf"
 plot "/tmp/workclusters.dat" using 1:4
+
+
+####### Episode cluster Workgroups
+
+set xlabel "Episode group size"
+set ylabel "frequency"
+set title "Individual episodes spectrum"
+set term pdf monochrome
+set output "episodeclusters.pdf"
+plot "/tmp/episodeclusters.dat" using 1:2
+
+set xlabel "log Episode group size"
+set ylabel "log frequency"
+set title "Individual episodes spectrum"
+set term pdf monochrome
+set output "pow-episodeclusters.pdf"
+plot "/tmp/episodeclusters.dat" using 3:4
+
+set xlabel "Episode group size"
+set ylabel "log frequency"
+set title "Individual episodes spectrum"
+set term pdf monochrome
+set output "exp-episodeclusters.pdf"
+plot "/tmp/episodeclusters.dat" using 1:4
 
 
 
