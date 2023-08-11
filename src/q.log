@@ -1,0 +1,32 @@
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/TeX Live for SUSE Linux) (preloaded format=pdflatex 2022.2.12)  10 AUG 2023 14:43
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**Wikipedia_tribes.tex
+(/usr/share/texmf/tex/latex/tools/q.tex
+! Interruption.
+<to be read again> 
+                   \begingroup 
+l.1 
+    %%
+? q
+OK, entering \batchmode...
+LaTeX2e <2017-04-15>
+Babel <3.10> and hyphenation patterns for 50 language(s) loaded.
+ File ignored
+)
+! Emergency stop.
+<*> Wikipedia_tribes.tex
+                        
+*** (job aborted, no legal \end found)
+
+ 
+Here is how much of TeX's memory you used:
+ 7 strings out of 494035
+ 240 string characters out of 6158521
+ 50089 words of memory out of 5000000
+ 3493 multiletter control sequences out of 15000+600000
+ 3640 words of font info for 14 fonts, out of 8000000 for 9000
+ 475 hyphenation exceptions out of 8191
+ 5i,0n,1p,100b,8s stack positions out of 5000i,500n,10000p,200000b,80000s
+!  ==> Fatal error occurred, no output PDF file produced!

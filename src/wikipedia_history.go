@@ -59,11 +59,13 @@ type WikiProcess struct {       // A list of all edit events
 const DAY = float64(3600 * 24 * 1000000000)
 const MINUTE = float64(60 * 1000000000)
 const OUTPUT_FILE = "/tmp/trust.dat"
-const WORKGROUP_FILE = "/tmp/workclusters.dat"
+const GIANT_CLUSTER_FILE = "/tmp/workclusters.dat"
+const EPISODE_CLUSTER_FILE = "/tmp/episodeclusters.dat"
 
 var G TT.Analytics
 var ARTICLE_ISSUES int = 0
-var WORK_EVENTS = make(map[int]int)
+var GIANT_CLUSTER_FREQ = make(map[int]int)
+var EPISODE_CLUSTER_FREQ = make(map[int]int)
 
 // ***********************************************************
 
@@ -111,7 +113,8 @@ func main() {
 
 	fmt.Println("\nWrote",len(subjects),"lines from",total_users,"users to graph table:\n",OUTPUT_FILE)
 
-	PlotUserBursts(WORK_EVENTS)
+	PlotUserBursts(GIANT_CLUSTER_FREQ,GIANT_CLUSTER_FILE)
+	PlotUserBursts(EPISODE_CLUSTER_FREQ,EPISODE_CLUSTER_FILE)
 }
 
 //**************************************************************
@@ -707,6 +710,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var allepisodes = make(map[int]map[string]int)
 	var episode_duration = make(map[int]int64)
 	var episode_bytes = make(map[int]float64)
+	var episode_users = make(map[string]int)
 
 	var users_bursts = make(TT.Set)
 
@@ -726,6 +730,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 		// Setup lists of edits for each user
 
+		episode_users[changelog[i].User]++
 		allusers[changelog[i].User] = append(allusers[changelog[i].User],changelog[i].Date.UnixNano())
 		allepisodes[episode][changelog[i].User]++
 
@@ -768,7 +773,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// Keep track of how many edits in this burst, before reset below
 		burst_size++
 
-		// Track user group interactions
+		// Track giant cluster user group interactions
 		AttachUserToEpisodicBurst(users_bursts,subject,episode,changelog[i].User)
 
 		// End of burst
@@ -776,8 +781,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		const punctuation_scale = 10.0
 		const min_episode_duration = int64(DAY)
 		last_duration := changelog[i].Date.UnixNano() - burststart
-
-
 
 		// We need a minimum size for a busrt to protect against average being zero
 
@@ -791,6 +794,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			burststart = changelog[i].Date.UnixNano()
 			episode++
 			allepisodes[episode] = make(map[string]int)
+			EPISODE_CLUSTER_FREQ[len(episode_users)]++
+			episode_users = nil
 		}
 
 		// Update running average for all users
@@ -933,20 +938,20 @@ func AddUserBursts(users_bursts TT.Set) {
 	// sum the groups intoa histogram
 
 	for group := range users_bursts {
-		WORK_EVENTS[1+len(users_bursts[group])]++
+		GIANT_CLUSTER_FREQ[1+len(users_bursts[group])]++
 	}
 }
 
 // *******************************************************************************
 
-func PlotUserBursts(histogram map[int]int) {
+func PlotUserBursts(histogram map[int]int, filename string) {
 	
 	// sum the groups intoa histogram
 
-	f, err := os.OpenFile(WORKGROUP_FILE,os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filename,os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
-		fmt.Println("Couldn't open for write/append to",WORKGROUP_FILE,err)
+		fmt.Println("Couldn't open for write/append to",filename,err)
 		return
 	}
 
@@ -958,14 +963,13 @@ func PlotUserBursts(histogram map[int]int) {
 		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(histogram[n]),math.Log(float64(n)),math.Log(float64(histogram[n])))
 
 		_, err = f.WriteString(s)
+
 		if err != nil {
-			fmt.Println("Couldn't write/append to",WORKGROUP_FILE,err)
+			fmt.Println("Couldn't write/append to",filename,err)
 		}
 	}
 
 	f.Close()
-
-
 }
 
 // *******************************************************************************

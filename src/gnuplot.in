@@ -429,7 +429,23 @@ set ylabel "frequency"
 set title "Episode coagulation"
 set term pdf monochrome
 set output "workclusters.pdf"
-plot "/tmp/workclusters.dat" using 2:20
+plot "/tmp/workclusters.dat" using 1:2
+
+
+set xlabel "log aggregate size"
+set ylabel "log frequency"
+set title "Episode coagulation"
+set term pdf monochrome
+set output "pow-workclusters.pdf"
+plot "/tmp/workclusters.dat" using 3:4
+
+
+set xlabel "aggregate size"
+set ylabel "log frequency"
+set title "Episode coagulation"
+set term pdf monochrome
+set output "exp-workclusters.pdf"
+plot "/tmp/workclusters.dat" using 1:4
 
 
 
