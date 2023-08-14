@@ -58,9 +58,9 @@ type WikiProcess struct {       // A list of all edit events
 
 const DAY = float64(3600 * 24 * 1000000000)
 const MINUTE = float64(60 * 1000000000)
-const OUTPUT_FILE = "/tmp/trust.dat"
-const GIANT_CLUSTER_FILE = "/tmp/workclusters.dat"
-const EPISODE_CLUSTER_FILE = "/tmp/episodeclusters.dat"
+const OUTPUT_FILE = "trust.dat"
+const GIANT_CLUSTER_FILE = "workclusters.dat"
+const EPISODE_CLUSTER_FILE = "episodeclusters.dat"
 
 var G TT.Analytics
 var ARTICLE_ISSUES int = 0
@@ -86,7 +86,7 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subjects := ReadSubjects("wiki_samples.in")
+	subjects := ReadSubjects("wiki_samples_total.in")
 
 	// ***********************************************************
 	
