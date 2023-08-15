@@ -967,7 +967,11 @@ func PlotUserBursts(histogram map[int]int, filename string) {
 		return
 	}
 
-	n_tot := float64(len(histogram))
+	var n_tot float64 = 0
+
+	for n := range histogram {
+		n_tot += float64(histogram[n])
+	}
 
 	for n := range histogram {
 
@@ -976,7 +980,7 @@ func PlotUserBursts(histogram map[int]int, filename string) {
 
 		h := float64(histogram[n])
 
-		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(h/n_tot),math.Log(float64(n)/n_tot),math.Log(float64(h/n_tot)))
+		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(h/n_tot),math.Log(float64(n)),math.Log(float64(h/n_tot)))
 
 		_, err = f.WriteString(s)
 
