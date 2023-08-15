@@ -471,6 +471,15 @@ set term pdf monochrome
 set output "exp-episodeclusters.pdf"
 plot "/tmp/episodeclusters.dat" using 1:4
 
+# zoom
+
+set xlabel "Episode group size"
+set ylabel "log frequency"
+set title "Individual episodes spectrum"
+set term pdf monochrome
+set output "exp-episodeclusters_zoom.pdf"
+plot [0:60] "/tmp/episodeclusters.dat" using 1:4
+
 
 
 
