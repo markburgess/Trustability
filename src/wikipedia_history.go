@@ -960,19 +960,23 @@ func PlotUserBursts(histogram map[int]int, filename string) {
 	
 	// sum the groups intoa histogram
 
-	f, err := os.OpenFile(filename,os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filename,os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
 		fmt.Println("Couldn't open for write/append to",filename,err)
 		return
 	}
 
+	n_tot := float64(len(histogram))
+
 	for n := range histogram {
 
 		// Workgroup events from TT.Set: size of an aggregate associative cluster (potentially growing)
 		// size of cluster, frequency/how many, log size, log frequency
 
-		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(histogram[n]),math.Log(float64(n)),math.Log(float64(histogram[n])))
+		h := float64(histogram[n])
+
+		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(h/n_tot),math.Log(float64(n)/n_tot),math.Log(float64(h/n_tot)))
 
 		_, err = f.WriteString(s)
 
