@@ -4,3 +4,5 @@ Trust and Trustability
 This is part of a project to formulate a practical Promise Theory model of trust for our Internet and machine enabled age. It is not related to blockchain or so-called trustless technologies, and is not specifically based on cryptographic techniques. Rather it addresses trustworthiness as an assessment of reliability in keeping specific promises and trust as a tendency to monitor or oversee these processes.
 
 The goal here is to investigate how we might use trust as a guiding potential in human-information systems.  For the semantic elaboration, the specific example of users interacting with Wikipedia to read and to write contributions is used for concreteness.  They should be viewed in parallel with the papers and documents available at http://markburgess.org/trustproject.html
+
+The code consists of a directory of stubs and analysis tools, that make of the go package library called TT, which is built from the earlier Semantic Spacetime library code and new methods developed in the test cases here.
