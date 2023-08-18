@@ -768,7 +768,7 @@ func usage() {
 
 func ReadStrokes() {
 
-	file, err := os.Open("chinese-strokes.dat")
+	file, err := os.Open("chinese-strokes.in")
 	
 	if err != nil {
 		panic(err)
