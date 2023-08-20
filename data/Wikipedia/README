@@ -1,0 +1,5 @@
+
+These files contain the cached snapshot of generated output of the
+wikipedia_history.go trials from the time of execution in the research
+notes. Running the code again will generate data for the same set of pages,
+but may include new changes.
