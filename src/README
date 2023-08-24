@@ -1,13 +1,19 @@
 Trust, semantic learning, and monitoring
 ========================================
 
-These programs are proof of concept stubs and research tools
-associated with the project Trust semantic learning and monitoring
-with NLnet.
+These programs are proof of concept stubs and research tools associated with the project Trust semantic learning and monitoring with NLnet. Some of the code is duplicated to preserve the history of development. As the research and development progresses, some versions will become of mainly pedagogical interest, and only a few programs will be of interest to execute:
+
+ - chatgpt_client.go
+ - ngrams.go
+ - ngrams-chinese.go
+ - wikipedia_history.go <verbose>
+
+The files:
 
 - pkg/TrustAndTrustability contains library code employing the Semantic Spacetime model
 
 - src/
+
  - chatgpt_client.go - POC interface to chatGPT
  - chinese-strokes.dat - datafile containing a histogram/database of chinese characters, frequency and number of strokes
  - gnuplot.in - script file for generating the graphs in part 5 from a datafile produced by wikipedia_history.go
@@ -23,8 +29,5 @@ with NLnet.
  - udp_server.go - udp server stub to run together with udp_client.go
  - wikipedia_history.go - html+ngram+wikipedia analysis, self contained output analysis generator
 
-Destructions for running each program are at the start of the source code.
 
-Install the TT package in your GOPATH, etc 
-
-  $ ln -s ~/go/src/TT/ TT
+For specifics about how to run each program see the top notes in the source code.
