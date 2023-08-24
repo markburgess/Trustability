@@ -16,7 +16,7 @@
 // To run, install package:
 //
 //      go get github.com/sashabaranov/go-openai
-//      go run wikipedia_history.go
+//      go run chatgpt_client.go
 //
 // This is tuned specifically to Wikipedia scanning. using the general methods
 // ***********************************************************
