@@ -134,6 +134,8 @@ func AnalyzeTopic(subject string) (string,int) {
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
 	// ***********************************************************
+	// Pure output analysis of the article
+	// ***********************************************************
 
 	TT.LEG_WINDOW = 100           // Standard for narrative text
 
@@ -156,8 +158,8 @@ func AnalyzeTopic(subject string) (string,int) {
 	TT.LongitudinalPersistentConcepts(pagetopics)
 
 	// ***********************************************************
-
-	// Examine the change log
+	// Pure output analysis of the editing history
+	// ***********************************************************
 
 	TT.LEG_WINDOW = 10 // Need a smaller window than normal for fragmented text
 
