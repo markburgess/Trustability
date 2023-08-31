@@ -169,9 +169,9 @@ func AnalyzeTopic(subject string) (string,int) {
 		return changelog[i].Date.Before(changelog[j].Date)
 	})
 
-	// Look at signals
+	// Look at signals from text analysis
 
-	history_users, episodes, avt, avep, useredits, episode_clusters, episode_duration, episode_bytes := HistoryAssessment(subject,changelog)
+	history_users, episodes, avt, avep, useredits, episode_clusters, episode_duration, episode_bytes, bot_fraction := HistoryAssessment(subject,changelog)
 
 	historypage := TotalText(changelog)
 
@@ -193,6 +193,10 @@ func AnalyzeTopic(subject string) (string,int) {
 	topics := TT.RankByIntent(remarks)
 	
 	TT.LongitudinalPersistentConcepts(topics)
+
+	// ***********************************************************
+	// Now go through the text analysis event trace, extracted above
+	// ***********************************************************
 
 	TT.Println("\n****** User/agent persistence on this page ....\n")
 
@@ -292,6 +296,8 @@ func AnalyzeTopic(subject string) (string,int) {
 	TT.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
 	TT.Println("*********************************************\n")
 
+	// Format output for gnuplot graph file(s)
+
 	output := fmt.Sprintln(
 		L,         // 1 text
 		LL,        // 2
@@ -313,6 +319,7 @@ func AnalyzeTopic(subject string) (string,int) {
 		TUL,       // 18
 		TU2,       // 19 av episode duration per user
 		TU2L,      // 20 av episode duration per user
+		bot_fraction, // 21 bots/human users
 	)
 	// Look for the dynamics of the change process as fn of L and N
 	// I(N)  -> (3,7), exp(3,8), pow(4,8)
@@ -700,7 +707,7 @@ func HistoryPage(url string) []WikiProcess {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int]map[string]int,map[int]int64,map[int]float64) {
+func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int]map[string]int,map[int]int64,map[int]float64,float64) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -848,7 +855,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	TT.Println("\n----------- EDITS ANALYSIS --------------------")
 
-	// Get a list of all users for this topic's history
+	// Get an idempotent list of all users for this topic's history
 
 	for username := range users_changecount {
 		users = append(users,username)
@@ -862,7 +869,15 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	TT.Println("\nRanked number of user changes: number and average time interval")
 
+	var bots,humans float64 = 0,0
+
 	for s := range users {
+
+		if IsBot(users[s]) {
+			bots++
+		} else {
+			humans++
+		}
 
 		if users_changecount[users[s]] > 1 {
 
@@ -933,7 +948,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	active_users := len(users_changecount)
 
-	return active_users, episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes
+	return active_users, episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes, bots/humans
 }
 
 // *******************************************************************************
@@ -1071,3 +1086,16 @@ func IsLegal(s string) bool {
 
 return false
 }
+
+// **************************************************************************
+
+func IsBot(s string) bool {
+
+	if strings.Contains(s,"Bot") || strings.HasSuffix(s,"bot") {
+
+		return true
+	}
+
+return false
+}
+
