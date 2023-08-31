@@ -294,6 +294,7 @@ func AnalyzeTopic(subject string) (string,int) {
 	TT.Println("* Change episodes with discernable punctuation", episodes)
 	TT.Println("* Average episode size (notes/remarks)", avep)
 	TT.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
+	TT.Println("* The bot fraction is",bot_fraction,)
 	TT.Println("*********************************************\n")
 
 	// Format output for gnuplot graph file(s)
@@ -354,6 +355,10 @@ func AnalyzeTopic(subject string) (string,int) {
 
         // Mistrust as function of N2
 	// M(N)   -> (5,13), exp(5,14), pow(6,14)
+
+	// Bot fraction as a function of N and L
+	// bf(N)  -> (3,21), pow(4,21)
+	// bf(L)  -> (1,21), pow(2,21)
 
 	return output, history_users
 }

@@ -517,4 +517,41 @@ set output "grtot_3_zoom.pdf"
 plot [0:15] "trust.dat" using 3:7 
 
 
+# Bot fractions
+
+
+set xlabel "L"
+set ylabel "BF(L)"
+set title "Bot fraction"
+set term pdf monochrome
+set output "bfL.pdf"
+plot "trust.dat" using 1:21 
+
+
+set xlabel "log L"
+set ylabel "log BF(L)"
+set title "Bot fraction"
+set term pdf monochrome
+set logscale
+set output "bfL-log.pdf"
+plot "trust.dat" using 1:21 
+
+set xlabel "N"
+set ylabel "BF(N)"
+set title "Bot fraction"
+set term pdf monochrome
+set output "bfN.pdf"
+plot "trust.dat" using 3:21
+
+
+set xlabel "log N"
+set ylabel "BF(N)"
+set logscale
+set title "Bot fraction"
+set term pdf monochrome
+set output "bfN-log.pdf"
+plot "trust.dat" using 3:21
+
+
+
 
