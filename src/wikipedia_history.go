@@ -808,6 +808,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		const min_episode_duration = int64(DAY)
 		last_duration := changelog[i].Date.UnixNano() - burststart
 
+		// Demarcate episode boundary *********************************************
 		// We need a minimum size for a burst to protect against average being zero
 
 		if (delta_t > all_users_averagetime * punctuation_scale) && last_duration > min_episode_duration {
@@ -823,6 +824,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			EPISODE_CLUSTER_FREQ[len(episode_users)]++
 			episode_users = make(map[string]int)
 		}
+
+		// Demarcate episode boundary *********************************************
 
 		// Update running average for all users
 
