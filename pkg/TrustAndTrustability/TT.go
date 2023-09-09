@@ -266,6 +266,9 @@ type Association struct {
 	NBwd    string    `json:"NBwd"`
 }
 
+type AdjacencyMatrix [][]float64
+type MatrixRow       []float64
+
 //**************************************************************
 
 var CONST_STtype = make(map[string]int)
