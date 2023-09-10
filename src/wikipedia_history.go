@@ -730,6 +730,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var sum_burst_size int = 0
 	var sum_burst_bytes float64 = 0
 	var episode int = 1
+	var event int = 1
 	var burststart int64
 
 	var allusers = make(map[string][]int64)
@@ -737,6 +738,9 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var episode_duration = make(map[int]int64)
 	var episode_bytes = make(map[int]float64)
 	var episode_users = make(map[string]int)
+
+	var episode_user_start = make(map[string]int)
+	var episode_user_last = make(map[string]int)
 
 	var users_bursts = make(TT.Set)
 
@@ -808,6 +812,12 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		const min_episode_duration = int64(DAY)
 		last_duration := changelog[i].Date.UnixNano() - burststart
 
+		if episode_user_start[changelog[i].User] == 0 {
+			episode_user_start[changelog[i].User] = event
+		}
+
+		episode_user_last[changelog[i].User] = event
+
 		// Demarcate episode boundary *********************************************
 		// We need a minimum size for a burst to protect against average being zero
 
@@ -816,6 +826,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			sum_burst_size += burst_size
 			episode_duration[episode] = last_duration
 			episode_bytes[episode] = sum_burst_bytes
+
+			// Generate Adjacency Matrix for Group (range episode_users) and principal eigenvector
+
+			// Reset for next episode
+
 			sum_burst_bytes = 0
 			burst_size = 0
 			burststart = changelog[i].Date.UnixNano()
@@ -823,6 +838,15 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			allepisodes[episode] = make(map[string]int)
 			EPISODE_CLUSTER_FREQ[len(episode_users)]++
 			episode_users = make(map[string]int)
+
+			// Reset episode graph
+
+			AnalyzeUserContributions(episode_user_start,episode_user_last,event)
+
+			event = 1
+			episode_user_start = make(map[string]int)
+			episode_user_last = make(map[string]int)
+
 		}
 
 		// Demarcate episode boundary *********************************************
@@ -930,7 +954,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	for s := range users {
 
-		// If all the changes were reversions without additions, policing user, if more than say a third then just contentious
+		// If all the changes were reversions without additions, policing user, 
+		// if more than say a third then just contentious
 
 		if users_revert[users[s]] == users_changecount[users[s]] {
 
@@ -1015,6 +1040,33 @@ func PlotUserBursts(histogram map[int]int, filename string) {
 	}
 
 	f.Close()
+}
+
+// *******************************************************************************
+
+func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]int, last_event int) {
+
+	// Step through the events and see which users overlap
+	// We can only measure active impositions and counter impositions, we can't tell
+	// whether inactive users are paying attention or not, though we might assume 
+	// that they will tend to pay attention until the end of the burst, at least
+	// for some persistent event horizon
+
+// What is the trust aspect? This is mostly kinetic
+
+// how many users make more than one contribution to the episode within a horizon
+
+	for event := 1; event <= last_event; event++ {
+
+		const event_horizon = 5
+
+		for user := range episode_user_start {
+			
+			if event >= episode_user_start[user] && event <= episode_user_last[user] {
+
+			}
+		}
+	}
 }
 
 // *******************************************************************************
