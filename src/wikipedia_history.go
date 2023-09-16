@@ -1076,7 +1076,9 @@ func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]in
 
 					adj[u1][u2]++
 
-					// Save this as a child of the episode
+					// Save adj, key, len(key) this as a child of the episode
+					// From this we can find out probable contention between users
+					// and summing rows, the most contentious user
 				}
 			}
 		}
