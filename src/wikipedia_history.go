@@ -66,6 +66,7 @@ var G TT.Analytics
 var ARTICLE_ISSUES int = 0
 var GIANT_CLUSTER_FREQ = make(map[int]int)
 var EPISODE_CLUSTER_FREQ = make(map[int]int)
+var NOBOTS bool = false
 
 // ***********************************************************
 
@@ -695,7 +696,12 @@ func HistoryPage(url string) []WikiProcess {
 
 				attend = false
 				entry.Message = strings.TrimSpace(message) + ". "
-				changelog = append(changelog,entry)
+
+				if NOBOTS && IsBot(entry.User) {
+					fmt.Println("Skipping",entry.User)
+				} else {
+					changelog = append(changelog,entry)
+				}
 			}
 
 		case html.StartTagToken:
@@ -1091,7 +1097,7 @@ func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]in
 	
 	//fmt.Println(adj)
 	for u := 0; u < len(key); u++ {
-		fmt.Println("  imposition", episode,"--", key[u],row[u],"/",len(key))
+		TT.Println("  imposition", episode,"--", key[u],row[u],"/",len(key))
 	} 
 }
 
