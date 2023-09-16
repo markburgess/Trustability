@@ -841,7 +841,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 			// Reset episode graph
 
-			AnalyzeUserContributions(episode_user_start,episode_user_last,event)
+			AnalyzeUserContributions(episode_user_start,episode_user_last,event,episode)
 
 			event = 1
 			episode_user_start = make(map[string]int)
@@ -1044,26 +1044,40 @@ func PlotUserBursts(histogram map[int]int, filename string) {
 
 // *******************************************************************************
 
-func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]int, last_event int) {
+func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]int, last_event, episode int) {
 
-	// Step through the events and see which users overlap
+	// Step through the events and see which users overlap with a horizon error margin
 	// We can only measure active impositions and counter impositions, we can't tell
 	// whether inactive users are paying attention or not, though we might assume 
 	// that they will tend to pay attention until the end of the burst, at least
 	// for some persistent event horizon
 
-// What is the trust aspect? This is mostly kinetic
+	var key []string
 
-// how many users make more than one contribution to the episode within a horizon
+	for u1 := range episode_user_start {
+		key = append(key,u1)
+	}
+
+	var adj = make(map[int]map[int]int)
 
 	for event := 1; event <= last_event; event++ {
 
 		const event_horizon = 5
 
-		for user := range episode_user_start {
-			
-			if event >= episode_user_start[user] && event <= episode_user_last[user] {
+		// the episode events are integers 1...N for the whole episode
 
+		for u1 := 0; u1 < len(key); u1++ {
+
+			for u2 := u1+1; u2 < len(key); u2++ {
+
+				adj[u1] = make(map[int]int)
+
+				if (event >= episode_user_start[key[u1]] && event <= episode_user_last[key[u1]] + event_horizon) && (event >= episode_user_start[key[u2]] && event <= episode_user_last[key[u2]] + event_horizon) {
+
+					adj[u1][u2]++
+
+					// Save this as a child of the episode
+				}
 			}
 		}
 	}
