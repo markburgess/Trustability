@@ -532,38 +532,6 @@ func NextDataEvent(g *Analytics, shortkey, data string) Node {
 
 // ****************************************************************************
 
-func NextParallelEvents(g *Analytics, shortkeys []string, data []string) []Node {
-
-	// If each timestep has a number of parallel slit possibilities, we need to link them all
-
-	var newset []Node = make([]Node,0)
-	var key Node
-
-	for to := range shortkeys {
-
-		key = CreateNode(*g, shortkeys[to], data[to], 1.0)   // selection #n
-		
-		if g.previous_event_key.Key != "start" {
-
-			// Link all the previous keys in slice
-
-			for from := range g.previous_event_slice {
-
-				CreateLink(*g, g.previous_event_slice[from], "THEN", key, 1.0)
-			}
-		}
-		
-		newset = append(newset,key)
-	}
-
-	g.previous_event_slice = newset
-	g.previous_event_key = key
-
-	return newset
-}
-
-// ****************************************************************************
-
 func PreviousEvent(g *Analytics) Node {
 
 	return g.previous_event_key

@@ -1059,6 +1059,7 @@ func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]in
 	}
 
 	var adj = make(map[int]map[int]int)
+	var row = make([]int,len(key))
 
 	for event := 1; event <= last_event; event++ {
 
@@ -1075,14 +1076,23 @@ func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]in
 				if (event >= episode_user_start[key[u1]] && event <= episode_user_last[key[u1]] + event_horizon) && (event >= episode_user_start[key[u2]] && event <= episode_user_last[key[u2]] + event_horizon) {
 
 					adj[u1][u2]++
-
-					// Save adj, key, len(key) this as a child of the episode
-					// From this we can find out probable contention between users
-					// and summing rows, the most contentious user
+					row[u1]++
 				}
 			}
 		}
 	}
+	
+	// Save adj, key, len(key) this as a child of the episode
+	// From this we can find out probable contention between users
+	// and summing rows, the most contentious user
+	
+	// NextDataEvent(G,)
+	// Attach....
+	
+	//fmt.Println(adj)
+	for u := 0; u < len(key); u++ {
+		fmt.Println("  imposition", episode,"--", key[u],row[u],"/",len(key))
+	} 
 }
 
 // *******************************************************************************
