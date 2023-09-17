@@ -1,0 +1,7 @@
+
+These files are used to generate the result plots used in publications
+
+datafit.go        - Calculate the gnuplot input for actual data versus prediction
+hierarchy_calc.go - Calculate the fission hierarchy n_max to <N> 
+Nav.go            - Calculate the average group size from the contention scatter <N>
+Nexpect.go        - Calculate the average group size as an expectation of the frequency curve
