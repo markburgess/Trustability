@@ -109,11 +109,23 @@ type KeyValue struct {
 
 // ***************************************************************************
 
+type Lock struct {
+
+	Ready bool
+	This  string
+	Last  string
+}
+
+// ***************************************************************************
+
 type PromiseContext struct {
 
-	Time time.Time
-	Name string
+	Time  time.Time
+	Name  string
+	Plock Lock
 }
+
+// ***************************************************************************
 
 type PromiseHistory struct {
 
@@ -509,7 +521,16 @@ func KeyName(s string) string {
 	s2 := strings.ReplaceAll(s1,"-","_")
 	s3 := strings.ReplaceAll(s2,"`","")
 	s4 := strings.ReplaceAll(s3,"'","")
-	return strings.ReplaceAll(s4," ","_")
+	s5 := strings.ReplaceAll(s4,"{","")
+	s6 := strings.ReplaceAll(s5,"}","")
+	return strings.ReplaceAll(s6," ","_")
+}
+
+//**************************************************************
+
+func CanonifyName(s string) string {
+
+	return KeyName(s)
 }
 
 // ****************************************************************************
@@ -640,7 +661,7 @@ func AddKV(g Analytics, collname string, kv KeyValue) {
 	if err != nil {
 		coll, err = g.S_db.CreateCollection(nil, collname, nil)
 		if err != nil {
-			fmt.Println("AddKV No such collection",collname,kv)
+			fmt.Println("AddKV No such collection:", collname,"--",kv)
 			return
 		}
 	}
@@ -943,7 +964,19 @@ func PromiseContext_Begin(g Analytics, name string) PromiseContext {
 
 	var ctx PromiseContext
 	ctx.Time = time.Now()
-	ctx.Name = name
+	ctx.Name = KeyName(name)
+
+	// *** begin ANTI-SPAM/DOS PROTECTION ***********
+
+	ifelapsed := int64(30)   // these params should be policy
+	expireafter := int64(60)
+
+	now := time.Now().UnixNano()
+
+	ctx.Plock = BeginService(name,ifelapsed,expireafter, now) 
+
+	// *** end ANTI-SPAM/DOS PROTECTION ***********
+
 	return ctx
 }
 
@@ -954,6 +987,8 @@ func PromiseContext_End(g Analytics, ctx PromiseContext) PromiseHistory {
 	promiseID := ctx.Name
 	before := ctx.Time
 	after := time.Now()
+
+	EndService(ctx.Plock)
 
 	const collname = "conn"
 
@@ -983,7 +1018,7 @@ func PromiseContext_End(g Analytics, ctx PromiseContext) PromiseHistory {
 	if previous_value.V == 0 {
 		db = b/2         // default bootstrap
 	} else {
-		db = b - previous_value.V
+ 		db = b - previous_value.V
 	}
 
 	dtau := dt/db * b
@@ -1000,12 +1035,13 @@ func PromiseContext_End(g Analytics, ctx PromiseContext) PromiseHistory {
 	lasttime.K = promiseID+"lastseen"
 	lasttime.V = float64(after.UnixNano())
 
+	fmt.Println("------- INSTRUMENTATION --------------")
+
 	AddKV(g,collname,lastlatency)
 	AddKV(g,collname,lasttime)
 
-	AddKV(g,promiseID+collname,lasttime)
+	//AddKV(g,promiseID+collname,lasttime)
 
-	fmt.Println("------- INSTRUMENTATION --------------")
 	fmt.Println("   Location:", promiseID+collname)
 	fmt.Println("   Promise duration b (ms)", e.Q/MILLI,"=",b/MILLI)
 	fmt.Println("   Running average 50/50", e.Q_av/NANO)
@@ -3315,3 +3351,126 @@ func Print(a ...any) (n int, err error) {
 		return fmt.Print("")
 	}
 }
+
+// *****************************************************************
+// Adaptive locks ...
+// Pedagogical implementation of self-healing locks as used in CFEngine
+// We need a 1:1 unique name for client requests and lock names
+// Also, it's important to write service code that's interruptible, especially
+// in golang where you can't forcibly signal by imposition as with preemptive MT
+//
+//  lock := BeginService(...)
+//    ...
+//  EndService(lock)
+// *****************************************************************
+
+const LOCKDIR = "/tmp" // this should REALLY be a private, secure location
+const NEVER = 0
+
+// *****************************************************************
+
+func BeginService(name string, ifelapsed,expireafter int64, now int64) Lock {
+
+	var lock Lock
+
+	lock.Last = fmt.Sprintf("%s/last.%s",LOCKDIR,name)
+	lock.This = fmt.Sprintf("%s/lock.%s",LOCKDIR,name)
+	lock.Ready = true
+	
+	lastcompleted := GetLockTime(lock.Last)
+
+	elapsedtime := (now - lastcompleted) / NANO // in seconds
+
+	fmt.Println("Check elapsed time...",elapsedtime,ifelapsed)
+	
+	if (elapsedtime < ifelapsed) {
+
+		fmt.Println("Too soon since last",lock.Last,elapsedtime,"/",ifelapsed)
+		lock.Ready = false
+		return lock
+	}
+
+	starttime := GetLockTime(lock.This)
+
+	fmt.Println("Looking for current lock...")
+
+	if (starttime == NEVER) {
+
+		fmt.Println("No running lock...")
+
+	} else {
+
+		runtime := (now-starttime) / NANO
+
+		if (runtime > expireafter) {
+
+			// server threads can't be forced to quit, 
+			// so we can only ask nicely to release resources
+			// as part of a standard promise
+			// If the thread can change something downstream, it needs to be stopped
+			// For a read only server process, it's safe to continue
+
+			RemoveLock(lock.This)
+		}
+	}
+
+	AcquireLock(lock.This)
+	return lock
+}
+
+// *****************************************************************
+
+func EndService(lock Lock) {
+
+	fmt.Println("Removing ",lock.This)
+	RemoveLock(lock.This)
+	RemoveLock(lock.Last)
+	fmt.Println("Updating ",lock.Last)
+	AcquireLock(lock.Last)
+}
+
+// *****************************************************************
+
+func GetLockTime(filename string) int64 {
+
+	fileinfo, err := os.Stat(filename)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+
+			return NEVER
+
+		} else {
+			fmt.Println("Insufficient permission",err)
+			os.Exit(1)
+		}
+	}
+
+	return fileinfo.ModTime().UnixNano()
+}
+
+// *****************************************************************
+
+func AcquireLock(name string) {
+
+	f, err := os.OpenFile(name,os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		fmt.Println("Couldn't acquire lock to create",name,err)
+		return
+	}
+
+	f.Close()
+}
+
+// *****************************************************************
+
+func RemoveLock(name string) {
+
+	err := os.Remove(name)
+
+	if err != nil {
+		fmt.Println("Unable to remove",name,err)
+	}
+}
+

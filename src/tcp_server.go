@@ -65,14 +65,18 @@ func main() {
 	defer listen.Close()
 
 	for count := 1; count < 10; count++ {
+
 		conn, err := listen.Accept()
+		
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
 		}
-
+		
 		go handleRequest(conn,g,count)
 	}
+
+	fmt.Println("\n !! Server ran out of petrol")
 }
 
 // ***************************************************************
@@ -89,7 +93,16 @@ func handleRequest(conn net.Conn, g TT.Analytics, count int) {
 	// On the server side, each connection is an imposition so we're naturally
 	// less trusting on the server side. Server is unaware of client intentions
 
-	ctx:= TT.PromiseContext_Begin(g,"tcp_serviceprovider") // periodigram?
+	serviceid := TT.CanonifyName("tcp_serviceprovider"+HOST+PORT+remoteAddr.IP.String())
+
+	ctx := TT.PromiseContext_Begin(g,serviceid) // periodigram?
+
+	if !ctx.Plock.Ready {
+		fmt.Println("Rejecting connection...")
+		conn.Write([]byte("Too soon")) // Refusal response
+		conn.Close()
+		return
+	}
 
 	received := make([]byte, 1024)
 

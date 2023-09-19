@@ -161,5 +161,11 @@ func AssessResult(res string) float64 {
 		return TT.ASSESS_WEAK
 	}
 
+	if strings.Contains(res,"Too soon") {
+
+		fmt.Println("\n !! Connection rejected by rate limiting")
+		os.Exit(0)
+	}
+
 	return TT.ASSESS_SUBPAR
 }
