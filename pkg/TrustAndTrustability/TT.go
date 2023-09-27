@@ -249,6 +249,8 @@ type Node struct {
 	Data    string  `json: "data"`    // Longer description or bulk string data
 	Prefix  string  `json:"prefix"`   // Collection: Hub, Node, Fragment?
 	Weight  float64 `json:"weight"`   // importance rank
+
+	SST     PromiseHistory `json:"sst"` // SST dynamic `phase space' coordinates
 }
 
 // ***************************************************************************
