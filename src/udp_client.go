@@ -73,8 +73,8 @@ func main() {
 	}
 
 	fmt.Println("=========IDENTITY=================")
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	remoteAddr := conn.RemoteAddr().(*net.UDPAddr)
+	localAddr := endpoint.LocalAddr().(*net.UDPAddr)
+	remoteAddr := endpoint.RemoteAddr().(*net.UDPAddr)
 	fmt.Println("Local IP",localAddr)
 	fmt.Println("Remote IP",remoteAddr)
 	fmt.Println("=========IDENTITY=================")
@@ -97,7 +97,7 @@ func main() {
 
 		_, err = endpoint.Read(received)
 		
-		AssessPromiseOutcome(err,received) // this has to be specific to each agent and process
+		AssessPromiseOutcome() // this has to be specific to each agent and process
 
 		if err != nil {
 
@@ -118,7 +118,7 @@ func main() {
 // *******************************************************************
 
 func AssessPromiseOutcome() {
-
+/*
 Extreme events
 	EstimateRiskForPromise() - importance MEGA, MEDIUM, LOW
 
@@ -129,5 +129,5 @@ Regular events
 	UpdateTrustWorthInAgentPromise() - how much up or down?
 	UpdateTrustWorthInAgent()
 	UpdateTrustForAgentPromise()
-
+*/
 }
