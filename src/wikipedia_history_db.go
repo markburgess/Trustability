@@ -114,7 +114,6 @@ func main() {
 
 	fmt.Println("\nWrote",len(subjects),"lines from",total_users,"users to graph table:\n",OUTPUT_FILE)
 
-	PlotUserBursts(GIANT_CLUSTER_FREQ,GIANT_CLUSTER_FILE)
 	PlotUserBursts(EPISODE_CLUSTER_FREQ,EPISODE_CLUSTER_FILE)
 }
 
