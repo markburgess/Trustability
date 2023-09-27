@@ -225,9 +225,6 @@ var KEPT int = 0
 var SKIPPED int = 0
 var ALL_SENTENCE_INDEX int = 0
 
-var THRESH_ACCEPT float64 = 0
-var TOTAL_THRESH float64 = 0
-
 // ************** SOME INTRINSIC SPACETIME SCALES ****************************
 
 const MAXCLUSTERS = 7
@@ -464,6 +461,8 @@ func CreateNode(g Analytics, kind,short_description,vardescription string, weigh
 	concept.Data = description
 	concept.Key = short_description
 	concept.Prefix = kind + "/"
+
+
 	concept.Weight = weight
 	concept.SST = promise
 
