@@ -65,7 +65,7 @@ func main() {
 		os.Exit(1);
 
 	} else {
-		TT.SetTrustThreshold(threshold)
+		//TT.SetTrustThreshold(threshold)
 
 		fmt.Println("******************************************************************")
 		fmt.Println("** SEMANTIC TEXT SAMPLER, SST basis model")
