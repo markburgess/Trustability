@@ -9,6 +9,7 @@ These programs are proof of concept stubs and research tools associated with the
  - ngrams.go
  - ngrams-chinese.go
  - wikipedia_history.go <verbose>
+ - wikipedia_history_db.go <verbose>
 
 The files:
 
@@ -30,6 +31,7 @@ The files:
  - udp_client.go - udp client stub to run together with upp_server.go
  - udp_server.go - udp server stub to run together with udp_client.go
  - wikipedia_history.go - html+ngram+wikipedia analysis, self contained output analysis generator
+ - wikipedia_history_db.go - a database building version of the analysis developed in the previous
 
 
 For specifics about how to run each program see the top notes in the source code.
