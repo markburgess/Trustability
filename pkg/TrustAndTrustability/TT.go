@@ -65,9 +65,11 @@ type ConnectionSemantics struct {
 
 type SemanticLinkSet map[string][]ConnectionSemantics
 
-type Cone map[int]SemanticLinkSet
-
 // ****************************************************************************
+
+var NODETYPES = []string{"topic","perisistent","ngram","episode","user","signal"}
+var LINKTYPES = []string{"follows","contains","expresses","near"}
+
 
 type Analytics struct {
 
@@ -78,19 +80,8 @@ S_db   A.Database
 // Graph model
 
 S_graph A.Graph
-
-// 3 levels of nodes and supernodes
-
-S_frags A.Collection  // fractionated Ngrams
-S_nodes A.Collection  // whole semantic events
-S_hubs  A.Collection  // collective patterns
-
-// 4 primary link types
-
-S_Follows   A.Collection
-S_Contains  A.Collection
-S_Expresses A.Collection
-S_Near      A.Collection
+S_Nodes map[string]A.Collection
+S_Links map[string]A.Collection
 
 // Chain memory 
 previous_event_key Node
@@ -153,6 +144,29 @@ type PromiseHistory struct {
 	AntiT     float64    `json:"antiT"`
 
 	Units     string     `json:"units"`
+}
+
+// ****************************************************************************
+
+type ProcessSummary struct {
+
+	L float64 `json: L`            // 1 article text (work output)
+	LL float64 `json: LL`          // 2
+	N float64 `json: N`            // 3 average users per episode
+	NL float64 `json: NL`          // 4
+	N2 float64 `json: N2`          // 5 users-cluster
+	N2L float64 `json: N2L`        // 6
+	I float64 `json: I`            // 7 count of altercations
+	IL float64 `json: IL`          // 8
+	W float64 `json: W`            // 9 H/L - mistrusted work ratio (sampled article/article work)
+	WL float64 `json: WL`          // 10
+	U float64 `json: U`            // 11 sampled process discussion/sampled article work ratio
+	UL float64 `json: UL`          // 12
+	M float64 `json: M`            // 13 s/H - mistrust level (sampled history/history work)
+	ML float64 `json: ML`          // 14
+	TG float64 `json: TG`          // 15 av episode duration per episode
+	TU float64 `json: TU`          // 16 av episode duration per episode user
+	BF float64 `json: Bot_fraction` // 21 bots/human users
 }
 
 // ****************************************************************************
@@ -309,7 +323,6 @@ type VectorPair struct {
 
 func InitializeSmartSpaceTime() {
 
-
 	for i := 1; i < MAXCLUSTERS; i++ {
 
 		STM_NGRAM_RANK[i] = make(map[string]float64)
@@ -375,9 +388,6 @@ func InitializeSmartSpaceTime() {
 
 	// *
 
-	//SaveAssociations("ST_Associations",PC.S_db,ASSOCIATIONS)
-	//newassociations := LoadAssociations(PC.S_db,"ST_Associations")
-	//fmt.Println(newassociations)
 }
 
 // ****************************************************************************
@@ -443,27 +453,7 @@ func IncrementLink(g Analytics, c1 Node, rel string, c2 Node) {
 
 // ****************************************************************************
 
-func CreateFragment(g Analytics, short_description,vardescription string, weight float64) Node {
-
-	var concept Node
-
-	// if no short description, use a hash of the data
-
-	description := InvariantDescription(vardescription)
-
-	concept.Data = description
-	concept.Key = short_description             // _id
-	concept.Prefix = "Fragments/"
-	concept.Weight = weight
-
-	AddFrag(g,concept)
-
-	return concept
-}
-
-// ****************************************************************************
-
-func CreateNode(g Analytics, short_description,vardescription string, weight float64) Node {
+func CreateNode(g Analytics, kind,short_description,vardescription string, weight float64, promise PromiseHistory) Node {
 
 	var concept Node
 
@@ -473,30 +463,11 @@ func CreateNode(g Analytics, short_description,vardescription string, weight flo
 
 	concept.Data = description
 	concept.Key = short_description
-	concept.Prefix = "Nodes/"
+	concept.Prefix = kind + "/"
 	concept.Weight = weight
+	concept.SST = promise
 
-	AddNode(g,concept)
-
-	return concept
-}
-
-// ****************************************************************************
-
-func CreateHub(g Analytics, short_description,vardescription string, weight float64) Node {
-
-	var concept Node
-
-	// if no short description, use a hash of the data
-
-	description := InvariantDescription(vardescription)
-
-	concept.Data = description
-	concept.Key = short_description
-	concept.Prefix = "Hubs/"
-	concept.Weight = weight
-
-	AddHub(g,concept)
+	AddNode(g,kind,concept)
 
 	return concept
 }
@@ -539,9 +510,9 @@ func CanonifyName(s string) string {
 // Event History
 // ****************************************************************************
 
-func NextDataEvent(g *Analytics, shortkey, data string) Node {
+func NextDataEvent(g *Analytics, shortkey, data string, history PromiseHistory) Node {
 
-	key  := CreateNode(*g, shortkey, data, 1.0)   // selection #n
+	key  := CreateNode(*g, "episode", shortkey, data, 1.0, history)   // selection #n
 	
 	if g.previous_event_key.Key != "start" {
 		
@@ -572,21 +543,11 @@ func GetNode(g Analytics, key string) string {
 	prefix = path.Dir(key)
 	rawkey = path.Base(key)
 
-	//fmt.Println("Debug GetNode(key)",key," XXXX pref",prefix,"base",rawkey)
+	coll = g.S_Nodes[prefix]
 
-	switch prefix {
-
-	case "Hubs": 
-		coll = g.S_hubs
-		break
-
-	case "Fragments": 
-		coll = g.S_frags
-		break
-
-	default:
-		coll = g.S_nodes
-		break
+	if coll == nil {
+		fmt.Println("No such kind of node",prefix)
+		os.Exit(1)
 	}
 
 	// if we use S_nodes reference then we don't need the Nodes/ prefix
@@ -1199,36 +1160,27 @@ func OpenAnalytics(dbname, service_url, user, pwd string) Analytics {
 
 	// Book-keeping: wiring up edgeCollection to store the edges
 
-	var F_edges A.EdgeDefinition
-	var C_edges A.EdgeDefinition
-	var N_edges A.EdgeDefinition
-	var E_edges A.EdgeDefinition
+	var edgekinds []A.EdgeDefinition
 
-	F_edges.Collection = "Follows"
-	F_edges.From = []string{"Nodes","Hubs","Fragments"}  // source set
-	F_edges.To = []string{"Nodes","Hubs","Fragments"}    // sink set
+	for kind := range LINKTYPES {
 
-	C_edges.Collection = "Contains"
-	C_edges.From = []string{"Nodes","Hubs"}              // source set
-	C_edges.To = []string{"Nodes","Hubs","Fragments"}    // sink set
+		var edgekind A.EdgeDefinition
+		edgekind.Collection = LINKTYPES[kind]
+		edgekind.From = NODETYPES
+		edgekind.To = NODETYPES
 
-	N_edges.Collection = "Near"
-	N_edges.From = []string{"Nodes","Hubs","Fragments"}  // source set
-	N_edges.To = []string{"Nodes","Hubs","Fragments"}    // sink set
-
-	E_edges.Collection = "Expresses"
-	E_edges.From = []string{"Nodes","Hubs"}  // source set
-	E_edges.To = []string{"Nodes","Hubs"}    // sink set
+		edgekinds = append(edgekinds,edgekind)
+	}
 
 	var options A.CreateGraphOptions
 	options.OrphanVertexCollections = []string{"Disconnected"}
-	options.EdgeDefinitions = []A.EdgeDefinition{F_edges,C_edges,N_edges,E_edges}
+	options.EdgeDefinitions = edgekinds
 
 	// Begin - feed options into a graph 
 
 	var graph A.Graph
 	var err error
-	var gname string = "concept_spacetime"
+	var gname string = "Wikipedia_SST"
 	var g_exists bool
 
 	g_exists, err = db.GraphExists(nil, gname)
@@ -1252,69 +1204,34 @@ func OpenAnalytics(dbname, service_url, user, pwd string) Analytics {
 
 	// *** Nodes
 
-	var frag_vertices A.Collection
-	var node_vertices A.Collection
-	var hub_vertices A.Collection
+	var node_vertices = make(map[string]A.Collection)
 
-	frag_vertices, err = graph.VertexCollection(nil, "Fragments")
+	for kind := range NODETYPES {		
 
-	if err != nil {
-		fmt.Printf("Vertex collection Fragments: %v", err)
-	}
+		node_vertices[NODETYPES[kind]], err = graph.VertexCollection(nil, NODETYPES[kind])
 
-	node_vertices, err = graph.VertexCollection(nil, "Nodes")
-
-	if err != nil {
-		fmt.Printf("Vertex collection Nodes: %v", err)
-	}
-
-	hub_vertices, err = graph.VertexCollection(nil, "Hubs")
-
-	if err != nil {
-		fmt.Printf("Vertex collection Hubs: %v", err)
+		if err != nil {
+			fmt.Printf("Vertex collection Nodes: %v", err)
+		}
 	}
 
 	// *** Links
 
-	var F_edgeset A.Collection
-	var C_edgeset A.Collection
-	var E_edgeset A.Collection
-	var N_edgeset A.Collection
+	var edges = make (map[string]A.Collection)
 
-	F_edgeset, _, err = graph.EdgeCollection(nil, "Follows")
+	for kind := range LINKTYPES {
 
-	if err != nil {
-		fmt.Printf("Egdes follows: %v", err)
-	}
+		edges[LINKTYPES[kind]], _, err = graph.EdgeCollection(nil, LINKTYPES[kind])
 
-	C_edgeset, _, err = graph.EdgeCollection(nil, "Contains")
-
-	if err != nil {
-		fmt.Printf("Edges contains: %v", err)
-	}
-
-	E_edgeset, _, err = graph.EdgeCollection(nil, "Expresses")
-
-	if err != nil {
-		fmt.Printf("Edges expresses: %v", err)
-	}
-
-	N_edgeset, _, err = graph.EdgeCollection(nil, "Near")
-
-	if err != nil {
-		fmt.Printf("Edges near: %v", err)
+		if err != nil {
+			fmt.Printf("Egdes follows: %v", err)
+		}
 	}
 
 	g.S_db = db	
 	g.S_graph = graph
-	g.S_nodes = node_vertices
-	g.S_hubs = hub_vertices
-	g.S_frags = frag_vertices
-
-	g.S_Follows = F_edgeset
-	g.S_Contains = C_edgeset
-	g.S_Expresses = E_edgeset	
-	g.S_Near = N_edgeset
+	g.S_Nodes = node_vertices
+	g.S_Links = edges
 
 	g.previous_event_key = Node{ Key: "start" }
 
@@ -1367,25 +1284,9 @@ return nodeset
 
 // **************************************************
 
-func AddNode(g Analytics, node Node) {
+func AddNode(g Analytics, kind string, node Node) {
 
-	var coll A.Collection = g.S_nodes
-	InsertNodeIntoCollection(g,node,coll)
-}
-
-// **************************************************
-
-func AddFrag(g Analytics, node Node) {
-
-	var coll A.Collection = g.S_frags
-	InsertNodeIntoCollection(g,node,coll)
-}
-
-// **************************************************
-
-func AddHub(g Analytics, node Node) {
-
-	var coll A.Collection = g.S_hubs
+	var coll A.Collection = g.S_Nodes[kind]
 	InsertNodeIntoCollection(g,node,coll)
 }
 
@@ -1430,7 +1331,6 @@ func InsertNodeIntoCollection(g Analytics, node Node, coll A.Collection) {
 			if err != nil {
 				fmt.Printf("Failed to update value: %s %v",node,err)
 				return
-
 			}
 		}
 	}
@@ -1480,10 +1380,10 @@ func AddLink(g Analytics, link Link) {
 
 	switch coltype {
 
-	case GR_FOLLOWS:   links = g.S_Follows
-	case GR_CONTAINS:  links = g.S_Contains
-	case GR_EXPRESSES: links = g.S_Expresses
-	case GR_NEAR:      links = g.S_Near
+	case GR_FOLLOWS:   links = g.S_Links["follows"]
+	case GR_CONTAINS:  links = g.S_Links["contains"]
+	case GR_EXPRESSES: links = g.S_Links["expresses"]
+	case GR_NEAR:      links = g.S_Links["near"]
 
 	}
 
@@ -1573,11 +1473,10 @@ func IncrLink(g Analytics, link Link) {
 
 	switch coltype {
 
-	case GR_FOLLOWS:   links = g.S_Follows
-	case GR_CONTAINS:  links = g.S_Contains
-	case GR_EXPRESSES: links = g.S_Expresses
-	case GR_NEAR:      links = g.S_Near
-
+	case GR_FOLLOWS:   links = g.S_Links["follows"]
+	case GR_CONTAINS:  links = g.S_Links["contains"]
+	case GR_EXPRESSES: links = g.S_Links["expresses"]
+	case GR_NEAR:      links = g.S_Links["near"]
 	}
 
 	exists,_ := links.DocumentExists(nil, key)
@@ -2073,68 +1972,6 @@ func MatrixMultiplyVector(adj [][]float64,v []float64,dim int) []float64 {
 return result
 }
 
-//**************************************************************
-
-func GetPossibilityCone(g Analytics, start_key string, sttype int, visited map[string]bool) (Cone,int) {
-
-	// A cone is a sequence of spacelike slices orthogonal to the proper time defined by sttype
-	// Each slice is formed from patches that spread from nodes in the current slice
-	
-	// width first
-
-	var layer int = 0
-	var counter int = 0
-	var total int = 0
-	var cone = make(Cone)
-
-	var start string = start_key
-
-	cone[layer] = InitializeSemanticLinkSet(start)
-
-	for {		
-		var fanout SemanticLinkSet
-
-		cone[layer+1] = make(SemanticLinkSet)
-
-		for nodekey := range cone[layer] {
-
-			if visited[nodekey] {
-				continue
-			} else {
-				visited[nodekey] = true
-			}
-
-			fanout = GetSuccessorsOf(g, nodekey, sttype)
-			
-			if len(fanout) == 0 {
-				return cone,total
-			}
-
-			//fmt.Println(counter, "Successor", nodekey,"result", fanout)
-						
-			for nextkey := range fanout {
-
-				for wire := range fanout[nextkey] {
-					
-					fanout[nextkey][wire].FwdSrc = nextkey
-
-					if !AlreadyLinkType(cone[layer+1][nextkey],fanout[nextkey][wire]) {
-
-						cone[layer+1][nextkey] = append(cone[layer+1][nextkey],fanout[nextkey][wire])
-					}
-				}
-
-				//fmt.Println("Debug",counter,nextkey,fanout[nextkey])				
-				counter = counter + 1
-			}
-		}
-		
-		layer = layer + 1
-		total = total + counter
-		counter = 0
-	}
-}
-
 // **************************************************
 
 func AlreadyLinkType(existing []ConnectionSemantics, newlnk ConnectionSemantics) bool {
@@ -2147,21 +1984,6 @@ func AlreadyLinkType(existing []ConnectionSemantics, newlnk ConnectionSemantics)
 	}
 
 return false
-}
-
-// **************************************************
-
-func GetConePaths(g Analytics, start_key string, sttype int, visited map[string]bool) []string {
-
-	// A cone is a sequence of spacelike slices orthogonal to the proper time defined by sttype
-	// Each slice is formed from patches that spread from nodes in the current slice
-	
-	// width first
-
-	var layer int = 0
-
-	paths := GetPathsFrom(g, layer, start_key, sttype, visited)
-	return paths
 }
 
 // **************************************************
