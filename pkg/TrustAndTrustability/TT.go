@@ -67,25 +67,21 @@ type SemanticLinkSet map[string][]ConnectionSemantics
 
 // ****************************************************************************
 
-var NODETYPES = []string{"topic","perisistent","ngram","episode","user","signal"}
+var NODETYPES = []string{"topic","ngram","concept","episode","user","signal"}
 var LINKTYPES = []string{"follows","contains","expresses","near"}
 
+// ****************************************************************************
 
 type Analytics struct {
 
-// Container db
-
 S_db   A.Database
-
-// Graph model
-
 S_graph A.Graph
 S_Nodes map[string]A.Collection
 S_Links map[string]A.Collection
+S_Episodes A.Collection
 
 // Chain memory 
-previous_event_key Node
-previous_event_slice []Node
+previous_event_key map[string]Node
 }
 
 // ***************************************************************************
@@ -148,25 +144,25 @@ type PromiseHistory struct {
 
 // ****************************************************************************
 
-type ProcessSummary struct {
+type EpisodeSummary struct {
 
-	L float64 `json: L`            // 1 article text (work output)
-	LL float64 `json: LL`          // 2
-	N float64 `json: N`            // 3 average users per episode
-	NL float64 `json: NL`          // 4
-	N2 float64 `json: N2`          // 5 users-cluster
-	N2L float64 `json: N2L`        // 6
-	I float64 `json: I`            // 7 count of altercations
-	IL float64 `json: IL`          // 8
-	W float64 `json: W`            // 9 H/L - mistrusted work ratio (sampled article/article work)
-	WL float64 `json: WL`          // 10
-	U float64 `json: U`            // 11 sampled process discussion/sampled article work ratio
-	UL float64 `json: UL`          // 12
-	M float64 `json: M`            // 13 s/H - mistrust level (sampled history/history work)
-	ML float64 `json: ML`          // 14
-	TG float64 `json: TG`          // 15 av episode duration per episode
-	TU float64 `json: TU`          // 16 av episode duration per episode user
-	BF float64 `json: Bot_fraction` // 21 bots/human users
+	L   float64 `json: L`  // 1 article text (work output)
+	LL  float64 `json: LL` // 2
+	N   float64 `json: N`  // 3 average users per episode
+	NL  float64 `json: NL` // 4
+	N2  float64 `json: N2` // 5 users-cluster
+	N2L float64 `json: N2L`// 6
+	I   float64 `json: I`  // 7 count of altercations
+	IL  float64 `json: IL` // 8
+	W   float64 `json: W`  // 9 H/L - mistrusted work ratio (sampled article/article work)
+	WL  float64 `json: WL` // 10
+	U   float64 `json: U`  // 11 sampled process discussion/sampled article work ratio
+	UL  float64 `json: UL` // 12
+	M   float64 `json: M`  // 13 s/H - mistrust level (sampled history/history work)
+	ML  float64 `json: ML` // 14
+	TG  float64 `json: TG` // 15 av episode duration per episode
+	TU  float64 `json: TU` // 16 av episode duration per episode user
+	BF  float64 `json: Bot_fraction` // 21 bots/human users
 }
 
 // ****************************************************************************
@@ -261,7 +257,7 @@ type Node struct {
 	Prefix  string  `json:"prefix"`   // Collection: Hub, Node, Fragment?
 	Weight  float64 `json:"weight"`   // importance rank
 
-	SST     PromiseHistory `json:"sst"` // SST dynamic `phase space' coordinates
+	Ptr     string  `json:"ptr"`       // string key to key-value lookup
 }
 
 // ***************************************************************************
@@ -326,10 +322,14 @@ func InitializeSmartSpaceTime() {
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
 
+
+
 	// first element needs to be there to store the lookup key
 	// second element stored as int to save space
 
 	ASSOCIATIONS["CONTAINS"] = Association{"CONTAINS",GR_CONTAINS,"contains","belongs to or is part of","does not contain","is not part of"}
+
+	ASSOCIATIONS["TALKSABOUT"] = Association{"TALKSABOUT",GR_CONTAINS,"talks about","is discussed in","doesn't obviously contain","is not obviously part of"}
 
 	ASSOCIATIONS["GENERALIZES"] = Association{"GENERALIZES",GR_CONTAINS,"generalizes","is a special case of","is not a generalization of","is not a special case of"}
 
@@ -359,7 +359,7 @@ func InitializeSmartSpaceTime() {
 
 	ASSOCIATIONS["DERIVES_FROM"] = Association{"DERIVES_FROM",GR_FOLLOWS,"derives from","leads to","does not derive from","does not leadto"}
 
-	ASSOCIATIONS["DEPENDS"] = Association{"DEPENDS",GR_FOLLOWS,"may depend on","may determine","doesn't depend on","doesn't determine"}
+	ASSOCIATIONS["INFL"] = Association{"INFL",GR_FOLLOWS,"influenced","was influenced by","didn't influence","not influenced by"}
 
 	// Neg
 
@@ -450,7 +450,21 @@ func IncrementLink(g Analytics, c1 Node, rel string, c2 Node) {
 
 // ****************************************************************************
 
-func CreateNode(g Analytics, kind,short_description,vardescription string, weight float64, promise PromiseHistory) Node {
+func CreateNode(g Analytics, kind,short_description,vardescription string, weight float64) Node {
+
+	var found bool = false
+
+	for i := range NODETYPES {
+		if kind == NODETYPES[i] {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		fmt.Println("Typo in name of node collection, no",kind,"in",NODETYPES)
+		os.Exit(1)
+	}
 
 	var concept Node
 
@@ -461,14 +475,49 @@ func CreateNode(g Analytics, kind,short_description,vardescription string, weigh
 	concept.Data = description
 	concept.Key = short_description
 	concept.Prefix = kind + "/"
-
-
 	concept.Weight = weight
-	concept.SST = promise
+
+	// Reuse the key for a separate document
 
 	AddNode(g,kind,concept)
 
 	return concept
+}
+
+
+// ****************************************************************************
+
+func AddEpisodeData(g Analytics, key string, episode_data EpisodeSummary) {
+
+	coll := g.S_Episodes
+
+	exists,err := coll.DocumentExists(nil, key)
+
+	if !exists {
+
+		_, err = coll.CreateDocument(nil, episode_data)
+		
+		if err != nil {
+			fmt.Printf("Failed to create non existent node in AddEpisodeData: %s %v",key,err)
+			os.Exit(1);
+		}
+
+	} else {
+
+		var check EpisodeSummary
+		
+		_,err = coll.ReadDocument(nil,key,&check)
+
+		if check != episode_data {
+
+			_, err := coll.UpdateDocument(nil, key, episode_data)
+
+			if err != nil {
+				fmt.Printf("Failed to update value: %s %v",key,err)
+				os.Exit(1);
+			}
+		}
+	}
 }
 
 //**************************************************************
@@ -481,7 +530,7 @@ func InvariantDescription(s string) string {
 
 //**************************************************************
 
-func KeyName(s string) string {
+func KeyName(s string,n int) string {
 
 	strings.Trim(s,"\n ")
 	
@@ -489,45 +538,43 @@ func KeyName(s string) string {
 		s = s[:40]
 	}
 
-	s1 := strings.ReplaceAll(s,"—","_")
-	s2 := strings.ReplaceAll(s1,"-","_")
-	s3 := strings.ReplaceAll(s2,"`","")
-	s4 := strings.ReplaceAll(s3,"'","")
-	s5 := strings.ReplaceAll(s4,"{","")
-	s6 := strings.ReplaceAll(s5,"}","")
-	return strings.ReplaceAll(s6," ","_")
+	s2 := strings.ReplaceAll(s," ","_")
+	m := regexp.MustCompile("[^a-zA-Z0-9_]*") 
+	str := m.ReplaceAllString(s2,"") 
+	key := fmt.Sprintf("%s_%d",str,n)
+	return key
 }
 
 //**************************************************************
 
 func CanonifyName(s string) string {
 
-	return KeyName(s)
+	return KeyName(s,0)
 }
 
 // ****************************************************************************
 // Event History
 // ****************************************************************************
 
-func NextDataEvent(g *Analytics, shortkey, data string, history PromiseHistory) Node {
+func NextDataEvent(g *Analytics,thread,collection,shortkey,data string) Node {
 
-	key  := CreateNode(*g, "episode", shortkey, data, 1.0, history)   // selection #n
-	
-	if g.previous_event_key.Key != "start" {
+	key  := CreateNode(*g,collection,shortkey,data,1.0)
+
+	if g.previous_event_key[thread].Key != "" {
 		
-		CreateLink(*g, g.previous_event_key, "THEN", key, 1.0)
+		CreateLink(*g, g.previous_event_key[thread],"THEN",key,1.0)
 	}
 	
-	g.previous_event_key = key
+	g.previous_event_key[thread] = key
 
 	return key 
 }
 
 // ****************************************************************************
 
-func PreviousEvent(g *Analytics) Node {
+func PreviousEvent(g *Analytics, thread string) Node {
 
-	return g.previous_event_key
+	return g.previous_event_key[thread]
 }
 
 // ****************************************************************************
@@ -926,7 +973,7 @@ func PromiseContext_Begin(g Analytics, name string) PromiseContext {
 
 	var ctx PromiseContext
 	ctx.Time = time.Now()
-	ctx.Name = KeyName(name)
+	ctx.Name = KeyName(name,0)
 
 	// *** begin ANTI-SPAM/DOS PROTECTION ***********
 
@@ -1203,27 +1250,27 @@ func OpenAnalytics(dbname, service_url, user, pwd string) Analytics {
 
 	// *** Nodes
 
-	var node_vertices = make(map[string]A.Collection)
+	var node_vertices = make(map[string]A.Collection,len(NODETYPES))
 
 	for kind := range NODETYPES {		
 
 		node_vertices[NODETYPES[kind]], err = graph.VertexCollection(nil, NODETYPES[kind])
 
 		if err != nil {
-			fmt.Printf("Vertex collection Nodes: %v", err)
+			fmt.Printf("Vertex collection Nodes: %v (%s)\n", err,NODETYPES[kind])
 		}
 	}
 
 	// *** Links
 
-	var edges = make (map[string]A.Collection)
+	var edges = make (map[string]A.Collection,len(LINKTYPES))
 
 	for kind := range LINKTYPES {
 
 		edges[LINKTYPES[kind]], _, err = graph.EdgeCollection(nil, LINKTYPES[kind])
 
 		if err != nil {
-			fmt.Printf("Egdes follows: %v", err)
+			fmt.Printf("Egdes follows: %v (%s)\n", err,LINKTYPES[kind])
 		}
 	}
 
@@ -1232,7 +1279,21 @@ func OpenAnalytics(dbname, service_url, user, pwd string) Analytics {
 	g.S_Nodes = node_vertices
 	g.S_Links = edges
 
-	g.previous_event_key = Node{ Key: "start" }
+	// Key value stash to separate tabular data
+
+	g.S_Episodes, err = g.S_db.Collection(nil, "episode_summary")
+
+	if err != nil {
+
+		g.S_Episodes, err = g.S_db.CreateCollection(nil, "episode_summary", nil)
+
+		if err != nil {
+			fmt.Println("Unable to open collection episode_summary")
+			os.Exit(1)
+		}
+	}
+
+	g.previous_event_key = make(map[string]Node)
 
 	return g
 }
@@ -1292,7 +1353,7 @@ func AddNode(g Analytics, kind string, node Node) {
 // **************************************************
 
 func InsertNodeIntoCollection(g Analytics, node Node, coll A.Collection) {
-	
+
 	exists,err := coll.DocumentExists(nil, node.Key)
 	
 	if !exists {
@@ -1416,7 +1477,7 @@ func AddLink(g Analytics, link Link) {
 
 		if checkedge != edge {
 
-			fmt.Println("Correcting link weight",checkedge,"to",edge)
+			//fmt.Println("Correcting link weight",checkedge,"to",edge)
 
 			_, err := links.UpdateDocument(nil, key, edge)
 

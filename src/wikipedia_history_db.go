@@ -17,11 +17,7 @@
 // (takes a long time to complete and generates a lot of output)
 // It generates/appends to a file /tmp/trust.dat (should not exist in advance)
 //
-//      go run wikipedia_history.go
-//
-// To generate graphs, install GNUplot and run script in gnuplot.in
-//
-// This is tuned specifically to Wikipedia scanning. using the general methods
+//      go run wikipedia_history_db.go
 // ***********************************************************
 
 package main
@@ -107,8 +103,8 @@ func main() {
 	for n := range subjects {
 
 		fmt.Println(n,subjects[n],"...")
-		result,users := AnalyzeTopic(subjects[n])
-		TT.AppendStringToFile(OUTPUT_FILE,result)
+
+		users := AnalyzeTopic(subjects[n])
 		total_users += users
 	}
 
@@ -128,8 +124,8 @@ func usage() {
 
 // ***********************************************************
 
-func AnalyzeTopic(subject string) (string,int) {
-	
+func AnalyzeTopic(subject string) int {
+
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
@@ -150,12 +146,12 @@ func AnalyzeTopic(subject string) (string,int) {
 	TT.Println("* Sentences",len(selected))
 	TT.Println("* Legs",float64(len(selected))/float64(TT.LEG_WINDOW))
 	TT.Println("*********************************************")
-	
+
 	TT.ReviewAndSelectEvents(subject,selected)		
-	
+
 	pagetopics := TT.RankByIntent(selected)
-	
-	TT.LongitudinalPersistentConcepts(pagetopics)
+
+	LinkPersistentToSubject(subject,pagetopics)
 
 	// ***********************************************************
 	// Pure output analysis of the editing history
@@ -205,6 +201,7 @@ func AnalyzeTopic(subject string) (string,int) {
 		lifetime := float64(useredits[u][len(useredits[u])-1]-useredits[u][0])/float64(DAY)
 
 		if lifetime > 1 {
+
 			TT.Println(" Lifetime ",u,lifetime,"days")
 		}
 	}
@@ -214,7 +211,6 @@ func AnalyzeTopic(subject string) (string,int) {
 	var average_tribe_cluster float64 = 0
 	var duration_per_episode float64 = 0
 	var duration_per_user float64 = 0
-	var duration_per_user2 float64 = 0
 
 	episode_count := float64(episodes) // == len(episode_clusters)
 
@@ -222,12 +218,10 @@ func AnalyzeTopic(subject string) (string,int) {
 
 		duration := float64(episode_duration[g])/float64(DAY)
 		users_N := float64(len(episode_clusters[g]))
-		users_N2 := 1+users_N*(users_N - 1)
 
 		average_tribe_cluster += users_N/episode_count
 		duration_per_episode += duration/episode_count
 		duration_per_user += duration/users_N
-		duration_per_user2 += duration/users_N2
 
 		TT.Println("\n",g," Episode with",users_N,
 			"users\n        ",episode_clusters[g],
@@ -273,10 +267,6 @@ func AnalyzeTopic(subject string) (string,int) {
 
 	TG := duration_per_episode
 	TU := duration_per_user
-	TU2 := duration_per_user2
-	TGL := math.Log(1+TG)
-	TUL := math.Log(1+TU)
-	TU2L := math.Log(1+TU2)
 
 	TT.Println("\n*********************************************")
 	TT.Println("* SUMMARY")
@@ -297,70 +287,31 @@ func AnalyzeTopic(subject string) (string,int) {
 	TT.Println("* The bot fraction is",bot_fraction,)
 	TT.Println("*********************************************\n")
 
-	// Format output for gnuplot graph file(s)
+	// Add this topic to the database
 
-	output := fmt.Sprintln(
-		L,         // 1 text
-		LL,        // 2
-		N,         // 3 users
-		NL,        // 4
-		N2,        // 5 users-cluster
-		N2L,       // 6
-		I,         // 7 issues
-		IL,        // 8
- 		w,         // 9 process work ratio (talk/article)
-		wL,        // 10
-		u,         // 11 mistrust sample work ratio
-		uL,        // 12
-		mistrust,  // 13 s/H
-		mistrustL, // 14
-		TG,        // 15 av episode duration i.e. group interaction duration
-		TU,        // 16 av episode duration per user
-		TGL,       // 17
-		TUL,       // 18
-		TU2,       // 19 av episode duration per user
-		TU2L,      // 20 av episode duration per user
-		bot_fraction, // 21 bots/human users
-	)
-	// Look for the dynamics of the change process as fn of L and N
-	// I(N)  -> (3,7), exp(3,8), pow(4,8)
-	// I(N2) -> (5,7), exp(5,8), pow(6,8) 
-	// I(L)  -> (1,7), exp(1,8), pow(2,8)
+	var summary TT.EpisodeSummary
 	
-	// Average duration per episode 
-	// TG(N)  -> (3,15), exp (3,17), pow(4,17)
-	// TG(N2) -> (5,15), exp (5,17), pow(6,17)
-	// TG(L)  -> (1,15), exp (1,17), pow(2,17)
+	summary.L = L
+	summary.LL =LL
+	summary.N = N
+	summary.NL = NL
+	summary.N2 = N2
+	summary.N2L = N2L
+	summary.I = I
+	summary.IL = IL
+	summary.W = w
+	summary.WL = wL
+	summary.U = u
+	summary.UL = uL
+	summary.M = mistrust
+	summary.ML = mistrustL
+	summary.TG = TG
+	summary.TU = TU
+	summary.BF = bot_fraction
 
-	// Average duration per episode user
-	// TU(N)  -> (3,16), exp (3,18), pow(4,18)
-	// TU(N2) -> (5,16), exp (5,18), pow(6,18)
-	// TU(L)  -> (1,16), exp (1,18), pow(2,18)
+	AddEpisodeSummary(subject,summary)
 
-	// Average duration per episode tribe N2
-	// TU2(N)  -> (3,19), exp (3,20), pow(4,20)
-	// TU2(N2) -> (5,19), exp (5,20), pow(6,20)
-	// TU2(L)  -> (1,19), exp (1,20), pow(2,20)
-
-	// Relaxation of history activity per length of article H/L and its trusted fraction s/S
-	// R(L) as time goes on, L converges and issues come to a halt, L is a proxy for tau
-	// Rw(L)  -> (1,9), exp(1,10), pow(2,10)
-	// Ru(L)  -> (1,11), exp(1,12), pow(2,12)
-
-        // Mistrust as function of length
-	// M(L)   -> (1,13), exp(1,14), pow(2,14)
-
-        // Mistrust as function of N
-	// M(N)   -> (3,13), exp(3,14), pow(4,14)
-
-        // Mistrust as function of N2
-	// M(N)   -> (5,13), exp(5,14), pow(6,14)
-
-	// Bot fraction as a function of N and L
-	// bf(N)  -> (3,21), pow(4,21)
-	// bf(L)  -> (1,21), pow(2,21)
-
-	return output, history_users
+	return history_users
 }
 
 // ***********************************************************
@@ -747,8 +698,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	var episode_user_start = make(map[string]int)
 	var episode_user_last = make(map[string]int)
 
-	var users_bursts = make(TT.Set)
-
 	TT.Println("\n==============================================\n")
 	TT.Println("HISTORY OF CHANGE ANALYSIS: Starting assessment of history for",subject)
 	TT.Println("\n==============================================\n")
@@ -808,9 +757,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// Keep track of how many edits in this burst, before reset below
 		burst_size++
 
-		// Track giant cluster user group interactions
-		AttachUserToEpisodicBurst(users_bursts,subject,episode,changelog[i].User)
-
 		// End of burst
 
 		const punctuation_scale = 10.0
@@ -835,6 +781,16 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			// Generate Adjacency Matrix for Group (range episode_users) and principal eigenvector
 
 			// Reset for next episode
+
+			episode_key := fmt.Sprintf("%s_ep_%d",subject,i)
+
+			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,"something...")
+
+			if i == 0 {
+				LinkEpisodeChainToTopic(ep,subject)
+			}
+
+			LinkUserToEpisode(changelog[i].User,ep)
 
 			sum_burst_bytes = 0
 			burst_size = 0
@@ -969,6 +925,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 				users_changecount[users[s]],
 				users_revert_dt[users[s]]/MINUTE)
 
+			LinkSignalToUser(users[s],"correctional")
+
 		} else if users_revert[users[s]] > 1 && float64(users_revert[users[s]]) / float64(users_changecount[users[s]]) > 0.3 {
 
 			TT.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",
@@ -977,36 +935,16 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 				users_changecount[users[s]],
 				users_revert_dt[users[s]]/MINUTE)
 
+			LinkSignalToUser(users[s],"contentious")
+
 		}
 	}
 
 	av_burst_size := float64(sum_burst_size + burst_size) / float64(episode)
 
-	AddUserBursts(users_bursts)
-
 	active_users := len(users_changecount)
 
 	return active_users, episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes, bots/humans
-}
-
-// *******************************************************************************
-
-func AttachUserToEpisodicBurst(bursts TT.Set, subject string, episode int, username string) {
-	
-	burst_name := fmt.Sprintf("%s_%d",subject,episode)
-
-	TT.TogetherWith(bursts,burst_name,username)
-}
-
-// *******************************************************************************
-
-func AddUserBursts(users_bursts TT.Set) {
-
-	// sum the groups intoa histogram
-
-	for group := range users_bursts {
-		GIANT_CLUSTER_FREQ[1+len(users_bursts[group])]++
-	}
 }
 
 // *******************************************************************************
@@ -1190,3 +1128,52 @@ func IsBot(s string) bool {
 return false
 }
 
+// **************************************************************************
+
+func LinkPersistentToSubject(subject string, concepts map[string]float64) {
+
+	n_from := TT.CreateNode(G,"topic",subject,"",0.0)
+
+	// Link the ngrams
+
+	count := 0
+
+	for t := range concepts {
+
+		count++
+		n_to := TT.CreateNode(G,"ngram",TT.KeyName(t,count),t,0.0)
+		TT.CreateLink(G, n_from, "TALKSABOUT", n_to, concepts[t])
+	}
+}
+
+// **************************************************************************
+
+func AddEpisodeSummary(subject string,episode_data TT.EpisodeSummary) {
+
+	TT.AddEpisodeData(G,subject,episode_data)
+}
+
+// **************************************************************************
+
+func LinkUserToEpisode(username string,ep TT.Node) {
+
+	n_from := TT.CreateNode(G,"user",TT.CanonifyName(username),username,0.0)
+	TT.CreateLink(G, n_from, "INFL", ep,0)
+}
+
+// **************************************************************************
+
+func LinkEpisodeChainToTopic(ep TT.Node, subject string) {
+
+	n_from := TT.CreateNode(G,"topic",subject,"",0.0)
+	TT.CreateLink(G, ep, "FOLLOWS_FROM", n_from,0)
+}
+
+// **************************************************************************
+
+func LinkSignalToUser(username,signal string) {
+
+	n_from := TT.CreateNode(G,"user",TT.CanonifyName(username),username,0.0)
+	n_to := TT.CreateNode(G,"signal",signal,signal,0.0)
+	TT.CreateLink(G, n_from, "EXPRESSES", n_to,0)
+}
