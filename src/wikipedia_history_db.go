@@ -233,19 +233,14 @@ func AnalyzeTopic(subject string) int {
 
 
 	I := float64(ARTICLE_ISSUES)            // counted altercations
-	IL := math.Log(I)
 
 	N := average_tribe_cluster                // av users per episode
 	NL := math.Log(N)
-
-	N2 := (N*N-N)
-	N2L := math.Log(N2)
 
 	L := float64(textlength)            // article length in sentences
 	LL := math.Log(L)
 
 	H := float64(talklength)            // change process in sentence/entries
-	//HL := math.Log(H)
 
 	s := float64(len(remarks))          // changes subsampled on trust
 	S := float64(len(selected))         // article subsampled on trust
@@ -256,17 +251,33 @@ func AnalyzeTopic(subject string) int {
 	// work and sampled(untrusted)
 
 	w := H/L
-	wL := math.Log(w)
 	u := s/S
-	uL := math.Log(u)
-
 	mistrust := s/H
-	mistrustL := math.Log(mistrust)
+
+	if math.IsNaN(w) {
+		w = 0
+	}
+
+	if math.IsNaN(u) {
+		u = 0
+	}
+
+	if math.IsNaN(mistrust) {
+		mistrust = 0
+	}
 
 	// These involve some roundings to avoid infinities
 
 	TG := duration_per_episode
 	TU := duration_per_user
+
+	if math.IsNaN(TG) {
+		TG = 0
+	}
+
+	if math.IsNaN(TU) {
+		TU = 0
+	}
 
 	TT.Println("\n*********************************************")
 	TT.Println("* SUMMARY")
@@ -291,20 +302,15 @@ func AnalyzeTopic(subject string) int {
 
 	var summary TT.EpisodeSummary
 	
+	summary.Key = subject
 	summary.L = L
-	summary.LL =LL
+	summary.LL = LL
 	summary.N = N
 	summary.NL = NL
-	summary.N2 = N2
-	summary.N2L = N2L
 	summary.I = I
-	summary.IL = IL
 	summary.W = w
-	summary.WL = wL
 	summary.U = u
-	summary.UL = uL
 	summary.M = mistrust
-	summary.ML = mistrustL
 	summary.TG = TG
 	summary.TU = TU
 	summary.BF = bot_fraction
@@ -782,11 +788,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 			// Reset for next episode
 
-			episode_key := fmt.Sprintf("%s_ep_%d",subject,i)
+			episode_key := fmt.Sprintf("%s_ep_%d",subject,episode)
 
 			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,"something...")
 
-			if i == 0 {
+			if episode == 1 {
 				LinkEpisodeChainToTopic(ep,subject)
 			}
 

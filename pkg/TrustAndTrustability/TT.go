@@ -146,20 +146,16 @@ type PromiseHistory struct {
 
 type EpisodeSummary struct {
 
+	Key     string     `json:"_key"`
+
 	L   float64 `json: L`  // 1 article text (work output)
 	LL  float64 `json: LL` // 2
 	N   float64 `json: N`  // 3 average users per episode
 	NL  float64 `json: NL` // 4
-	N2  float64 `json: N2` // 5 users-cluster
-	N2L float64 `json: N2L`// 6
 	I   float64 `json: I`  // 7 count of altercations
-	IL  float64 `json: IL` // 8
 	W   float64 `json: W`  // 9 H/L - mistrusted work ratio (sampled article/article work)
-	WL  float64 `json: WL` // 10
 	U   float64 `json: U`  // 11 sampled process discussion/sampled article work ratio
-	UL  float64 `json: UL` // 12
 	M   float64 `json: M`  // 13 s/H - mistrust level (sampled history/history work)
-	ML  float64 `json: ML` // 14
 	TG  float64 `json: TG` // 15 av episode duration per episode
 	TU  float64 `json: TU` // 16 av episode duration per episode user
 	BF  float64 `json: Bot_fraction` // 21 bots/human users
@@ -494,7 +490,6 @@ func AddEpisodeData(g Analytics, key string, episode_data EpisodeSummary) {
 	exists,err := coll.DocumentExists(nil, key)
 
 	if !exists {
-
 		_, err = coll.CreateDocument(nil, episode_data)
 		
 		if err != nil {
@@ -561,7 +556,7 @@ func NextDataEvent(g *Analytics,thread,collection,shortkey,data string) Node {
 	key  := CreateNode(*g,collection,shortkey,data,1.0)
 
 	if g.previous_event_key[thread].Key != "" {
-		
+
 		CreateLink(*g, g.previous_event_key[thread],"THEN",key,1.0)
 	}
 	
