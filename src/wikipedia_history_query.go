@@ -40,8 +40,11 @@ func main() {
 
 	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
 
-	list := GetEpisodeChain(args[0])
-	TT.Println(list)
+	GetEpisodeChain(args[0])
+	
+	baddies := GetEpisodeUsersBySignal("contentious")
+
+	fmt.Println("\nContentious users:",baddies)
 }
 
 //**************************************************************
@@ -188,6 +191,53 @@ func GetEpisodeUsers(current string) []string {
 	f := TT.LINKTYPES[TT.GR_FOLLOWS]
 
 	instring := "FOR n in "+f+" FILTER n._to == '"+ current +"' && n.semantics == 'INFL'  RETURN n._from"
+
+	// This might take a long time, so we need to extend the timeout
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Hour*8))
+
+	defer cancel()
+
+	cursor,err = G.S_db.Query(ctx,instring,nil)
+
+	if err != nil {
+		fmt.Printf("Query failed: %v", err)
+		os.Exit(1)
+	}
+
+	defer cursor.Close()
+
+	for {
+		var key string
+
+		_,err = cursor.ReadDocument(nil,&key)
+
+		if A.IsNoMoreDocuments(err) {
+			break
+		} else if err != nil {
+			fmt.Printf("Doc returned: %v", err)
+		} else {
+			list = append(list,key)
+		}
+	}
+
+return list
+}
+
+// ********************************************************************************
+
+func GetEpisodeUsersBySignal(sig string) []string {
+
+	var err error
+	var cursor A.Cursor
+	var list []string
+
+	// Here just looking at all the adjacency relations ADJ_* of type Near
+	// could add a filter, e.g. FOR n in Near FILTER n.semantics == "ADJ_NODE"
+
+	f := TT.LINKTYPES[TT.GR_EXPRESSES]
+
+	instring := "FOR n in "+f+" FILTER n._to == 'signal/"+ sig +"' RETURN n._from"
 
 	// This might take a long time, so we need to extend the timeout
 
