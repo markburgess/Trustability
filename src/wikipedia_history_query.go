@@ -40,11 +40,11 @@ func main() {
 
 	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
 
-	GetEpisodeChain(args[0])
+	users := GetEpisodeChain(args[0])
 	
 	baddies := GetEpisodeUsersBySignal("contentious")
 
-	fmt.Println("\nContentious users:",baddies)
+	fmt.Println("\nContentious users:",len(baddies),"of",len(users),"\n   ",baddies)
 }
 
 //**************************************************************
@@ -61,6 +61,7 @@ func usage() {
 func GetEpisodeChain(subject string) []string {
 
 	var list []string
+	var all_users []string
 
 	// Here just looking at all the adjacency relations ADJ_* of type Near
 	// could add a filter, e.g. FOR n in Near FILTER n.semantics == "ADJ_NODE"
@@ -71,21 +72,32 @@ func GetEpisodeChain(subject string) []string {
 
 	for next := GetEpisodeHead(subject); next != "none"; next = GetNextEpisode(next) {
 
+		this_ep := make(map[string]int)
 		list = append(list,next)
-		users := GetEpisodeUsers(next)
+		ep_users := GetEpisodeUsers(next)
 
-		fmt.Println("\nTopic:",next,"(",len(users),"users",")")
+		fmt.Println("\nTopic:",next,"(",len(ep_users),"ep_users",")")
 
-		for u := range users {
-			repeat_users[users[u]]++
+		for u := range ep_users {
+			this_ep[ep_users[u]]++
+			repeat_users[ep_users[u]]++
 		}
 
-		for u := range users {
-			fmt.Println(" involved ",users[u], "making", repeat_users[users[u]],"contributions")
+		for unique := range this_ep {
+			fmt.Println(" involved ",unique, "making", this_ep[unique],"contributions")
 		}
 	}
 
-	return list
+	fmt.Println("\nRepeat user summary:\n")
+
+	for unique := range repeat_users {
+		all_users = append(all_users,unique)
+		if repeat_users[unique] > 1 {
+			fmt.Println(" involved ",unique, "making", repeat_users[unique],"contributions")
+		}
+	}
+
+	return all_users
 }
 
 // ********************************************************************************
