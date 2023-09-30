@@ -67,11 +67,6 @@ type SemanticLinkSet map[string][]ConnectionSemantics
 
 // ****************************************************************************
 
-var NODETYPES = []string{"topic","ngram","concept","episode","user","signal"}
-var LINKTYPES = []string{"follows","contains","expresses","near"}
-
-// ****************************************************************************
-
 type Analytics struct {
 
 S_db   A.Database
@@ -272,6 +267,17 @@ type Link struct {
 // Use these to store invariant relationship data as look up tables
 // this prevents the DB data from being larger than necessary.
 
+// ****************************************************************************
+
+const GR_NONE int = 0
+const GR_FOLLOWS int   = 1
+const GR_CONTAINS int  = 2
+const GR_EXPRESSES int = 3
+const GR_NEAR int      = 4
+
+var NODETYPES = []string{"topic","ngram","concept","episode","user","signal"}
+var LINKTYPES = []string{"none","Follows","Contains","Expresses","Near"}
+
 type Association struct {
 
 	Key     string    `json:"_key"`
@@ -288,14 +294,7 @@ type MatrixRow       []float64
 
 //**************************************************************
 
-var CONST_STtype = make(map[string]int)
 var ASSOCIATIONS = make(map[string]Association)
-var STTYPES []KeyValue
-
-const GR_NEAR int      = 1  // approx like
-const GR_FOLLOWS int   = 2  // i.e. influenced by
-const GR_CONTAINS int  = 3 
-const GR_EXPRESSES int = 4  // represents, etc
 
 const NANO = 1000000000
 const MILLI = 1000000
@@ -1203,7 +1202,7 @@ func OpenAnalytics(dbname, service_url, user, pwd string) Analytics {
 
 	var edgekinds []A.EdgeDefinition
 
-	for kind := range LINKTYPES {
+	for kind := 1; kind < len(LINKTYPES); kind++ {
 
 		var edgekind A.EdgeDefinition
 		edgekind.Collection = LINKTYPES[kind]
@@ -1258,14 +1257,14 @@ func OpenAnalytics(dbname, service_url, user, pwd string) Analytics {
 
 	// *** Links
 
-	var edges = make (map[string]A.Collection,len(LINKTYPES))
+	var edges = make(map[string]A.Collection,len(LINKTYPES))
 
-	for kind := range LINKTYPES {
+	for kind := 1; kind < len(LINKTYPES); kind++ {
 
 		edges[LINKTYPES[kind]], _, err = graph.EdgeCollection(nil, LINKTYPES[kind])
 
 		if err != nil {
-			fmt.Printf("Egdes follows: %v (%s)\n", err,LINKTYPES[kind])
+			fmt.Printf("Edge collection init: %v (%s)\n", err,LINKTYPES[kind])
 		}
 	}
 
@@ -1433,14 +1432,7 @@ func AddLink(g Analytics, link Link) {
 
 	}
 
-	switch coltype {
-
-	case GR_FOLLOWS:   links = g.S_Links["follows"]
-	case GR_CONTAINS:  links = g.S_Links["contains"]
-	case GR_EXPRESSES: links = g.S_Links["expresses"]
-	case GR_NEAR:      links = g.S_Links["near"]
-
-	}
+	links = g.S_Links[GetLinkType(coltype)]
 
 	exists,_ := links.DocumentExists(nil, key)
 
@@ -1451,6 +1443,7 @@ func AddLink(g Analytics, link Link) {
 			fmt.Println("Failed to add new link", err, link, edge)
 			os.Exit(1);
 		}
+
 	} else {
 
 		if edge.Weight < 0 {
@@ -1627,23 +1620,8 @@ func GetNeighboursOf(g Analytics, node string, sttype int, direction string) Sem
 		os.Exit(1)
 	}
 
-	switch sttype {
 
-	case -GR_FOLLOWS, GR_FOLLOWS:   
-		coll = "Follows"
-
-	case -GR_CONTAINS, GR_CONTAINS:  
-		coll = "Contains"
-
-	case -GR_EXPRESSES, GR_EXPRESSES: 
-		coll = "Expresses"
-
-	case -GR_NEAR, GR_NEAR:      
-		coll = "Near"
-	default:
-		fmt.Println("Unknown STtype in GetNeighboursOf",sttype)
-		os.Exit(1)
-	}
+	coll = GetLinkType(sttype)
 
 	var querystring string
 
@@ -1717,24 +1695,7 @@ func GetAdjacencyMatrixByKey(g Analytics, assoc_type string, symmetrize bool) ma
 
 	sttype := ASSOCIATIONS[assoc_type].STtype
 
-	switch sttype {
-
-	case -GR_FOLLOWS, GR_FOLLOWS:   
-		coll = "Follows"
-
-	case -GR_CONTAINS, GR_CONTAINS:  
-		coll = "Contains"
-
-	case -GR_EXPRESSES, GR_EXPRESSES: 
-		coll = "Expresses"
-
-	case -GR_NEAR, GR_NEAR:      
-		coll = "Near"
-
-	default:
-		fmt.Println("Unknown STtype in GetNeighboursOf",assoc_type)
-		os.Exit(1)
-	}
+	coll = GetLinkType(sttype)
 
 	var querystring string
 
@@ -1782,25 +1743,7 @@ func GetAdjacencyMatrixByInt(g Analytics, assoc_type string, symmetrize bool) ([
 
 	sttype := ASSOCIATIONS[assoc_type].STtype
 
-	switch sttype {
-
-	case -GR_FOLLOWS, GR_FOLLOWS:   
-		coll = "Follows"
-
-	case -GR_CONTAINS, GR_CONTAINS:  
-		coll = "Contains"
-
-	case -GR_EXPRESSES, GR_EXPRESSES: 
-		coll = "Expresses"
-
-	case -GR_NEAR, GR_NEAR:      
-		coll = "Near"
-
-	default:
-		fmt.Println("Unknown STtype in GetNeighboursOf",assoc_type)
-		os.Exit(1)
-	}
-
+	coll = GetLinkType(sttype)
 	var querystring string
 
 	querystring = "FOR my IN " + coll + " FILTER my.semantics == \"" + assoc_type + "\" RETURN my"
@@ -1868,6 +1811,34 @@ func GetAdjacencyMatrixByInt(g Analytics, assoc_type string, symmetrize bool) ([
 
 //*************************************************************
 
+func GetLinkType(sttype int) string {
+
+	var coll string
+
+	switch sttype {
+
+	case -GR_FOLLOWS, GR_FOLLOWS:   
+		coll = LINKTYPES[GR_FOLLOWS]
+
+	case -GR_CONTAINS, GR_CONTAINS:  
+		coll = LINKTYPES[GR_CONTAINS]
+
+	case -GR_EXPRESSES, GR_EXPRESSES: 
+		coll = LINKTYPES[GR_EXPRESSES]
+
+	case -GR_NEAR, GR_NEAR:      
+		coll = LINKTYPES[GR_NEAR]
+
+	default:
+		fmt.Println("Unknown STtype in GetNeighboursOf",sttype)
+		os.Exit(1)
+	}
+
+return coll
+}
+
+//*************************************************************
+
 func GetFullAdjacencyMatrix(g Analytics, symmetrize bool) ([][]float64,int,map[int]string) {
 
 	var key_matrix = make(map[VectorPair]float64)
@@ -1876,13 +1847,11 @@ func GetFullAdjacencyMatrix(g Analytics, symmetrize bool) ([][]float64,int,map[i
 	var err error
 	var cursor A.Cursor
 
-	var STtypes []string = []string{ "Follows", "Contains", "Expresses", "Near" }
-
-	for coll := range STtypes {
+	for coll := 1; coll < len(LINKTYPES); coll++ {
 
 		var querystring string
 
-		querystring = "FOR my IN " + STtypes[coll] + " RETURN my"
+		querystring = "FOR my IN " + LINKTYPES[coll] + " RETURN my"
 		
 		cursor,err = g.S_db.Query(nil,querystring,nil)
 		
