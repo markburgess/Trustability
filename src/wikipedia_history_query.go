@@ -71,7 +71,9 @@ func GetEpisodeChain(subject string) []string {
 		fmt.Println(next)
 		list = append(list,next)
 		users := GetEpisodeUsers(next)
-		fmt.Println(users)
+		for u := range users {
+			fmt.Println(" involved ",users[u])
+		}
 	}
 
 	return list
@@ -84,7 +86,9 @@ func GetEpisodeHead(subject string) string {
 	var err error
 	var cursor A.Cursor
 
-	instring := "FOR n in follows FILTER n._to == 'topic/"+ subject +"' RETURN n._from"
+	f := TT.LINKTYPES[TT.GR_FOLLOWS]
+
+	instring := "FOR n in "+f+" FILTER n._to == 'topic/"+ subject +"' RETURN n._from"
 
 	// This might take a long time, so we need to extend the timeout
 
@@ -128,7 +132,9 @@ func GetNextEpisode(current string) string {
 	// Here just looking at all the adjacency relations ADJ_* of type Near
 	// could add a filter, e.g. FOR n in Near FILTER n.semantics == "ADJ_NODE"
 
-	instring := "FOR n in follows FILTER n._from == '"+ current +"' && n.semantics == 'THEN' RETURN n._to"
+	f := TT.LINKTYPES[TT.GR_FOLLOWS]
+
+	instring := "FOR n in "+f+" FILTER n._from == '"+ current +"' && n.semantics == 'THEN' RETURN n._to"
 
 	// This might take a long time, so we need to extend the timeout
 
@@ -173,7 +179,9 @@ func GetEpisodeUsers(current string) []string {
 	// Here just looking at all the adjacency relations ADJ_* of type Near
 	// could add a filter, e.g. FOR n in Near FILTER n.semantics == "ADJ_NODE"
 
-	instring := "FOR n in follows FILTER n._to == '"+ current +"' && n.semantics == 'INFL'  RETURN n._from"
+	f := TT.LINKTYPES[TT.GR_FOLLOWS]
+
+	instring := "FOR n in "+f+" FILTER n._to == '"+ current +"' && n.semantics == 'INFL'  RETURN n._from"
 
 	// This might take a long time, so we need to extend the timeout
 

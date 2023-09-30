@@ -796,7 +796,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 				LinkEpisodeChainToTopic(ep,subject)
 			}
 
-			LinkUserToEpisode(changelog[i].User,ep)
+			LinkUsersToEpisode(episode_users,ep)
 
 			sum_burst_bytes = 0
 			burst_size = 0
@@ -1161,10 +1161,14 @@ func AddEpisodeSummary(subject string,episode_data TT.EpisodeSummary) {
 
 // **************************************************************************
 
-func LinkUserToEpisode(username string,ep TT.Node) {
+func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
 
-	n_from := TT.CreateNode(G,"user",TT.CanonifyName(username),username,0.0)
-	TT.CreateLink(G, n_from, "INFL", ep,0)
+	for user := range usernames {
+
+		name := TT.CanonifyName(user)
+		n_from := TT.CreateNode(G,"user",name,name,0.0)
+		TT.CreateLink(G, n_from, "INFL", ep,0)
+	}
 }
 
 // **************************************************************************
