@@ -62,17 +62,23 @@ func GetEpisodeChain(subject string) []string {
 	// Here just looking at all the adjacency relations ADJ_* of type Near
 	// could add a filter, e.g. FOR n in Near FILTER n.semantics == "ADJ_NODE"
 
-	curr := GetEpisodeHead(subject)
+	fmt.Println("Starting",subject)
 
-	fmt.Println("Starting",curr)
+	repeat_users := make(map[string]int)
 
-	for next := GetNextEpisode(curr); next != "none"; next = GetNextEpisode(next) {
+	for next := GetEpisodeHead(subject); next != "none"; next = GetNextEpisode(next) {
 
-		fmt.Println(next)
 		list = append(list,next)
 		users := GetEpisodeUsers(next)
+
+		fmt.Println("\nTopic:",next,"(",len(users),"users",")")
+
 		for u := range users {
-			fmt.Println(" involved ",users[u])
+			repeat_users[users[u]]++
+		}
+
+		for u := range users {
+			fmt.Println(" involved ",users[u], "making", repeat_users[users[u]],"contributions")
 		}
 	}
 
