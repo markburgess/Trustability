@@ -44,9 +44,18 @@ func main() {
 	
 	baddies := GetEpisodeUsersBySignal("contentious")
 
-	fmt.Println("\nContentious users:",len(baddies),"of",len(users),"\n   ",baddies)
+	fmt.Println("\nContentious users:",len(baddies),"of",len(users),"=",100*float64(len(baddies))/float64(len(users)),"% \n   ")//,baddies)
 
-    // PRINT SUMMARY STATS...
+	summ := TT.GetEpisodeData(G,args[0])
+
+	fmt.Println(" Length of article",summ.L)
+	fmt.Println(" Average <N>",summ.N)
+	fmt.Println(" Incidents",summ.I)
+	fmt.Println(" discussion/L %",summ.W*100)
+	fmt.Println(" mistrust policy s/H %",summ.M*100)
+	fmt.Println(" av duration per episode (days)",summ.TG)
+	fmt.Println(" bot fraction %",summ.BF*100)
+
 }
 
 //**************************************************************
@@ -72,18 +81,25 @@ func GetEpisodeChain(subject string) []string {
 
 	repeat_users := make(map[string]int)
 
+	var total_duration float64 = 0
+	var total_episodes float64 = 0
+
 	for next := GetEpisodeHead(subject); next != "none"; next = GetNextEpisode(next) {
 
 		this_ep := make(map[string]int)
 		list = append(list,next)
 		ep_users := GetEpisodeUsers(next)
 
-		node := GetNode(next)
-		start_time := time.UnixNano(node.begin)
-		end_time := time.UnixNano(node.end)
+		node := TT.GetFullNode(G,next)
+		start_time := time.Unix(0,node.Begin)
+		end_time := time.Unix(0,node.End)
+		duration := (node.End - node.Begin) / TT.NANO / (24*3600)
+		total_duration += float64(duration)
+		total_episodes++
 
 		fmt.Println("\nTopic:",next,"(",len(ep_users),"ep_users",")")
 		fmt.Println(" occurred between",start_time.UTC(),"and",end_time.UTC())
+		fmt.Println(" duration ",duration,"days")
 
 		for u := range ep_users {
 			this_ep[ep_users[u]]++
@@ -103,6 +119,8 @@ func GetEpisodeChain(subject string) []string {
 			fmt.Println(" involved ",unique, "making", repeat_users[unique],"contributions")
 		}
 	}
+
+	fmt.Println("Average duration per episode", total_duration/total_episodes)
 
 	return all_users
 }

@@ -492,6 +492,33 @@ func AddEpisodeData(g Analytics, key string, episode_data EpisodeSummary) {
 	}
 }
 
+// ****************************************************************************
+
+func GetEpisodeData(g Analytics, key string) EpisodeSummary {
+
+	var doc EpisodeSummary
+
+	var prefix string = "episode_summary"
+
+	coll := g.S_Episodes
+
+	if coll == nil {
+		fmt.Println("No such kind of node",prefix)
+		os.Exit(1)
+	}
+
+	// if we use S_nodes reference then we don't need the Nodes/ prefix
+
+	_, err := coll.ReadDocument(nil, key, &doc)
+
+	if err != nil {
+		fmt.Println("No such topic for summary",err,prefix + "/" + key)
+		os.Exit(1)
+	}
+
+	return doc
+}
+
 //**************************************************************
 
 func InvariantDescription(s string) string {
@@ -578,6 +605,37 @@ func GetNode(g Analytics, key string) string {
 	}
 
 	return doc.Data
+}
+
+// ****************************************************************************
+
+func GetFullNode(g Analytics, key string) Node {
+
+	var doc Node
+	var prefix string
+	var rawkey string
+	var coll A.Collection
+
+	prefix = path.Dir(key)
+	rawkey = path.Base(key)
+
+	coll = g.S_Nodes[prefix]
+
+	if coll == nil {
+		fmt.Println("No such kind of node",prefix)
+		os.Exit(1)
+	}
+
+	// if we use S_nodes reference then we don't need the Nodes/ prefix
+
+	_, err := coll.ReadDocument(nil, rawkey, &doc)
+
+	if err != nil {
+		fmt.Println("No such concept",err,rawkey)
+		os.Exit(1)
+	}
+
+	return doc
 }
 
 //***********************************************************************
