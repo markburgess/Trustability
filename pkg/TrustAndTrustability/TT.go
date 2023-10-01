@@ -248,12 +248,14 @@ type Node struct {
 	Prefix  string  `json:"prefix"`   // Collection: Hub, Node, Fragment?
 	Weight  float64 `json:"weight"`   // importance rank
 
-	Ptr     string  `json:"ptr"`       // string key to key-value lookup
+	Begin   int64   `json:"begin"`    // Date of start
+	End     int64   `json:"end"`      // Date of end
 }
 
 // ***************************************************************************
 
 type Link struct {
+
 	From     string `json:"_from"`     // mandatory field
 	To       string `json:"_to"`       // mandatory field
         SId      string `json:"semantics"` // Matches Association key
@@ -269,14 +271,16 @@ type Link struct {
 
 // ****************************************************************************
 
-const GR_NONE int = 0
-const GR_FOLLOWS int   = 1
-const GR_CONTAINS int  = 2
+const GR_NONE      int = 0
+const GR_FOLLOWS   int = 1
+const GR_CONTAINS  int = 2
 const GR_EXPRESSES int = 3
-const GR_NEAR int      = 4
+const GR_NEAR      int = 4
 
 var NODETYPES = []string{"topic","ngram","concept","episode","user","signal"}
 var LINKTYPES = []string{"none","Follows","Contains","Expresses","Near"}
+
+// ****************************************************************************
 
 type Association struct {
 
@@ -317,68 +321,40 @@ func InitializeSmartSpaceTime() {
 		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
 	} 
 
-
-
 	// first element needs to be there to store the lookup key
 	// second element stored as int to save space
 
-	ASSOCIATIONS["CONTAINS"] = Association{"CONTAINS",GR_CONTAINS,"contains","belongs to or is part of","does not contain","is not part of"}
-
-	ASSOCIATIONS["TALKSABOUT"] = Association{"TALKSABOUT",GR_CONTAINS,"talks about","is discussed in","doesn't obviously contain","is not obviously part of"}
-
+	ASSOCIATIONS["CONTAINS"  ]  = Association{"CONTAINS",GR_CONTAINS,"contains","belongs to or is part of","does not contain","is not part of"}
+	ASSOCIATIONS["TALKSABOUT"]  = Association{"TALKSABOUT",GR_CONTAINS,"talks about","is discussed in","doesn't obviously contain","is not obviously part of"}
 	ASSOCIATIONS["GENERALIZES"] = Association{"GENERALIZES",GR_CONTAINS,"generalizes","is a special case of","is not a generalization of","is not a special case of"}
 
-	// reversed case of containment semantics
+	ASSOCIATIONS["PART_OF"]   = Association{"PART_OF",-GR_CONTAINS,"incorporates","is part of","is not part of","doesn't contribute to"}
 
-	ASSOCIATIONS["PART_OF"] = Association{"PART_OF",-GR_CONTAINS,"incorporates","is part of","is not part of","doesn't contribute to"}
-
-	// *
-
-	ASSOCIATIONS["HAS_ROLE"] = Association{"HAS_ROLE",GR_EXPRESSES,"has the role of","is a role fulfilled by","has no role","is not a role fulfilled by"}
-
-	ASSOCIATIONS["ORIGINATES_FROM"] = Association{"ORIGINATES_FROM",GR_FOLLOWS,"originates from","is the source/origin of","does not originate from","is not the source/origin of"}
-
+	ASSOCIATIONS["HAS_ROLE"]  = Association{"HAS_ROLE",GR_EXPRESSES,"has the role of","is a role fulfilled by","has no role","is not a role fulfilled by"}
 	ASSOCIATIONS["EXPRESSES"] = Association{"EXPRESSES",GR_EXPRESSES,"expresses an attribute","is an attribute of","has no attribute","is not an attribute of"}
-
-	ASSOCIATIONS["PROMISES"] = Association{"PROMISES",GR_EXPRESSES,"promises/intends","is intended/promised by","rejects/promises to not","is rejected by"}
-
-	ASSOCIATIONS["HAS_NAME"] = Association{"HAS_NAME",GR_EXPRESSES,"has proper name","is the proper name of","is not named","isn't the proper name of"}
-
-	// *
+	ASSOCIATIONS["PROMISES"]  = Association{"PROMISES",GR_EXPRESSES,"promises/intends","is intended/promised by","rejects/promises to not","is rejected by"}
+	ASSOCIATIONS["HAS_NAME"]  = Association{"HAS_NAME",GR_EXPRESSES,"has proper name","is the proper name of","is not named","isn't the proper name of"}
 
 	ASSOCIATIONS["FOLLOWS_FROM"] = Association{"FOLLOWS_FROM",GR_FOLLOWS,"follows on from","is followed by","does not follow","does not precede"}
-
-	ASSOCIATIONS["USES"] = Association{"USES",GR_FOLLOWS,"uses","is used by","does not use","is not used by"}
-
-	ASSOCIATIONS["CAUSEDBY"] = Association{"CAUSEDBY",GR_FOLLOWS,"caused by","may cause","was not caused by","probably didn't cause"}
-
+	ASSOCIATIONS["USES"]         = Association{"USES",GR_FOLLOWS,"uses","is used by","does not use","is not used by"}
+	ASSOCIATIONS["CAUSEDBY"]     = Association{"CAUSEDBY",GR_FOLLOWS,"caused by","may cause","was not caused by","probably didn't cause"}
 	ASSOCIATIONS["DERIVES_FROM"] = Association{"DERIVES_FROM",GR_FOLLOWS,"derives from","leads to","does not derive from","does not leadto"}
-
-	ASSOCIATIONS["INFL"] = Association{"INFL",GR_FOLLOWS,"influenced","was influenced by","didn't influence","not influenced by"}
+	ASSOCIATIONS["INFL"]         = Association{"INFL",GR_FOLLOWS,"influenced","was influenced by","didn't influence","not influenced by"}
 
 	// Neg
 
-	ASSOCIATIONS["NEXT"] = Association{"NEXT",-GR_FOLLOWS,"comes before","comes after","is not before","is not after"}
-
-	ASSOCIATIONS["THEN"] = Association{"THEN",-GR_FOLLOWS,"then","previously","but not","didn't follow"}
-
-	ASSOCIATIONS["LEADS_TO"] = Association{"LEADS_TO",-GR_FOLLOWS,"leads to","doesn't imply","doen't reach","doesn't precede"}
-
-	ASSOCIATIONS["PRECEDES"] = Association{"PRECEDES",-GR_FOLLOWS,"precedes","follows","doen't precede","doesn't precede"}
+	ASSOCIATIONS["NEXT"]      = Association{"NEXT",-GR_FOLLOWS,"comes before","comes after","is not before","is not after"}
+	ASSOCIATIONS["THEN"]      = Association{"THEN",-GR_FOLLOWS,"then","previously","but not","didn't follow"}
+	ASSOCIATIONS["LEADS_TO"]  = Association{"LEADS_TO",-GR_FOLLOWS,"leads to","doesn't imply","doen't reach","doesn't precede"}
+	ASSOCIATIONS["PRECEDES"]  = Association{"PRECEDES",-GR_FOLLOWS,"precedes","follows","doen't precede","doesn't precede"}
 
 	// *
 
-	ASSOCIATIONS["RELATED"] = Association{"RELATED",GR_NEAR,"may be related to","may be related to","likely unrelated to","likely unrelated to"}
-
-	ASSOCIATIONS["ALIAS"] = Association{"ALIAS",GR_NEAR,"also known as","also known as","not known as","not known as"}
-
-	ASSOCIATIONS["IS_LIKE"] = Association{"IS_LIKE",GR_NEAR,"is similar to","is similar to","is unlike","is unlike"}
-
+	ASSOCIATIONS["RELATED"]   = Association{"RELATED",GR_NEAR,"may be related to","may be related to","likely unrelated to","likely unrelated to"}
+	ASSOCIATIONS["ALIAS"]     = Association{"ALIAS",GR_NEAR,"also known as","also known as","not known as","not known as"}
+	ASSOCIATIONS["IS_LIKE"]   = Association{"IS_LIKE",GR_NEAR,"is similar to","is similar to","is unlike","is unlike"}
 	ASSOCIATIONS["CONNECTED"] = Association{"CONNECTED",GR_NEAR,"is connected to","is connected to","is not connected to","is not connected to"}
-
-	ASSOCIATIONS["COACTIV"] = Association{"COACTIV",GR_NEAR,"occurred together with","occurred together with","never appears with","never appears with"}
-
-	// *
+	ASSOCIATIONS["COACTIV"]   = Association{"COACTIV",GR_NEAR,"occurred together with","occurred together with","never appears with","never appears with"}
 
 }
 
@@ -445,7 +421,7 @@ func IncrementLink(g Analytics, c1 Node, rel string, c2 Node) {
 
 // ****************************************************************************
 
-func CreateNode(g Analytics, kind,short_description,vardescription string, weight float64) Node {
+func CreateNode(g Analytics, kind,short_description,vardescription string, weight float64, begin,end int64) Node {
 
 	var found bool = false
 
@@ -471,6 +447,8 @@ func CreateNode(g Analytics, kind,short_description,vardescription string, weigh
 	concept.Key = short_description
 	concept.Prefix = kind + "/"
 	concept.Weight = weight
+	concept.Begin = begin
+	concept.End = end
 
 	// Reuse the key for a separate document
 
@@ -550,9 +528,9 @@ func CanonifyName(s string) string {
 // Event History
 // ****************************************************************************
 
-func NextDataEvent(g *Analytics,thread,collection,shortkey,data string) Node {
+func NextDataEvent(g *Analytics,thread,collection,shortkey,data string,begin,end int64) Node {
 
-	key  := CreateNode(*g,collection,shortkey,data,1.0)
+	key  := CreateNode(*g,collection,shortkey,data,1.0,begin,end)
 
 	if g.previous_event_key[thread].Key != "" {
 

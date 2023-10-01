@@ -45,6 +45,8 @@ func main() {
 	baddies := GetEpisodeUsersBySignal("contentious")
 
 	fmt.Println("\nContentious users:",len(baddies),"of",len(users),"\n   ",baddies)
+
+    // PRINT SUMMARY STATS...
 }
 
 //**************************************************************
@@ -76,7 +78,12 @@ func GetEpisodeChain(subject string) []string {
 		list = append(list,next)
 		ep_users := GetEpisodeUsers(next)
 
+		node := GetNode(next)
+		start_time := time.UnixNano(node.begin)
+		end_time := time.UnixNano(node.end)
+
 		fmt.Println("\nTopic:",next,"(",len(ep_users),"ep_users",")")
+		fmt.Println(" occurred between",start_time.UTC(),"and",end_time.UTC())
 
 		for u := range ep_users {
 			this_ep[ep_users[u]]++
