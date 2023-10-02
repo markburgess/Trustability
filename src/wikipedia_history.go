@@ -827,7 +827,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// Demarcate episode boundary *********************************************
 		// We need a minimum size for a burst to protect against average being zero
 
-		if (delta_t > all_users_averagetime * punctuation_scale) && last_duration > min_episode_duration {
+		if (i == len(changelog)-1) || (delta_t > all_users_averagetime * punctuation_scale) && last_duration > min_episode_duration {
 
 			sum_burst_size += burst_size
 			episode_duration[episode] = last_duration

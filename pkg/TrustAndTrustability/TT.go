@@ -248,6 +248,7 @@ type Node struct {
 	Prefix  string  `json:"prefix"`   // Collection: Hub, Node, Fragment?
 	Weight  float64 `json:"weight"`   // importance rank
 
+	Gap     int64   `json:"gap"`      // punctuation interval
 	Begin   int64   `json:"begin"`    // Date of start
 	End     int64   `json:"end"`      // Date of end
 }
@@ -421,7 +422,7 @@ func IncrementLink(g Analytics, c1 Node, rel string, c2 Node) {
 
 // ****************************************************************************
 
-func CreateNode(g Analytics, kind,short_description,vardescription string, weight float64, begin,end int64) Node {
+func CreateNode(g Analytics, kind,short_description,vardescription string, weight float64, gap,begin,end int64) Node {
 
 	var found bool = false
 
@@ -447,6 +448,7 @@ func CreateNode(g Analytics, kind,short_description,vardescription string, weigh
 	concept.Key = short_description
 	concept.Prefix = kind + "/"
 	concept.Weight = weight
+	concept.Gap = gap
 	concept.Begin = begin
 	concept.End = end
 
@@ -555,9 +557,9 @@ func CanonifyName(s string) string {
 // Event History
 // ****************************************************************************
 
-func NextDataEvent(g *Analytics,thread,collection,shortkey,data string,begin,end int64) Node {
+func NextDataEvent(g *Analytics,thread,collection,shortkey,data string,gap,begin,end int64) Node {
 
-	key  := CreateNode(*g,collection,shortkey,data,1.0,begin,end)
+	key  := CreateNode(*g,collection,shortkey,data,1.0,gap,begin,end)
 
 	if g.previous_event_key[thread].Key != "" {
 

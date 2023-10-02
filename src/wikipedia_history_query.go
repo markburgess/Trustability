@@ -83,7 +83,6 @@ func GetEpisodeChain(subject string) []string {
 
 	var total_duration float64 = 0
 	var total_episodes float64 = 0
-	var lastend int64 = 0
 
 	for next := GetEpisodeHead(subject); next != "none"; next = GetNextEpisode(next) {
 
@@ -98,8 +97,7 @@ func GetEpisodeChain(subject string) []string {
 		total_duration += duration
 		total_episodes++
 
-		interval := float64(node.Begin-lastend) / float64(TT.NANO*24*3600)
-		lastend = node.End
+		interval := float64(node.Gap) / float64(TT.NANO*24*3600)
 
 		if interval >= 0 {
 			fmt.Println("\n gap",interval,"days\n")

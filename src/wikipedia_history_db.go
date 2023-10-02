@@ -779,7 +779,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		burstend = changelog[i].Date.UnixNano()
 		last_duration := burstend - burststart
 
-		if (i == len(changelog)-1) || (last_duration > min_episode_duration) && (delta_t > all_users_averagetime * punctuation_scale) {
+		if (i == len(changelog)-1) || (delta_t > float64(min_episode_duration)) && (last_duration > min_episode_duration) && (delta_t > all_users_averagetime * punctuation_scale) {
 
 			sum_burst_size += burst_size
 			episode_duration[episode] = last_duration
@@ -791,7 +791,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 			episode_key := fmt.Sprintf("%s_ep_%d",subject,episode)
 
-			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,"something...",burststart,burstend)
+			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,"something...",int64(delta_t),burststart,burstend)
 
 			if episode == 1 {
 				LinkEpisodeChainToTopic(ep,subject,burststart,burstend)
@@ -1142,7 +1142,7 @@ return false
 
 func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
-	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,0)
+	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,0,0)
 
 	// Link the ngrams
 
@@ -1151,7 +1151,7 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 	for t := range concepts {
 
 		count++
-		n_to := TT.CreateNode(G,"ngram",TT.KeyName(t,count),t,0.0,0,0)
+		n_to := TT.CreateNode(G,"ngram",TT.KeyName(t,count),t,0.0,0,0,0)
 		TT.CreateLink(G, n_from, "TALKSABOUT", n_to, concepts[t])
 	}
 }
@@ -1170,7 +1170,7 @@ func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
 	for user := range usernames {
 
 		name := TT.CanonifyName(user)
-		n_from := TT.CreateNode(G,"user",name,name,0.0,0,0)
+		n_from := TT.CreateNode(G,"user",name,name,0.0,0,0,0)
 		TT.CreateLink(G, n_from, "INFL", ep,0)
 	}
 }
@@ -1179,7 +1179,7 @@ func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
 
 func LinkEpisodeChainToTopic(ep TT.Node, subject string, begin,end int64) {
 
-	n_from := TT.CreateNode(G,"topic",subject,"",0.0,begin,end)
+	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,begin,end)
 	TT.CreateLink(G, ep, "FOLLOWS_FROM", n_from,0)
 }
 
@@ -1187,7 +1187,7 @@ func LinkEpisodeChainToTopic(ep TT.Node, subject string, begin,end int64) {
 
 func LinkSignalToUser(username,signal string) {
 
-	n_from := TT.CreateNode(G,"user",TT.CanonifyName(username),username,0.0,0,0)
-	n_to := TT.CreateNode(G,"signal",signal,signal,0.0,0,0)
+	n_from := TT.CreateNode(G,"user",TT.CanonifyName(username),username,0.0,0,0,0)
+	n_to := TT.CreateNode(G,"signal",signal,signal,0.0,0,0,0)
 	TT.CreateLink(G, n_from, "EXPRESSES", n_to,0)
 }
