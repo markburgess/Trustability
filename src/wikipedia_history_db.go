@@ -52,8 +52,8 @@ type WikiProcess struct {       // A list of all edit events
 
 // ***********************************************************
 
-const DAY = float64(3600 * 24 * 1000000000)
-const MINUTE = float64(60 * 1000000000)
+const DAY = float64(3600 * 24 * TT.NANO)
+const MINUTE = float64(60 * TT.NANO)
 const OUTPUT_FILE = "trust.dat"
 const GIANT_CLUSTER_FILE = "workclusters.dat"
 const EPISODE_CLUSTER_FILE = "episodeclusters.dat"
@@ -232,8 +232,7 @@ func AnalyzeTopic(subject string) int {
 	}
 
 
-	I := float64(ARTICLE_ISSUES)            // counted altercations
-
+	I := float64(ARTICLE_ISSUES)/float64(textlength)
 	N := average_tribe_cluster                // av users per episode
 	NL := math.Log(N)
 
@@ -767,8 +766,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 		const punctuation_scale = 10.0
 		const min_episode_duration = int64(DAY)
-		burstend = changelog[i].Date.UnixNano()
-		last_duration := burstend - burststart
 
 		if episode_user_start[changelog[i].User] == 0 {
 			episode_user_start[changelog[i].User] = event
@@ -779,7 +776,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		// Demarcate episode boundary *********************************************
 		// We need a minimum size for a burst to protect against average being zero
 
-		if (i == len(changelog)-1) || (delta_t > all_users_averagetime * punctuation_scale) && (last_duration > min_episode_duration) {
+		burstend = changelog[i].Date.UnixNano()
+		last_duration := burstend - burststart
+
+		if (i == len(changelog)-1) || (last_duration > min_episode_duration) && (delta_t > all_users_averagetime * punctuation_scale) {
 
 			sum_burst_size += burst_size
 			episode_duration[episode] = last_duration
@@ -801,7 +801,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 			sum_burst_bytes = 0
 			burst_size = 0
-			burststart = changelog[i].Date.UnixNano()
+
+			if i < len(changelog)-1 {
+				burststart = changelog[i+1].Date.UnixNano()
+			}
+
 			episode++
 			allepisodes[episode] = make(map[string]int)
 			EPISODE_CLUSTER_FREQ[len(episode_users)]++
@@ -814,7 +818,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			event = 1
 			episode_user_start = make(map[string]int)
 			episode_user_last = make(map[string]int)
-
 		}
 
 		// Demarcate episode boundary *********************************************

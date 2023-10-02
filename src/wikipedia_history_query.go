@@ -50,7 +50,7 @@ func main() {
 
 	fmt.Println(" Length of article",summ.L)
 	fmt.Println(" Average <N>",summ.N)
-	fmt.Println(" Incidents",summ.I)
+	fmt.Println(" Incidents % length",summ.I*100)
 	fmt.Println(" discussion/L %",summ.W*100)
 	fmt.Println(" mistrust policy s/H %",summ.M*100)
 	fmt.Println(" av duration per episode (days)",summ.TG)
@@ -83,6 +83,7 @@ func GetEpisodeChain(subject string) []string {
 
 	var total_duration float64 = 0
 	var total_episodes float64 = 0
+	var lastend int64 = 0
 
 	for next := GetEpisodeHead(subject); next != "none"; next = GetNextEpisode(next) {
 
@@ -93,9 +94,16 @@ func GetEpisodeChain(subject string) []string {
 		node := TT.GetFullNode(G,next)
 		start_time := time.Unix(0,node.Begin)
 		end_time := time.Unix(0,node.End)
-		duration := (node.End - node.Begin) / TT.NANO / (24*3600)
-		total_duration += float64(duration)
+		duration := float64(node.End - node.Begin) / float64(TT.NANO*24*3600)
+		total_duration += duration
 		total_episodes++
+
+		interval := float64(node.Begin-lastend) / float64(TT.NANO*24*3600)
+		lastend = node.End
+
+		if interval >= 0 {
+			fmt.Println("\n gap",interval,"days\n")
+		}
 
 		fmt.Println("\nTopic:",next,"(",len(ep_users),"ep_users",")")
 		fmt.Println(" occurred between",start_time.UTC(),"and",end_time.UTC())

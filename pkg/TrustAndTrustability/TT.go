@@ -147,7 +147,7 @@ type EpisodeSummary struct {
 	LL  float64 `json: LL` // 2
 	N   float64 `json: N`  // 3 average users per episode
 	NL  float64 `json: NL` // 4
-	I   float64 `json: I`  // 7 count of altercations
+	I   float64 `json: I`  // 7 mistrust signals per unit text length
 	W   float64 `json: W`  // 9 H/L - mistrusted work ratio (sampled article/article work)
 	U   float64 `json: U`  // 11 sampled process discussion/sampled article work ratio
 	M   float64 `json: M`  // 13 s/H - mistrust level (sampled history/history work)
