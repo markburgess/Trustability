@@ -226,7 +226,8 @@ const INITIAL_VALUE = 0.5
 
 const MEANING_THRESH = 20        // reduce this if too few samples
 const FORGET_FRACTION = 0.001    // this amount per sentence ~ forget over 1000 words
-const LOWEST_INTENT_CUTOFF = 0.3 // cutoff for keeping n-grams
+const LOWEST_INTENT_CUTOFF = 0.3 // cutoff for keeping n-grams, measured in intent
+const MINIMUM_FREQ_CUTOFF = 3    //         "                 , measured in occurrences
 
 // ****************************************************************************
 
