@@ -1154,8 +1154,12 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 	for t := range concepts {
 
+		if strings.Count(t," ") < 2 {
+			continue
+		}
+
 		count++
-		n_to := TT.CreateNode(G,"ngram",TT.KeyName(t,count),t,concepts[t],0,0,0)
+		n_to := TT.CreateNode(G,"concept",TT.KeyName(t,count),t,concepts[t],0,0,0)
 		TT.CreateLink(G, n_from, "TALKSABOUT", n_to, concepts[t])
 	}
 
