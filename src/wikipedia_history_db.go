@@ -1296,7 +1296,9 @@ func DiffPage(url string) string {
 
 	//test_url := "https://en.wikipedia.org/w/index.php?title=Promise_theory&diff=prev&oldid=1139754849"
 
-	response, err := http.Get(url)
+	prefix := "https://en.wikipedia.org"
+
+	response, err := http.Get(prefix+url)
 
 	if err != nil {
 		fmt.Println(err)
