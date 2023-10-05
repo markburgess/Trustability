@@ -331,6 +331,7 @@ func InitializeSmartSpaceTime() {
 
 	ASSOCIATIONS["CONTAINS"  ]  = Association{"CONTAINS",GR_CONTAINS,"contains","belongs to or is part of","does not contain","is not part of"}
 	ASSOCIATIONS["TALKSABOUT"]  = Association{"TALKSABOUT",GR_CONTAINS,"talks about","is discussed in","doesn't obviously contain","is not obviously part of"}
+	ASSOCIATIONS["INVOLVES"]  = Association{"INVOLVES",GR_CONTAINS,"involves","is discussed in","doesn't obviously involve","is not obviously part of"}
 	ASSOCIATIONS["GENERALIZES"] = Association{"GENERALIZES",GR_CONTAINS,"generalizes","is a special case of","is not a generalization of","is not a special case of"}
 
 	ASSOCIATIONS["PART_OF"]   = Association{"PART_OF",-GR_CONTAINS,"incorporates","is part of","is not part of","doesn't contribute to"}

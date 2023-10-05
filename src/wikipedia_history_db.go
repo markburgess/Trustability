@@ -48,7 +48,7 @@ type WikiProcess struct {       // A list of all edit events
 	EditDelta int
 	Message   string
 	Revert    int
-	DiffData  string
+	DiffUrl  string
 }
 
 // ***********************************************************
@@ -406,7 +406,7 @@ func MainPage(url string) string {
 		s = strings.ReplaceAll(s,"}}","")
 		s = strings.ReplaceAll(s,"(","")
 		s = strings.ReplaceAll(s,")","")
-		s = strings.ReplaceAll(s,"|","")
+		s = strings.ReplaceAll(s,"|"," ")
 		s = strings.TrimSpace(html.UnescapeString(s))
 		s = strings.TrimSpace(s)
 		
@@ -537,7 +537,7 @@ func HistoryPage(url string) []WikiProcess {
 		s = strings.ReplaceAll(s,"}}","")
 		s = strings.ReplaceAll(s,"(","")
 		s = strings.ReplaceAll(s,")","")
-		s = strings.ReplaceAll(s,"|","")
+		s = strings.ReplaceAll(s,"|"," ")
 		s = strings.ReplaceAll(s,"No edit summary","")
 		s = strings.ReplaceAll(s,"External links:","")
 		s = strings.TrimSpace(html.UnescapeString(s))
@@ -577,7 +577,7 @@ func HistoryPage(url string) []WikiProcess {
 					user = false
 					difftext = false
 					message = ""
-					entry.DiffData = token.Attr[i].Val
+					entry.DiffUrl = token.Attr[i].Val
 				}
 			}
 		}
@@ -729,7 +729,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 	for i := 0; i < len(changelog); i++ {
 
-		//fmt.Printf(">> %15s (%v)(%d), %s\n", changelog[i].User,changelog[i].Date,changelog[i].EditDelta,changelog[i].Message)
+		//fmt.Printf(">> %15s (%v)(%d), %s --> %s\n", changelog[i].User,changelog[i].Date,changelog[i].EditDelta,changelog[i].Message,changelog[i].DiffUrl)
 
 		// Setup lists of edits for each user
 
@@ -812,6 +812,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			}
 
 			LinkUsersToEpisode(episode_users,ep)
+			LinkDiffFractionsToEpisode(ep,changelog[i].DiffUrl)
 
 			sum_burst_bytes = 0
 			burst_size = 0
@@ -1100,6 +1101,15 @@ func IsCode(s string) bool {
 		return true
 	}
 
+	if strings.Contains(s,"=") {
+		return true
+	}
+
+	if strings.Contains(s,"http") || strings.Contains(s,"/") || strings.HasSuffix(s,":") {
+
+		return true
+	}
+
 	if strings.Contains(s,"Categories :") || strings.Contains(s,"Hidden categories :") {
 		return true
 	}
@@ -1250,3 +1260,120 @@ func LinkSignalToUser(username,signal string) {
 
 	TT.CreateLink(G, n_from, "EXPRESSES", n_to,0)
 }
+
+// ***********************************************************
+
+func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
+
+	difftext := DiffPage(url)
+	edits := TT.FractionateSentences(difftext)
+	concepts := TT.RankByIntent(edits)
+
+	var count int = 0
+
+	for t := range concepts {
+
+		if strings.Count(t," ") < 2 {
+			continue
+		}
+
+		count++
+		key := TT.KeyName(t,count)
+
+		if len(key) < TT.MIN_LEGAL_KEYNAME {
+			continue
+		}
+
+		n_to := TT.CreateNode(G,"concept",key,t,concepts[t],0,0,0)
+		TT.CreateLink(G, n_from, "INVOLVES", n_to, concepts[t])
+	}
+}
+
+
+// ***********************************************************
+
+func DiffPage(url string) string {
+
+	//test_url := "https://en.wikipedia.org/w/index.php?title=Promise_theory&diff=prev&oldid=1139754849"
+
+	response, err := http.Get(url)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer response.Body.Close()
+
+	// Parse HTML
+
+	var attend bool = false
+	var total string 
+
+	// Start parsing
+
+	tokenizer := html.NewTokenizer(response.Body)
+
+	for {
+		tokenType := tokenizer.Next()
+		token := tokenizer.Token()
+
+		if tokenizer.Err() == io.EOF {
+			return ""
+		}
+
+		// Strip out junk characters
+
+		r := regexp.MustCompile("<.+>")
+		s := strings.TrimSpace(html.UnescapeString(token.String()))
+		s = r.ReplaceAllString(s," ")
+		s = strings.ReplaceAll(s,"→","")
+		s = strings.ReplaceAll(s,"←","")
+		s = strings.ReplaceAll(s,"'","")
+		s = strings.ReplaceAll(s,"{{","")
+		s = strings.ReplaceAll(s,"}}","")
+		s = strings.ReplaceAll(s,"("," ")
+		s = strings.ReplaceAll(s,")"," ")
+		s = strings.ReplaceAll(s,"|"," ")
+		s = strings.ReplaceAll(s,"No edit summary","")
+		s = strings.ReplaceAll(s,"External links:","")
+		s = strings.TrimSpace(html.UnescapeString(s))
+		s = strings.TrimSpace(s)
+
+		for i := range token.Attr {
+
+			if token.Attr[i].Val == "diff-context diff-side-deleted" {
+				attend = false
+			}
+
+			if token.Attr[i].Val == "diff-context diff-side-added" {
+				attend = true
+			}
+		}
+		
+		switch tokenType {
+			
+		case html.ErrorToken:
+			
+			fmt.Printf("Error: %v", tokenizer.Err())
+			return ""
+			
+		case html.TextToken:
+
+			if attend && len(s) > 0 && !IsCode(s) {				
+				total += s + " "
+			}
+
+		case html.StartTagToken:
+				
+		case html.EndTagToken:
+
+			if token.Data == "body" {
+
+				return total
+			}
+		}
+	}
+}
+
+
+
