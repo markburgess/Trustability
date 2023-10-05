@@ -226,8 +226,10 @@ const INITIAL_VALUE = 0.5
 
 const MEANING_THRESH = 20        // reduce this if too few samples
 const FORGET_FRACTION = 0.001    // this amount per sentence ~ forget over 1000 words
+
 const LOWEST_INTENT_CUTOFF = 0.3 // cutoff for keeping n-grams, measured in intent
 const MINIMUM_FREQ_CUTOFF = 3    //         "                 , measured in occurrences
+const MIN_LEGAL_KEYNAME = 3
 
 // ****************************************************************************
 
@@ -546,12 +548,6 @@ func KeyName(s string,n int) string {
 	s2 := strings.ReplaceAll(s," ","_")
 	m := regexp.MustCompile("[^a-zA-Z0-9_]*") 
 	str := m.ReplaceAllString(s2,"") 
-
-	if len(str) < 10 {
-		s2 = strings.ReplaceAll(s," ","_")
-		m = regexp.MustCompile("[^a-zA-Z0-9_]*") 
-		str = m.ReplaceAllString(s2,"x")
-	}
 
 	if n > 0 {
 		key = fmt.Sprintf("%s_%d",str,n)

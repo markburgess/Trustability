@@ -48,6 +48,7 @@ type WikiProcess struct {       // A list of all edit events
 	EditDelta int
 	Message   string
 	Revert    int
+	DiffData  string
 }
 
 // ***********************************************************
@@ -507,8 +508,8 @@ func HistoryPage(url string) []WikiProcess {
 	var message string
 	var date = false
 	var user = false
+	var difftext bool = false
 	var history int = 0
-
 	var entry WikiProcess
 	var changelog []WikiProcess
 
@@ -563,6 +564,22 @@ func HistoryPage(url string) []WikiProcess {
 			if token.Attr[i].Val == "mw-changeslist-date" {				
 				date = true
 			}
+
+			if difftext {
+
+				// Use this anchor as the reset trigger
+				if token.Attr[i].Key == "href" && strings.Contains(s,"diff=prev") {
+					attend = true
+					var empty WikiProcess
+					entry = empty
+					after_edits = false
+					after_editsize = true
+					user = false
+					difftext = false
+					message = ""
+					entry.DiffData = token.Attr[i].Val
+				}
+			}
 		}
 		
 		switch tokenType {
@@ -573,17 +590,6 @@ func HistoryPage(url string) []WikiProcess {
 			return changelog
 			
 		case html.TextToken:
-
-			if s == "prev" {
-
-				attend = true
-				var empty WikiProcess
-				entry = empty
-				after_edits = false
-				after_editsize = true
-				user = false
-				message = ""
-			}			
 
 			// End of the list is an image box to compare versions
 
@@ -664,6 +670,10 @@ func HistoryPage(url string) []WikiProcess {
 			}
 
 		case html.StartTagToken:
+				
+			if token.Data == "a" {
+				difftext = true
+			}
 
 		case html.EndTagToken:
 
@@ -1159,7 +1169,13 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 		}
 
 		count++
-		n_to := TT.CreateNode(G,"concept",TT.KeyName(t,count),t,concepts[t],0,0,0)
+		key := TT.KeyName(t,count)
+
+		if len(key) < TT.MIN_LEGAL_KEYNAME {
+			continue
+		}
+
+		n_to := TT.CreateNode(G,"concept",key,t,concepts[t],0,0,0)
 		TT.CreateLink(G, n_from, "TALKSABOUT", n_to, concepts[t])
 	}
 
@@ -1173,7 +1189,14 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 				// For ML and episodic recall, we need to know the occurrence times 
 				// for these relative to the episodes too ...
-				n_to := TT.CreateNode(G,"ngram",TT.KeyName(ngram,0),ngram,TT.STM_NGRAM_RANK[n][ngram],0,0,0)
+
+				key := TT.KeyName(ngram,0)
+
+				if len(key) < 3 {
+					continue
+				}
+
+				n_to := TT.CreateNode(G,"ngram",key,ngram,TT.STM_NGRAM_RANK[n][ngram],0,0,0)
 				TT.CreateLink(G, n_from, "CONTAINS", n_to, TT.STM_NGRAM_RANK[n][ngram])
 			}
 		}
@@ -1194,6 +1217,11 @@ func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
 	for user := range usernames {
 
 		name := TT.CanonifyName(user)
+
+		if len(name) < TT.MIN_LEGAL_KEYNAME {
+			continue
+		}
+
 		n_from := TT.CreateNode(G,"user",name,name,0.0,0,0,0)
 		TT.CreateLink(G, n_from, "INFL", ep,0)
 	}
@@ -1211,7 +1239,14 @@ func LinkEpisodeChainAndSpectrumToTopic(ep TT.Node, subject string, begin,end in
 
 func LinkSignalToUser(username,signal string) {
 
-	n_from := TT.CreateNode(G,"user",TT.CanonifyName(username),username,0.0,0,0,0)
+	name := TT.KeyName(username,0)
+
+	if len(name) < TT.MIN_LEGAL_KEYNAME {
+		return
+	}
+
+	n_from := TT.CreateNode(G,"user",name,username,0.0,0,0,0)
 	n_to := TT.CreateNode(G,"signal",signal,signal,0.0,0,0,0)
+
 	TT.CreateLink(G, n_from, "EXPRESSES", n_to,0)
 }
