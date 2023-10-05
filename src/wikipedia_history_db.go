@@ -102,6 +102,10 @@ func main() {
 
 	for n := range subjects {
 
+		// Should we reseet the Ngrams here, or continue to learn?
+		// This is s question of conextual sensitivity
+		// TT.InitializeSmartSpaceTime()
+
 		fmt.Println(n,subjects[n],"...")
 
 		users := AnalyzeTopic(subjects[n])
@@ -794,7 +798,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,"something...",int64(delta_t),burststart,burstend)
 
 			if episode == 1 {
-				LinkEpisodeChainToTopic(ep,subject,burststart,burstend)
+				LinkEpisodeChainAndSpectrumToTopic(ep,subject,burststart,burstend)
 			}
 
 			LinkUsersToEpisode(episode_users,ep)
@@ -1144,15 +1148,29 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,0,0)
 
-	// Link the ngrams
+	// Link the longitudinal persistent concepts
 
 	count := 0
 
 	for t := range concepts {
 
 		count++
-		n_to := TT.CreateNode(G,"ngram",TT.KeyName(t,count),t,0.0,0,0,0)
+		n_to := TT.CreateNode(G,"ngram",TT.KeyName(t,count),t,concepts[t],0,0,0)
 		TT.CreateLink(G, n_from, "TALKSABOUT", n_to, concepts[t])
+	}
+
+	// Link the major ngrams n = 3,4,5 with the current state of learning
+
+	for n := 3; n < 6; n++ {
+
+		for ngram := range TT.STM_NGRAM_RANK[n] {
+
+			if TT.STM_NGRAM_RANK[n][ngram] < TT.MINIMUM_FREQ_CUTOFF {
+
+				n_to := TT.CreateNode(G,"ngram",TT.KeyName(ngram,0),ngram,TT.STM_NGRAM_RANK[n][ngram],0,0,0)
+				TT.CreateLink(G, n_from, "CONTAINS", n_to, TT.STM_NGRAM_RANK[n][ngram])
+			}
+		}
 	}
 }
 
@@ -1177,7 +1195,7 @@ func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
 
 // **************************************************************************
 
-func LinkEpisodeChainToTopic(ep TT.Node, subject string, begin,end int64) {
+func LinkEpisodeChainAndSpectrumToTopic(ep TT.Node, subject string, begin,end int64) {
 
 	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,begin,end)
 	TT.CreateLink(G, ep, "FOLLOWS_FROM", n_from,0)
