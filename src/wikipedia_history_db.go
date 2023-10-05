@@ -1167,6 +1167,8 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 			if TT.STM_NGRAM_RANK[n][ngram] < TT.MINIMUM_FREQ_CUTOFF {
 
+				// For ML and episodic recall, we need to know the occurrence times 
+				// for these relative to the episodes too ...
 				n_to := TT.CreateNode(G,"ngram",TT.KeyName(ngram,0),ngram,TT.STM_NGRAM_RANK[n][ngram],0,0,0)
 				TT.CreateLink(G, n_from, "CONTAINS", n_to, TT.STM_NGRAM_RANK[n][ngram])
 			}
