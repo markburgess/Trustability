@@ -224,8 +224,9 @@ var SENTENCE_THRESH float64 = 100 // chars
 const REPEATED_HERE_AND_NOW  = 1.0 // initial primer
 const INITIAL_VALUE = 0.5
 
-const MEANING_THRESH = 20      // reduce this if too few samples
-const FORGET_FRACTION = 0.001  // this amount per sentence ~ forget over 1000 words
+const MEANING_THRESH = 20        // reduce this if too few samples
+const FORGET_FRACTION = 0.001    // this amount per sentence ~ forget over 1000 words
+const LOWEST_INTENT_CUTOFF = 0.3 // cutoff for keeping n-grams
 
 // ****************************************************************************
 
@@ -2766,7 +2767,7 @@ func RankByIntent(selected_sentences []Narrative) map[string]float64 {
 
 			intent := Intentionality(n,ngram,sentences)
 
-			if intent < 0.3  {
+			if intent < LOWEST_INTENT_CUTOFF  {
 				continue
 			}
 
