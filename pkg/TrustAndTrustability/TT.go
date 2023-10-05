@@ -539,10 +539,18 @@ func KeyName(s string,n int) string {
 		s = s[:40]
 	}
 
+	var key string
+
 	s2 := strings.ReplaceAll(s," ","_")
 	m := regexp.MustCompile("[^a-zA-Z0-9_]*") 
 	str := m.ReplaceAllString(s2,"") 
-	key := fmt.Sprintf("%s_%d",str,n)
+
+	if n > 0 {
+		key = fmt.Sprintf("%s_%d",str,n)
+	} else {
+		key = str
+	}
+
 	return key
 }
 
