@@ -547,6 +547,12 @@ func KeyName(s string,n int) string {
 	m := regexp.MustCompile("[^a-zA-Z0-9_]*") 
 	str := m.ReplaceAllString(s2,"") 
 
+	if len(str) < 10 {
+		s2 = strings.ReplaceAll(s," ","_")
+		m = regexp.MustCompile("[^a-zA-Z0-9_]*") 
+		str = m.ReplaceAllString(s2,"x")
+	}
+
 	if n > 0 {
 		key = fmt.Sprintf("%s_%d",str,n)
 	} else {

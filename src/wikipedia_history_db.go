@@ -1165,7 +1165,7 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 		for ngram := range TT.STM_NGRAM_RANK[n] {
 
-			if TT.STM_NGRAM_RANK[n][ngram] < TT.MINIMUM_FREQ_CUTOFF {
+			if TT.STM_NGRAM_RANK[n][ngram] > TT.MINIMUM_FREQ_CUTOFF {
 
 				// For ML and episodic recall, we need to know the occurrence times 
 				// for these relative to the episodes too ...
