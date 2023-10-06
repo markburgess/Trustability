@@ -103,10 +103,6 @@ func main() {
 
 	for n := range subjects {
 
-		// Should we reseet the Ngrams here, or continue to learn?
-		// This is s question of conextual sensitivity
-		// TT.InitializeSmartSpaceTime()
-
 		fmt.Println(n,subjects[n],"...")
 
 		users := AnalyzeTopic(subjects[n])
@@ -139,6 +135,7 @@ func AnalyzeTopic(subject string) int {
 	// ***********************************************************
 
 	TT.LEG_WINDOW = 100           // Standard for narrative text
+	TT.LEG_SELECTIONS = make([]string,0)
 
 	mainpage := MainPage(page_url)
 	
@@ -163,6 +160,7 @@ func AnalyzeTopic(subject string) int {
 	// ***********************************************************
 
 	TT.LEG_WINDOW = 10 // Need a smaller window than normal for fragmented text
+	TT.LEG_SELECTIONS = make([]string,0)
 
 	changelog := HistoryPage(log_url)
 
@@ -805,7 +803,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 			episode_key := fmt.Sprintf("%s_ep_%d",subject,episode)
 
-			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,"something...",int64(delta_t),burststart,burstend)
+			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,changelog[i].Message,int64(delta_t),burststart,burstend)
 
 			if episode == 1 {
 				LinkEpisodeChainAndSpectrumToTopic(ep,subject,burststart,burstend)
@@ -1166,51 +1164,141 @@ return false
 
 func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
-	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,0,0)
+	var count int = 0
 
-	// Link the longitudinal persistent concepts
+	n_from := TT.CreateNode(G,"topic",subject,subject,0.0,0,0,0)
 
-	count := 0
+	// First add the story samples
 
-	for t := range concepts {
+	var last TT.Node = n_from
 
-		if strings.Count(t," ") < 2 {
-			continue
-		}
+	fmt.Println(" - adding story selections x",len(TT.LEG_SELECTIONS))
+
+	for event := range TT.LEG_SELECTIONS {
 
 		count++
-		key := TT.KeyName(t,count)
 
+		key := TT.KeyName(subject+"_story",count)
+		
 		if len(key) < TT.MIN_LEGAL_KEYNAME {
 			continue
 		}
 
-		n_to := TT.CreateNode(G,"concept",key,t,concepts[t],0,0,0)
-		TT.CreateLink(G, n_from, "TALKSABOUT", n_to, concepts[t])
+		this := TT.CreateNode(G,"episode",key,TT.LEG_SELECTIONS[event],0,0,0,0)
+
+		TT.CreateLink(G, last,"LEADS_TO", this, 0)
+
+		last = this
 	}
 
-	// Link the major ngrams n = 3,4,5 with the current state of learning
+	// Link the longitudinal persistent concepts
 
-	for n := 3; n < 6; n++ {
+	count = 0
 
-		for ngram := range TT.STM_NGRAM_RANK[n] {
+	fmt.Println(" - adding story concepts x",len(concepts))
 
-			if TT.STM_NGRAM_RANK[n][ngram] > TT.MINIMUM_FREQ_CUTOFF {
+	// These are the surviving ngrams that we need to further fractionate
 
-				// For ML and episodic recall, we need to know the occurrence times 
-				// for these relative to the episodes too ...
+	for frag := range concepts {
 
-				key := TT.KeyName(ngram,0)
+		fragment := TT.CreateNode(G,"event",TT.KeyName(frag,0),frag,0,0,0,0)
+		TT.CreateLink(G,n_from,"TALKSABOUT", fragment, 0)
+		SubFractionateCleanString(subject,frag)
+	}
+}
 
-				if len(key) < 3 {
-					continue
+// **************************************************************************
+
+func SubFractionateCleanString(subject,frag string) {
+	
+	words := strings.Split(frag," ")
+
+	var rrbuffer [TT.MAXCLUSTERS][]string
+
+	for word := range words {
+		
+		// This will be too strong in general - ligatures and foreign languages etc
+		
+		if len(words[word]) == 0 {
+			continue
+		}
+		
+		// Shift all the rolling longitudinal Ngram rr-buffers by one word
+		
+		rrbuffer = NextWordAndUpdateNgrams(frag,words[word],rrbuffer)
+	}
+}
+
+// **************************************************************************
+
+func NextWordAndUpdateNgrams(frag,word string, rrbuffer [TT.MAXCLUSTERS][]string) [TT.MAXCLUSTERS][]string {
+
+	// Word by word, we form a superposition of scores from n-grams of different lengths
+	// as a simple sum. This means lower lengths will dominate as there are more of them
+	// so we define intentionality proportional to the length also as compensation
+
+	for n := 2; n < TT.MAXCLUSTERS; n++ {
+		
+		// Pop from round-robin
+
+		if (len(rrbuffer[n]) > n-1) {
+			rrbuffer[n] = rrbuffer[n][1:n]
+		}
+		
+		// Push new to maintain length
+
+		rrbuffer[n] = append(rrbuffer[n],word)
+
+		// Assemble the key, only if complete cluster
+		
+		if (len(rrbuffer[n]) > n-1) {
+			
+			var key string
+			
+			for j := 0; j < n; j++ {
+				key = key + rrbuffer[n][j]
+				if j < n-1 {
+					key = key + " "
 				}
+			}
 
-				n_to := TT.CreateNode(G,"ngram",key,ngram,TT.STM_NGRAM_RANK[n][ngram],0,0,0)
-				TT.CreateLink(G, n_from, "CONTAINS", n_to, TT.STM_NGRAM_RANK[n][ngram])
+			if TT.ExcludedByBindings(rrbuffer[n][0],rrbuffer[n][n-1]) {
+
+				continue
+			}
+
+			if key != frag {
+				LinkFragToFrag(n,key,frag)
 			}
 		}
 	}
+
+	if word != frag {
+		LinkFragToFrag(1,word,frag)
+
+	}
+
+	return rrbuffer
+}
+
+
+// **************************************************************************
+
+func LinkFragToFrag(n int, part,whole string) {
+
+	from_key := TT.KeyName(whole,0)
+	to_key := TT.KeyName(part,0)
+
+	if len(from_key) < TT.MIN_LEGAL_KEYNAME || len(to_key) < TT.MIN_LEGAL_KEYNAME {
+		return
+	}
+
+	coll := fmt.Sprintf("gram%d",n)
+
+	n_from := TT.CreateNode(G,"event",from_key,whole,TT.STM_NGRAM_RANK[n][whole],0,0,0)
+	n_to := TT.CreateNode(G,coll,to_key,part,TT.STM_NGRAM_RANK[n][whole],0,0,0)
+
+	TT.CreateLink(G, n_from, "CONTAINS", n_to, 0)
 }
 
 // **************************************************************************

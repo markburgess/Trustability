@@ -200,7 +200,7 @@ type Score struct {
 
 // Promise bindings in English. This domain knowledge saves us a lot of training analysis
 
-var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "be", "with", "using", "that", "who", "to" ,"no", "because","at","but","yes","no","yeah","yay"}
+var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "be", "with", "using", "that", "who", "to" ,"no", "because","at","but","yes","no","yeah","yay", "in"}
 
 var FORBIDDEN_STARTER = []string{"and","or","of","the","it","because","in","that","these","those","is","are","was","were","but","yes","no","yeah","yay"}
 
@@ -217,6 +217,7 @@ var ALL_SENTENCE_INDEX int = 0
 const MAXCLUSTERS = 7
 
 var LEG_WINDOW int = 100  // sentences per leg
+var LEG_SELECTIONS []string
 
 var ATTENTION_LEVEL float64 = 1.0
 var SENTENCE_THRESH float64 = 100 // chars
@@ -282,7 +283,7 @@ const GR_CONTAINS  int = 2
 const GR_EXPRESSES int = 3
 const GR_NEAR      int = 4
 
-var NODETYPES = []string{"topic","ngram","concept","episode","user","signal"}
+var NODETYPES = []string{"topic","gram1","gram2","gram3","gram4","gram5","gram6","event", "episode","user","signal"}
 var LINKTYPES = []string{"none","Follows","Contains","Expresses","Near"}
 
 // ****************************************************************************
@@ -1288,7 +1289,8 @@ func OpenAnalytics(dbname, service_url, user, pwd string) Analytics {
 		graph, err = db.CreateGraph(nil, gname, &options)
 
 		if err != nil {
-			fmt.Printf("Create graph: %v", err)
+			fmt.Printf("Create graph: %v\n", err)
+			fmt.Println(gname,options)
 			os.Exit(1)
 		}
 	}
@@ -1384,7 +1386,7 @@ func AddNodeCollection(g Analytics, name string) A.Collection {
 		}
 	}
 
-return nodeset
+	return nodeset
 }
 
 // **************************************************
@@ -1400,7 +1402,7 @@ func AddNode(g Analytics, kind string, node Node) {
 func InsertNodeIntoCollection(g Analytics, node Node, coll A.Collection) {
 
 	exists,err := coll.DocumentExists(nil, node.Key)
-	
+
 	if !exists {
 		_, err = coll.CreateDocument(nil, node)
 		
@@ -1572,10 +1574,10 @@ func IncrLink(g Analytics, link Link) {
 
 	switch coltype {
 
-	case GR_FOLLOWS:   links = g.S_Links["follows"]
-	case GR_CONTAINS:  links = g.S_Links["contains"]
-	case GR_EXPRESSES: links = g.S_Links["expresses"]
-	case GR_NEAR:      links = g.S_Links["near"]
+	case GR_FOLLOWS:   links = g.S_Links["Follows"]
+	case GR_CONTAINS:  links = g.S_Links["Contains"]
+	case GR_EXPRESSES: links = g.S_Links["Expresses"]
+	case GR_NEAR:      links = g.S_Links["Near"]
 	}
 
 	exists,_ := links.DocumentExists(nil, key)
@@ -3087,6 +3089,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 	for r := range ranks_in_order {
 
 		Printf("\nEVENT[Leg %d selects %d]: %s\n",leg,ranks_in_order[r],selected_sentences[ranks_in_order[r]].text)
+		LEG_SELECTIONS = append(LEG_SELECTIONS,selected_sentences[ranks_in_order[r]].text)
 		KEPT++
 	}
 }
