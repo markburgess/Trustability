@@ -2700,7 +2700,6 @@ func SplitIntoSentences(text string) []string {
 
 		content := strings.Trim(sentences[sen]," ")
 
-		fmt.Println("SENTENCE",content)
 		if len(content) > 0 {			
 			cleaned = append(cleaned,content)
 		}
