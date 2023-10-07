@@ -283,7 +283,7 @@ const GR_CONTAINS  int = 2
 const GR_EXPRESSES int = 3
 const GR_NEAR      int = 4
 
-var NODETYPES = []string{"topic","gram1","gram2","gram3","gram4","gram5","gram6","event", "episode","user","signal"}
+var NODETYPES = []string{"topic","ngram1","ngram2","ngram3","ngram4","ngram5","ngram6","event","episode","user","signal"}
 var LINKTYPES = []string{"none","Follows","Contains","Expresses","Near"}
 
 // ****************************************************************************
@@ -557,7 +557,7 @@ func KeyName(s string,n int) string {
 		key = str
 	}
 
-	return key
+	return strings.ToLower(key)
 }
 
 //**************************************************************

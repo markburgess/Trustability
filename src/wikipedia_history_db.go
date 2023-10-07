@@ -1184,9 +1184,11 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 			continue
 		}
 
-		this := TT.CreateNode(G,"episode",key,TT.LEG_SELECTIONS[event],0,0,0,0)
+		this := TT.CreateNode(G,"event",key,TT.LEG_SELECTIONS[event],0,0,0,0)
 
 		TT.CreateLink(G, last,"LEADS_TO", this, 0)
+		//Connect the concept to the episode it occurred in
+		SubFractionateCleanString(TT.LEG_SELECTIONS[event])
 
 		last = this
 	}
@@ -1201,15 +1203,29 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 	for frag := range concepts {
 
-		fragment := TT.CreateNode(G,"event",TT.KeyName(frag,0),frag,0,0,0,0)
+		words := strings.Count(frag," ") + 1
+		collection := fmt.Sprintf("ngram%d",words)
+
+		// Put the concept fragment in its node collection
+
+		key := TT.KeyName(frag,0)
+
+		if len(key) < TT.MIN_LEGAL_KEYNAME {
+			continue
+		}
+
+		fragment := TT.CreateNode(G,collection,key,frag,0,0,0,0)
+
+		// Make sure all concepts also take us to the topic subject
+
 		TT.CreateLink(G,n_from,"TALKSABOUT", fragment, 0)
-		SubFractionateCleanString(subject,frag)
+		SubFractionateCleanString(frag)
 	}
 }
 
 // **************************************************************************
 
-func SubFractionateCleanString(subject,frag string) {
+func SubFractionateCleanString(frag string) {
 	
 	words := strings.Split(frag," ")
 
@@ -1293,7 +1309,7 @@ func LinkFragToFrag(n int, part,whole string) {
 		return
 	}
 
-	coll := fmt.Sprintf("gram%d",n)
+	coll := fmt.Sprintf("ngram%d",n)
 
 	n_from := TT.CreateNode(G,"event",from_key,whole,TT.STM_NGRAM_RANK[n][whole],0,0,0)
 	n_to := TT.CreateNode(G,coll,to_key,part,TT.STM_NGRAM_RANK[n][whole],0,0,0)
@@ -1372,8 +1388,9 @@ func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 			continue
 		}
 
-		n_to := TT.CreateNode(G,"concept",key,t,concepts[t],0,0,0)
-		TT.CreateLink(G, n_from, "INVOLVES", n_to, concepts[t])
+		n := strings.Count(t," ") + 1
+
+		LinkFragToFrag(n,key,t)
 	}
 }
 
