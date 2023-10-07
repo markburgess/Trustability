@@ -436,9 +436,9 @@ func MainPage(url string) string {
 
 		// Strip out unwanted characters and mark end of sentence with a # symbol
 		
-		r := regexp.MustCompile("[?!.]+")
+		r := regexp.MustCompile("[?!.] ")
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
-		s = r.ReplaceAllString(s,"$0#")
+		s = r.ReplaceAllString(s,"$0# ")
 		s = strings.ReplaceAll(s,"→","")
 		s = strings.ReplaceAll(s,"←","")
 		s = strings.ReplaceAll(s,"'","")
@@ -510,7 +510,7 @@ func MainPage(url string) string {
 				
 				// Strip commas etc for the n-grams
 
-				plaintext += strings.TrimSpace(s) + ". "
+				plaintext += strings.TrimSpace(s) + " "
 
 			}
 			
