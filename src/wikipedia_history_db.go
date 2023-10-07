@@ -394,9 +394,9 @@ func MainPage(url string) string {
 
 		// Strip out unwanted characters and mark end of sentence with a # symbol
 		
-		r := regexp.MustCompile("[?!.] ")
+
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
-		s = r.ReplaceAllString(s,"$0#")
+		s = TT.HashcodeSentenceSplit(s)
 		s = strings.ReplaceAll(s,"→","")
 		s = strings.ReplaceAll(s,"←","")
 		s = strings.ReplaceAll(s,"'","")
@@ -405,6 +405,7 @@ func MainPage(url string) string {
 		s = strings.ReplaceAll(s,"(","")
 		s = strings.ReplaceAll(s,")","")
 		s = strings.ReplaceAll(s,"|"," ")
+		s = strings.ReplaceAll(s,"\n"," ")
 		s = strings.TrimSpace(html.UnescapeString(s))
 		s = strings.TrimSpace(s)
 		
@@ -473,11 +474,13 @@ func MainPage(url string) string {
 			}
 			
 		case html.StartTagToken:
-			
+
 		case html.EndTagToken:
 		
 			switch token.Data {
 
+			case "h1":
+			case "h2":
 			case "td":
 			case "p":
 				plaintext += "#"
@@ -532,7 +535,7 @@ func HistoryPage(url string) []WikiProcess {
 
 		// Strip out junk characters
 
-		r := regexp.MustCompile("[?!.] ")
+		r := regexp.MustCompile("[?!.][ \n]")
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
 		s = r.ReplaceAllString(s,"$0#")
 		s = strings.ReplaceAll(s,"→","")
@@ -1202,7 +1205,8 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 		TT.CreateLink(G, last,"LEADS_TO", this, 0)
 		//Connect the concept to the episode it occurred in
-		SubFractionateCleanString(TT.LEG_SELECTIONS[event])
+
+		LinkAllNgramsFromTo(TT.LEG_SELECTIONS[event],this)
 
 		last = this
 	}
@@ -1228,20 +1232,21 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 			continue
 		}
 
-		fragment := TT.CreateNode(G,collection,key,frag,0,0,0,0)
+		frag_node := TT.CreateNode(G,collection,key,frag,0,0,0,0)
 
 		// Make sure all concepts also take us to the topic subject
 
-		TT.CreateLink(G,n_from,"TALKSABOUT", fragment, 0)
-		SubFractionateCleanString(frag)
+		TT.CreateLink(G,n_from,"TALKSABOUT", frag_node, 0)
+
+		LinkAllNgramsFromTo(frag,frag_node)
 	}
 }
 
 // **************************************************************************
 
-func SubFractionateCleanString(frag string) {
+func LinkAllNgramsFromTo(concept string,org_node TT.Node) {
 	
-	words := strings.Split(frag," ")
+	words := strings.Split(concept," ")
 
 	var rrbuffer [TT.MAXCLUSTERS][]string
 
@@ -1255,13 +1260,13 @@ func SubFractionateCleanString(frag string) {
 		
 		// Shift all the rolling longitudinal Ngram rr-buffers by one word
 		
-		rrbuffer = NextWordAndUpdateNgrams(frag,words[word],rrbuffer)
+		rrbuffer = NextWordAndUpdateNgrams(concept,org_node,words[word],rrbuffer)
 	}
 }
 
 // **************************************************************************
 
-func NextWordAndUpdateNgrams(frag,word string, rrbuffer [TT.MAXCLUSTERS][]string) [TT.MAXCLUSTERS][]string {
+func NextWordAndUpdateNgrams(original string,org_node TT.Node,word string, rrbuffer [TT.MAXCLUSTERS][]string) [TT.MAXCLUSTERS][]string {
 
 	// Word by word, we form a superposition of scores from n-grams of different lengths
 	// as a simple sum. This means lower lengths will dominate as there are more of them
@@ -1283,12 +1288,12 @@ func NextWordAndUpdateNgrams(frag,word string, rrbuffer [TT.MAXCLUSTERS][]string
 		
 		if (len(rrbuffer[n]) > n-1) {
 			
-			var key string
+			var partial string
 			
 			for j := 0; j < n; j++ {
-				key = key + rrbuffer[n][j]
+				partial = partial + rrbuffer[n][j]
 				if j < n-1 {
-					key = key + " "
+					partial = partial + " "
 				}
 			}
 
@@ -1297,14 +1302,14 @@ func NextWordAndUpdateNgrams(frag,word string, rrbuffer [TT.MAXCLUSTERS][]string
 				continue
 			}
 
-			if key != frag {
-				LinkFragToFrag(n,key,frag)
+			if partial != original {
+				LinkFragToFrag(n,partial,org_node)
 			}
 		}
 	}
 
-	if word != frag {
-		LinkFragToFrag(1,word,frag)
+	if word != original {
+		LinkFragToFrag(1,word,org_node)
 
 	}
 
@@ -1314,21 +1319,19 @@ func NextWordAndUpdateNgrams(frag,word string, rrbuffer [TT.MAXCLUSTERS][]string
 
 // **************************************************************************
 
-func LinkFragToFrag(n int, part,whole string) {
+func LinkFragToFrag(n int, part string,org_node TT.Node) {
 
-	from_key := TT.KeyName(whole,0)
-	to_key := TT.KeyName(part,0)
+	part_key := TT.KeyName(part,0)
 
-	if len(from_key) < TT.MIN_LEGAL_KEYNAME || len(to_key) < TT.MIN_LEGAL_KEYNAME {
+	if len(part_key) < TT.MIN_LEGAL_KEYNAME {
 		return
 	}
 
 	coll := fmt.Sprintf("ngram%d",n)
 
-	n_from := TT.CreateNode(G,"event",from_key,whole,TT.STM_NGRAM_RANK[n][whole],0,0,0)
-	n_to := TT.CreateNode(G,coll,to_key,part,TT.STM_NGRAM_RANK[n][whole],0,0,0)
+	part_node := TT.CreateNode(G,coll,part_key,part,TT.STM_NGRAM_RANK[n][part],0,0,0)
 
-	TT.CreateLink(G, n_from, "CONTAINS", n_to, 0)
+	TT.CreateLink(G, org_node, "CONTAINS", part_node, 0)
 }
 
 // **************************************************************************
@@ -1360,7 +1363,7 @@ func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
 func LinkEpisodeChainAndSpectrumToTopic(ep TT.Node, subject string, begin,end int64) {
 
 	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,begin,end)
-	TT.CreateLink(G, ep, "FOLLOWS_FROM", n_from,0)
+	TT.CreateLink(G, n_from, "THEN", ep,0)
 }
 
 // **************************************************************************
@@ -1404,7 +1407,7 @@ func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 
 		n := strings.Count(t," ") + 1
 
-		LinkFragToFrag(n,key,t)
+		LinkFragToFrag(n,key,n_from)
 	}
 }
 

@@ -3256,6 +3256,34 @@ func Print(a ...any) (n int, err error) {
 }
 
 // *****************************************************************
+
+func HashcodeSentenceSplit(str string) string {
+
+	var new string = ""
+
+	for i := 0; i < len(str); i++ {
+
+		new += string(str[i])
+
+		switch str[i] {
+		case '.':
+		case '!':
+		case '?':
+			if (i < len(str)-1 && str[i+1] == ' ') {
+				new += "#"
+			}
+
+		default:
+
+		}
+	}
+
+	new += " "
+
+	return new
+}
+
+// *****************************************************************
 // Adaptive locks ...
 // Pedagogical implementation of self-healing locks as used in CFEngine
 // We need a 1:1 unique name for client requests and lock names

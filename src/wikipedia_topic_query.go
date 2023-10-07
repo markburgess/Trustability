@@ -45,6 +45,8 @@ func main() {
 
 	topics := GetStorylineForSubject(subject)
 
+	history := GetHistoryForSubject(subject)
+
 /*
 	TT.FractionateSentences(subject) // finds STM_NGRAM_RANK[n]
 
@@ -55,9 +57,18 @@ func main() {
 
 */
 
+	fmt.Println("STORY\n")
+
 	for i := 0; i < len(topics); i++ {
-		fmt.Println(i,topics[i],"\n")
+		fmt.Println(i,topics[i])
 	}
+
+	fmt.Println("History\n")
+
+	for i := 0; i < len(history); i++ {
+		fmt.Println(i,history[i])
+	}
+
 }
 
 //**************************************************************
@@ -136,7 +147,7 @@ func GetTopicsInheriting(frag string) []string {
 
 func GetStorylineForSubject(subject string) []string {
 
-	head := GetStoryHead(subject)
+	head := GetStoryHead(subject,"LEADS_TO")
 
 	if head == "" {
 		return nil
@@ -147,9 +158,22 @@ func GetStorylineForSubject(subject string) []string {
 
 // ********************************************************************************
 
-func GetStoryHead(subject string) string {
+func GetHistoryForSubject(subject string) []string {
 
-	q := "FOR n in Follows FILTER n._from == 'topic/"+ subject +"' && n.semantics == 'LEADS_TO' RETURN n._to"
+	head := GetStoryHead(subject,"THEN")
+
+	if head == "" {
+		return nil
+	}
+
+	return GetStoryTail(head,200)
+}
+
+// ********************************************************************************
+
+func GetStoryHead(subject,kind string) string {
+
+	q := "FOR n in Follows FILTER n._from == 'topic/"+ subject +"' && n.semantics == '"+kind+"' RETURN n._to"
 	// This might take a long time, so we need to extend the timeout
 
 	var err error
