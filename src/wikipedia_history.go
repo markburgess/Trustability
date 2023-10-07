@@ -517,7 +517,14 @@ func MainPage(url string) string {
 		case html.StartTagToken:
 			
 		case html.EndTagToken:
-			
+		
+			switch token.Data {
+
+			case "td":
+			case "p":
+				plaintext += "#"
+			}
+
 			if token.Data == "body" {
 				capture = false
 				return plaintext
@@ -567,7 +574,7 @@ func HistoryPage(url string) []WikiProcess {
 
 		// Strip out junk characters
 
-		r := regexp.MustCompile("[?!.]+")
+		r := regexp.MustCompile("[?!.] ")
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
 		s = r.ReplaceAllString(s,"$0#")
 		s = strings.ReplaceAll(s,"→","")
@@ -707,6 +714,13 @@ func HistoryPage(url string) []WikiProcess {
 		case html.StartTagToken:
 
 		case html.EndTagToken:
+		
+			switch token.Data {
+
+			case "td":
+			case "p":
+				entry.Message += "#"
+			}
 
 			if token.Data == "body" {
 

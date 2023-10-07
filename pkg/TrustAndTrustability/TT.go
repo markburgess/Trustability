@@ -2690,6 +2690,7 @@ func SplitIntoSentences(text string) []string {
 
 	// Note this regex split has the effect of removing .?!
 
+
 	re := regexp.MustCompile(".#")
 	sentences := re.Split(text, -1)
 
@@ -2699,6 +2700,7 @@ func SplitIntoSentences(text string) []string {
 
 		content := strings.Trim(sentences[sen]," ")
 
+		fmt.Println("SENTENCE",content)
 		if len(content) > 0 {			
 			cleaned = append(cleaned,content)
 		}
