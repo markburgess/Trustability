@@ -60,7 +60,7 @@ func main() {
 	fmt.Println("STORY\n")
 
 	for i := 0; i < len(topics); i++ {
-		fmt.Println(i,topics[i])
+		fmt.Println(i,":",topics[i],"\n")
 	}
 
 	fmt.Println("History\n")

@@ -138,9 +138,7 @@ func GetEpisodeHead(subject string) string {
 	var err error
 	var cursor A.Cursor
 
-	f := TT.LINKTYPES[TT.GR_FOLLOWS]
-
-	instring := "FOR n in "+f+" FILTER n._to == 'topic/"+ subject +"' RETURN n._from"
+	instring := "FOR n in Follows FILTER n._from == 'topic/"+ subject +"' && n.semantics == 'THEN' RETURN n._to"
 
 	// This might take a long time, so we need to extend the timeout
 
@@ -171,7 +169,7 @@ func GetEpisodeHead(subject string) string {
 		}
 	}
 
-return "none"
+	return "none"
 }
 
 // ********************************************************************************
