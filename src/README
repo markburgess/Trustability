@@ -10,6 +10,8 @@ These programs are proof of concept stubs and research tools associated with the
  - ngrams-chinese.go
  - wikipedia_history.go <verbose>
  - wikipedia_history_db.go <verbose>
+ - wikipedia_history_query.go <topic>
+ - wikipedia_topic_query.go <topic>
 
 The files:
 
@@ -32,6 +34,7 @@ The files:
  - udp_server.go - udp server stub to run together with udp_client.go
  - wikipedia_history.go - html+ngram+wikipedia analysis, self contained output analysis generator
  - wikipedia_history_db.go - a database building version of the analysis developed in the previous
-
+ - wikipedia_history_query.go - prints out the episodic process history from a database once created
+ - wikipedia_topic_query.go - prints out the sampled storyline for a topic from the database once created
 
 For specifics about how to run each program see the top notes in the source code.
