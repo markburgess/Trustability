@@ -134,6 +134,8 @@ func AnalyzeTopic(subject string) (string,int) {
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
+	ARTICLE_ISSUES = 0
+
 	// ***********************************************************
 	// Pure output analysis of the article
 	// ***********************************************************
