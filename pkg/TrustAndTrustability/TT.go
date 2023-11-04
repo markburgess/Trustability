@@ -2759,7 +2759,7 @@ func RankByIntent(selected_sentences []Narrative) map[string]float64 {
 
 	sentences := len(selected_sentences)
 
-	Println("--------- Sumarize ngram Intentionality threshold selection ---------------------------")
+	//Println("--------- Summarize ngram Intentionality threshold selection ---------------------------")
 
 	for n := 1; n < MAXCLUSTERS; n++ {
 
@@ -2778,7 +2778,7 @@ func RankByIntent(selected_sentences []Narrative) map[string]float64 {
 				continue
 			}
 
-			Println(n,ngram,occurrences,STM_NGRAM_RANK[n][ngram],"---------",intent)
+			// Println(n,ngram,occurrences,STM_NGRAM_RANK[n][ngram],"---------",intent)
 
 			// if ngram of occurrences exceeds an expectation threshold in terms of length
 
