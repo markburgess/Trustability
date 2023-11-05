@@ -146,7 +146,7 @@ func AnalyzeTopic(subject string) (string,int) {
 	
 	textlength := len(mainpage)
 
-	selected := TT.FractionateSentences(mainpage)
+	selected,ltm := TT.FractionateSentences(mainpage)
 
 	TT.Println("*********************************************")
 	TT.Println("* Mainpage for",subject,"-- length",textlength,"chars")
@@ -156,7 +156,7 @@ func AnalyzeTopic(subject string) (string,int) {
 	
 	TT.ReviewAndSelectEvents(subject,selected)		
 	
-	pagetopics := TT.RankByIntent(selected)
+	pagetopics := TT.RankByIntent(selected,ltm)
 	
 	TT.LongitudinalPersistentConcepts(pagetopics)
 
@@ -180,7 +180,7 @@ func AnalyzeTopic(subject string) (string,int) {
 
 	talklength := len(historypage)
 
-	remarks := TT.FractionateSentences(historypage)
+	remarks,ltm2 := TT.FractionateSentences(historypage)
 
 	TT.Println("*********************************************")
 	TT.Println("* Historypage length",subject,talklength)
@@ -193,7 +193,7 @@ func AnalyzeTopic(subject string) (string,int) {
 	
 	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
-	topics := TT.RankByIntent(remarks)
+	topics := TT.RankByIntent(remarks,ltm2)
 	
 	TT.LongitudinalPersistentConcepts(topics)
 

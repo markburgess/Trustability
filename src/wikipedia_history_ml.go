@@ -17,7 +17,7 @@
 // (takes a long time to complete and generates a lot of output)
 // It generates/appends to a file /tmp/trust.dat (should not exist in advance)
 //
-//      go run wikipedia_history_db.go
+//      go run wikipedia_history_ml.go
 // ***********************************************************
 
 package main
@@ -55,15 +55,16 @@ type WikiProcess struct {       // A list of all edit events
 
 const DAY = float64(3600 * 24 * TT.NANO)
 const MINUTE = float64(60 * TT.NANO)
-const OUTPUT_FILE = "trust.dat"
-const GIANT_CLUSTER_FILE = "workclusters.dat"
-const EPISODE_CLUSTER_FILE = "episodeclusters.dat"
 
 var G TT.Analytics
 var ARTICLE_ISSUES int = 0
-var GIANT_CLUSTER_FREQ = make(map[int]int)
+
 var EPISODE_CLUSTER_FREQ = make(map[int]int)
 var NOBOTS bool = false
+
+var CONTENTION_USER_PLUS = make(map[string]int)
+var CONTENTION_USER_MINUS = make(map[string]int)
+var CONTENTION_SUBJ = make(map[string]int)
 
 // ***********************************************************
 
@@ -84,13 +85,15 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subjects := ReadSubjects("wiki_samples_total.in")
+	// subjects := ReadSubjects("wiki_samples_total.in")
+
+	subjects := []string{ "Laser" }
 
 	// ***********************************************************
 	
 	TT.InitializeSmartSpaceTime()
 
-	var dbname string = "SemanticSpacetime"
+	var dbname string = "SST-ML"
 	var dburl string = "http://localhost:8529"
 	var user string = "root"
 	var pwd string = "mark"
@@ -99,19 +102,12 @@ func main() {
 
 	// ***********************************************************
 
-	var total_users int = 0
-
 	for n := range subjects {
 
 		fmt.Println(n,subjects[n],"...")
 
-		users := AnalyzeTopic(subjects[n])
-		total_users += users
+		AnalyzeTopic(subjects[n])
 	}
-
-	fmt.Println("\nWrote",len(subjects),"lines from",total_users,"users to graph table:\n",OUTPUT_FILE)
-
-	PlotUserBursts(EPISODE_CLUSTER_FREQ,EPISODE_CLUSTER_FILE)
 }
 
 //**************************************************************
@@ -125,41 +121,14 @@ func usage() {
 
 // ***********************************************************
 
-func AnalyzeTopic(subject string) int {
+func AnalyzeTopic(subject string) {
 
-	page_url := "https://en.wikipedia.org/wiki/" + subject
+	//page_url := "https://en.wikipedia.org/wiki/" + subject
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
-	// ***********************************************************
-	// Pure output analysis of the article
-	// ***********************************************************
+	// Go straight to discussion (user behaviour)
 
-	TT.LEG_WINDOW = 100           // Standard for narrative text
-	TT.LEG_SELECTIONS = make([]string,0)
-
-	mainpage := MainPage(page_url)
-	
-	textlength := len(mainpage)
-
-	selected := TT.FractionateSentences(mainpage)
-
-	TT.Println("*********************************************")
-	TT.Println("* Mainpage for",subject,"-- length",textlength,"chars")
-	TT.Println("* Sentences",len(selected))
-	TT.Println("* Legs",float64(len(selected))/float64(TT.LEG_WINDOW))
-	TT.Println("*********************************************")
-
-	TT.ReviewAndSelectEvents(subject,selected)		
-
-	pagetopics := TT.RankByIntent(selected)
-
-	LinkPersistentToSubject(subject,pagetopics)
-
-	// ***********************************************************
-	// Pure output analysis of the editing history
-	// ***********************************************************
-
-	TT.LEG_WINDOW = 10 // Need a smaller window than normal for fragmented text
+	TT.LEG_WINDOW = 10
 	TT.LEG_SELECTIONS = make([]string,0)
 
 	changelog := HistoryPage(log_url)
@@ -170,156 +139,17 @@ func AnalyzeTopic(subject string) int {
 
 	// Look at signals from text analysis
 
-	history_users, episodes, avt, avep, useredits, episode_clusters, episode_duration, episode_bytes, bot_fraction := HistoryAssessment(subject,changelog)
+	HistoryAssessment(subject,changelog)
 
 	historypage := TotalText(changelog)
 
-	talklength := len(historypage)
-
-	remarks := TT.FractionateSentences(historypage)
-
-	TT.Println("*********************************************")
-	TT.Println("* Historypage length",subject,talklength)
-	TT.Println("* Sentences",len(remarks))
-	TT.Println("* Legs",float64(len(remarks))/float64(TT.LEG_WINDOW))
-	TT.Println("* Total users involved in shared process", history_users)
-	TT.Println("* Change episodes with discernable punctuation", episodes)
-	TT.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
-	TT.Println("*********************************************")
+	remarks,ltm := TT.FractionateSentences(historypage)
 	
 	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
-	topics := TT.RankByIntent(remarks)
+	topics := TT.RankByIntent(remarks,ltm)
 	
 	TT.LongitudinalPersistentConcepts(topics)
-
-	// ***********************************************************
-	// Now go through the text analysis event trace, extracted above
-	// ***********************************************************
-
-	TT.Println("\n****** User/agent persistence on this page ....\n")
-
-	for u := range useredits {
-
-		lifetime := float64(useredits[u][len(useredits[u])-1]-useredits[u][0])/float64(DAY)
-
-		if lifetime > 1 {
-
-			TT.Println(" Lifetime ",u,lifetime,"days")
-		}
-	}
-
-	TT.Println("\n******* EDITING EPISODIC BURSTS....(user clusters)\n")
-
-	var average_tribe_cluster float64 = 0
-	var duration_per_episode float64 = 0
-	var duration_per_user float64 = 0
-
-	episode_count := float64(episodes) // == len(episode_clusters)
-
-	for g := 1; g <= len(episode_clusters); g++ {
-
-		duration := float64(episode_duration[g])/float64(DAY)
-		users_N := float64(len(episode_clusters[g]))
-
-		average_tribe_cluster += users_N/episode_count
-		duration_per_episode += duration/episode_count
-		duration_per_user += duration/users_N
-
-		TT.Println("\n",g," Episode with",users_N,
-			"users\n        ",episode_clusters[g],
-			"\n        duration (days)",duration,
-			"\n        dur/user",duration/users_N,
-			"\n        Byte changes",episode_bytes[g],
-			"\n        Changes/user",episode_bytes[g]/users_N)
-	}
-
-
-	I := float64(ARTICLE_ISSUES)/float64(textlength)
-	N := average_tribe_cluster                // av users per episode
-	NL := math.Log(N)
-
-	L := float64(textlength)            // article length in sentences
-	LL := math.Log(L)
-
-	H := float64(talklength)            // change process in sentence/entries
-
-	s := float64(len(remarks))          // changes subsampled on trust
-	S := float64(len(selected))         // article subsampled on trust
-
-	e := s/H  // trusted process watch list fraction
-	E := S/L  // trusted article watch list fraction
-
-	// work and sampled(untrusted)
-
-	w := H/L
-	u := s/S
-	mistrust := s/H
-
-	if math.IsNaN(w) {
-		w = 0
-	}
-
-	if math.IsNaN(u) {
-		u = 0
-	}
-
-	if math.IsNaN(mistrust) {
-		mistrust = 0
-	}
-
-	// These involve some roundings to avoid infinities
-
-	TG := duration_per_episode
-	TU := duration_per_user
-
-	if math.IsNaN(TG) {
-		TG = 0
-	}
-
-	if math.IsNaN(TU) {
-		TU = 0
-	}
-
-	TT.Println("\n*********************************************")
-	TT.Println("* SUMMARY")
-	TT.Println("* Mainpage for",subject,"-- length",textlength,"chars")
-	TT.Printf("* Total contentious article assessments for %s = %d\n",subject,ARTICLE_ISSUES)
-	TT.Printf("* I/L = Contention x1000 per unit length = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(textlength))
-	TT.Printf("* Contention x1000 per user = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users))
-	TT.Printf("* Contention x1000 per user^2 = %.2f\n",1000*float64(ARTICLE_ISSUES)/float64(history_users*history_users))
-	TT.Println("* Process history length =",len(remarks))
-	TT.Println("* Process history length / article length =",float64(talklength)/float64(textlength))
-	TT.Println("* Process selections / article selections =",float64(len(remarks))/float64(len(selected)))
-	TT.Println("* Efficiency History/Article  =",e/E)
-	TT.Println("* Total users involved in shared process", history_users)
-	TT.Println("* Average user (tribe) cluster size per episode", average_tribe_cluster)
-	TT.Println("* Change episodes with discernable punctuation", episodes)
-	TT.Println("* Average episode size (notes/remarks)", avep)
-	TT.Println("* The average time between changes is",avt/float64(MINUTE),"mins",avt/float64(DAY),"days")
-	TT.Println("* The bot fraction is",bot_fraction,)
-	TT.Println("*********************************************\n")
-
-	// Add this topic to the database
-
-	var summary TT.EpisodeSummary
-	
-	summary.Key = subject
-	summary.L = L
-	summary.LL = LL
-	summary.N = N
-	summary.NL = NL
-	summary.I = I
-	summary.W = w
-	summary.U = u
-	summary.M = mistrust
-	summary.TG = TG
-	summary.TU = TU
-	summary.BF = bot_fraction
-
-	AddEpisodeSummary(subject,summary)
-
-	return history_users
 }
 
 // ***********************************************************
@@ -702,7 +532,7 @@ func HistoryPage(url string) []WikiProcess {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64,float64,map[string][]int64,map[int]map[string]int,map[int]int64,map[int]float64,float64) {
+func HistoryAssessment(subject string, changelog []WikiProcess) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -735,8 +565,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 	TT.Println("\n==============================================\n")
 	TT.Println("HISTORY OF CHANGE ANALYSIS: Starting assessment of history for",subject)
 	TT.Println("\n==============================================\n")
-
-	TT.Println("\n----------- EDITS --------------------")
 
 	allepisodes[episode] = make(map[string]int)
 
@@ -802,6 +630,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 		episode_user_last[changelog[i].User] = event
 
+		// Episodes are a longer timescale variability of state
+
 		// Demarcate episode boundary *********************************************
 		// We need a minimum size for a burst to protect against average being zero
 
@@ -820,13 +650,26 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 
 			episode_key := fmt.Sprintf("%s_ep_%d",subject,episode)
 
+			fmt.Println("\nlink users:",episode_users)
+			fmt.Println("\n..to average state context on scale of episode (contenious or cooperative)")
+			fmt.Println("\nlink message ngrams",changelog[i].Message)
+
 			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,changelog[i].Message,int64(delta_t),burststart,burstend)
+
+			fmt.Println("\nsubject name and ngrams are part of state context",subject)
+
+			fmt.Println("\nLEARN grov context association to GOOD/BAD/UGLY")
+
+			//raather than good bad ugly: do, undo, (degree of text overlap)
+
 
 			if episode == 1 {
 				LinkEpisodeChainAndSpectrumToTopic(ep,subject,burststart,burstend)
 			}
 
 			LinkUsersToEpisode(episode_users,ep)
+
+			fmt.Println("\nCOMPUTE DIFF FRACTION and ngram content - check against ngram signal strength")
 			LinkDiffFractionsToEpisode(ep,changelog[i].DiffUrl)
 
 			sum_burst_bytes = 0
@@ -840,10 +683,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			allepisodes[episode] = make(map[string]int)
 			EPISODE_CLUSTER_FREQ[len(episode_users)]++
 			episode_users = make(map[string]int)
-
-			// Reset episode graph
-
-			AnalyzeUserContributions(episode_user_start,episode_user_last,event,episode)
 
 			event = 1
 			episode_user_start = make(map[string]int)
@@ -865,8 +704,12 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 			users_revert[changelog[i].User] += changelog[i].Revert
 
 			if last_user != changelog[i].User {
-				TT.Println(" .. Explicit undo of",last_user,"by",changelog[i].User)
+				fmt.Println("STATE .. Explicit undo of",last_user,"by",changelog[i].User)
+				fmt.Println("LEARN DIRECTED RELN",last_user,"by",changelog[i].User)
 				ARTICLE_ISSUES++
+				CONTENTION_USER_PLUS[changelog[i].User]++
+				CONTENTION_USER_MINUS[last_user]++
+				CONTENTION_SUBJ[subject]++
 			}
 
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
@@ -878,9 +721,21 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
 
 			ARTICLE_ISSUES++
-			TT.Println(" .. Effective undo of",last_user,"by",changelog[i].User)
+			fmt.Println(" .. Effective undo of",last_user,"by",changelog[i].User)
+			fmt.Println("LEARN DIRECTED RELN",last_user,"by",changelog[i].User)
 			users_revert[changelog[i].User]++
+			CONTENTION_USER_PLUS[changelog[i].User]++
+			CONTENTION_USER_MINUS[last_user]++
+			CONTENTION_SUBJ[subject]++
 		}
+
+		fmt.Println("HIGH INTENTIONALITY NGRAMS ... associated with an attention level")
+		fmt.Println("DEFINE: a working set of context signals that we can return from a query")
+		fmt.Println("DEFINE:   - some instantaneous characters")
+		fmt.Println("DEFINE:   - some graph inferences based on agent ID and trigger words")
+
+		fmt.Println("UPDATE: weights/importance on nodes and links")
+		fmt.Println("------------------------------------------------")
 
 		last_delta = changelog[i].EditDelta
 		last_user = changelog[i].User
@@ -980,11 +835,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) (int,int,float64
 		}
 	}
 
-	av_burst_size := float64(sum_burst_size + burst_size) / float64(episode)
+	//av_burst_size := float64(sum_burst_size + burst_size) / float64(episode)
 
-	active_users := len(users_changecount)
+	//active_users := len(users_changecount)
 
-	return active_users, episode, all_users_averagetime, av_burst_size, allusers, allepisodes, episode_duration, episode_bytes, bots/humans
+
 }
 
 // *******************************************************************************
@@ -1023,59 +878,6 @@ func PlotUserBursts(histogram map[int]int, filename string) {
 	}
 
 	f.Close()
-}
-
-// *******************************************************************************
-
-func AnalyzeUserContributions(episode_user_start,episode_user_last map[string]int, last_event, episode int) {
-
-	// Step through the events and see which users overlap with a horizon error margin
-	// We can only measure active impositions and counter impositions, we can't tell
-	// whether inactive users are paying attention or not, though we might assume 
-	// that they will tend to pay attention until the end of the burst, at least
-	// for some persistent event horizon
-
-	var key []string
-
-	for u1 := range episode_user_start {
-		key = append(key,u1)
-	}
-
-	var adj = make(map[int]map[int]int)
-	var row = make([]int,len(key))
-
-	for event := 1; event <= last_event; event++ {
-
-		const event_horizon = 5
-
-		// the episode events are integers 1...N for the whole episode
-
-		for u1 := 0; u1 < len(key); u1++ {
-
-			for u2 := u1+1; u2 < len(key); u2++ {
-
-				adj[u1] = make(map[int]int)
-
-				if (event >= episode_user_start[key[u1]] && event <= episode_user_last[key[u1]] + event_horizon) && (event >= episode_user_start[key[u2]] && event <= episode_user_last[key[u2]] + event_horizon) {
-
-					adj[u1][u2]++
-					row[u1]++
-				}
-			}
-		}
-	}
-	
-	// Save adj, key, len(key) this as a child of the episode
-	// From this we can find out probable contention between users
-	// and summing rows, the most contentious user
-	
-	// NextDataEvent(G,)
-	// Attach....
-	
-	//fmt.Println(adj)
-	for u := 0; u < len(key); u++ {
-		TT.Println("  imposition", episode,"--", key[u],row[u],"/",len(key))
-	} 
 }
 
 // *******************************************************************************
@@ -1336,13 +1138,6 @@ func LinkFragToFrag(n int, part string,org_node TT.Node) {
 
 // **************************************************************************
 
-func AddEpisodeSummary(subject string,episode_data TT.EpisodeSummary) {
-
-	TT.AddEpisodeData(G,subject,episode_data)
-}
-
-// **************************************************************************
-
 func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
 
 	for user := range usernames {
@@ -1386,13 +1181,22 @@ func LinkSignalToUser(username,signal string) {
 
 func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 
-	difftext := DiffPage(url)
-	edits := TT.FractionateSentences(difftext)
-	concepts := TT.RankByIntent(edits)
+	difftext_2 := DiffPage(url)
 
+	difftext_1 := strings.ReplaceAll(difftext_2,"[[","")
+	difftext := strings.ReplaceAll(difftext_1,"]]","")
+
+	// Strip [[..]]
+
+	edits,ltm := TT.FractionateSentences(difftext)
+	concepts := TT.RankByIntent(edits,ltm)
+
+	fmt.Println("\nHERE ARE THE MAIN TOPICAL NGRAMS",concepts)
 	var count int = 0
 
 	for t := range concepts {
+
+		fmt.Println("DIFF...analysis")
 
 		if strings.Count(t," ") < 2 {
 			continue
@@ -1408,6 +1212,8 @@ func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 		n := strings.Count(t," ") + 1
 
 		LinkFragToFrag(n,key,n_from)
+
+		fmt.Println("NGRAMS",key,"-->",n_from)
 	}
 }
 

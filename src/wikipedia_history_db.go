@@ -141,7 +141,7 @@ func AnalyzeTopic(subject string) int {
 	
 	textlength := len(mainpage)
 
-	selected := TT.FractionateSentences(mainpage)
+	selected,ltm := TT.FractionateSentences(mainpage)
 
 	TT.Println("*********************************************")
 	TT.Println("* Mainpage for",subject,"-- length",textlength,"chars")
@@ -151,7 +151,7 @@ func AnalyzeTopic(subject string) int {
 
 	TT.ReviewAndSelectEvents(subject,selected)		
 
-	pagetopics := TT.RankByIntent(selected)
+	pagetopics := TT.RankByIntent(selected,ltm)
 
 	LinkPersistentToSubject(subject,pagetopics)
 
@@ -176,7 +176,7 @@ func AnalyzeTopic(subject string) int {
 
 	talklength := len(historypage)
 
-	remarks := TT.FractionateSentences(historypage)
+	remarks,ltm2 := TT.FractionateSentences(historypage)
 
 	TT.Println("*********************************************")
 	TT.Println("* Historypage length",subject,talklength)
@@ -189,7 +189,7 @@ func AnalyzeTopic(subject string) int {
 	
 	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
-	topics := TT.RankByIntent(remarks)
+	topics := TT.RankByIntent(remarks,ltm2)
 	
 	TT.LongitudinalPersistentConcepts(topics)
 
@@ -1387,8 +1387,8 @@ func LinkSignalToUser(username,signal string) {
 func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 
 	difftext := DiffPage(url)
-	edits := TT.FractionateSentences(difftext)
-	concepts := TT.RankByIntent(edits)
+	edits,ltm := TT.FractionateSentences(difftext)
+	concepts := TT.RankByIntent(edits,ltm)
 
 	var count int = 0
 

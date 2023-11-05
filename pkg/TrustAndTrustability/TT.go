@@ -234,8 +234,6 @@ const MIN_LEGAL_KEYNAME = 3
 
 // ****************************************************************************
 
-var LTM_EVERY_NGRAM_OCCURRENCE [MAXCLUSTERS]map[string][]int
-
 var EXCLUSIONS []string
 
 var STM_NGRAM_RANK [MAXCLUSTERS]map[string]float64
@@ -324,8 +322,7 @@ func InitializeSmartSpaceTime() {
 	for i := 1; i < MAXCLUSTERS; i++ {
 
 		STM_NGRAM_RANK[i] = make(map[string]float64)
-		LTM_EVERY_NGRAM_OCCURRENCE[i] = make(map[string][]int)
-	} 
+	}
 
 	// first element needs to be there to store the lookup key
 	// second element stored as int to save space
@@ -2644,15 +2641,20 @@ func ReadAndCleanFile(filename string) string {
 
 //**************************************************************
 
-func FractionateSentences(text string) []Narrative {
+func FractionateSentences(text string) ([]Narrative,[MAXCLUSTERS]map[string][]int) {
 
 	var sentences []string
 	var selected_sentences []Narrative
+	var ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int
+
+	for i := 1; i < MAXCLUSTERS; i++ {
+		ltm_every_ngram_occurrence[i] = make(map[string][]int)
+	} 
 
 	// Coordinatize the non-trivial sentences in terms of their ngrams
 
 	if len(text) == 0 {
-		return selected_sentences
+		return selected_sentences, ltm_every_ngram_occurrence
 	}
 
 	sentences = SplitIntoSentences(text)
@@ -2661,7 +2663,7 @@ func FractionateSentences(text string) []Narrative {
 
 	for s_idx := range sentences {
 
-		meaning[s_idx] = FractionateThenRankSentence(s_idx,sentences[s_idx],len(sentences))
+		meaning[s_idx] = FractionateThenRankSentence(s_idx,sentences[s_idx],len(sentences),ltm_every_ngram_occurrence)
 	}
 
 	// Some things to note: importance tends to be clustered around the start and the end of
@@ -2681,25 +2683,24 @@ func FractionateSentences(text string) []Narrative {
 		ALL_SENTENCE_INDEX++
 	}
 
-return selected_sentences
+	return selected_sentences, ltm_every_ngram_occurrence
 }
 
 //**************************************************************
 
 func SplitIntoSentences(text string) []string {
-
+	
 	// Note this regex split has the effect of removing .?!
-
-
+	
 	re := regexp.MustCompile(".#")
 	sentences := re.Split(text, -1)
-
+	
 	var cleaned  = make([]string,1)
-
+	
 	for sen := range sentences{
-
+		
 		content := strings.Trim(sentences[sen]," ")
-
+		
 		if len(content) > 0 {			
 			cleaned = append(cleaned,content)
 		}
@@ -2710,12 +2711,12 @@ func SplitIntoSentences(text string) []string {
 
 //**************************************************************
 
-func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int) float64 {
-
+func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int,ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int) float64 {
+	
 	var rrbuffer [MAXCLUSTERS][]string
 	var sentence_meaning_rank float64 = 0
 	var rank float64
-
+	
 	// split on any punctuation here, because punctuation cannot be in the middle
 	// of an n-gram by definition of punctuation's promises
 	// THIS IS A PT +/- constraint
@@ -2740,37 +2741,37 @@ func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int
 			if len(cleanword) == 0 {
 				continue
 			}
-
+			
 			// Shift all the rolling longitudinal Ngram rr-buffers by one word
 			
-			rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer,total_sentences)
+			rank, rrbuffer = NextWordAndUpdateLTMNgrams(s_idx,cleanword, rrbuffer,total_sentences,ltm_every_ngram_occurrence)
 			sentence_meaning_rank += rank
 		}
 	}
-
+	
 	return sentence_meaning_rank
 }
 
 //**************************************************************
 
-func RankByIntent(selected_sentences []Narrative) map[string]float64 {
-
+func RankByIntent(selected_sentences []Narrative,ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int) map[string]float64 {
+	
 	var topics = make(map[string]float64)
-
+	
 	sentences := len(selected_sentences)
-
+	
 	//Println("--------- Summarize ngram Intentionality threshold selection ---------------------------")
-
+	
 	for n := 1; n < MAXCLUSTERS; n++ {
-
+		
 		var last,delta int
 
 		// Search through all sentence ngrams and measure distance between repeated
 		// try to indentify any scales that emerge
 
-		for ngram := range LTM_EVERY_NGRAM_OCCURRENCE[n] {
+		for ngram := range ltm_every_ngram_occurrence[n] {
 
-			occurrences := len(LTM_EVERY_NGRAM_OCCURRENCE[n][ngram])
+			occurrences := len(ltm_every_ngram_occurrence[n][ngram])
 
 			intent := Intentionality(n,ngram,sentences)
 
@@ -2802,8 +2803,8 @@ func RankByIntent(selected_sentences []Narrative) map[string]float64 {
 				// two one relative to first occurrence (absolute range), one to last occurrence??
 				// only the last is invariant on the scale of a story
 				
-				delta = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location] - last			
-				last = LTM_EVERY_NGRAM_OCCURRENCE[n][ngram][location]
+				delta = ltm_every_ngram_occurrence[n][ngram][location] - last			
+				last = ltm_every_ngram_occurrence[n][ngram][location]
 
 				sum_delta += delta
 
@@ -3097,7 +3098,7 @@ func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sente
 
 //**************************************************************
 
-func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]string,total_sentences int) (float64,[MAXCLUSTERS][]string) {
+func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]string,total_sentences int,ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int) (float64,[MAXCLUSTERS][]string) {
 
 	// Word by word, we form a superposition of scores from n-grams of different lengths
 	// as a simple sum. This means lower lengths will dominate as there are more of them
@@ -3138,7 +3139,7 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 			STM_NGRAM_RANK[n][key]++
 			rank += Intentionality(n,key,total_sentences)
 
-			LTM_EVERY_NGRAM_OCCURRENCE[n][key] = append(LTM_EVERY_NGRAM_OCCURRENCE[n][key],s_idx)
+			ltm_every_ngram_occurrence[n][key] = append(ltm_every_ngram_occurrence[n][key],s_idx)
 
 		}
 	}
@@ -3146,7 +3147,7 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 	STM_NGRAM_RANK[1][word]++
 	rank += Intentionality(1,word,total_sentences)
 
-	LTM_EVERY_NGRAM_OCCURRENCE[1][word] = append(LTM_EVERY_NGRAM_OCCURRENCE[1][word],s_idx)
+	ltm_every_ngram_occurrence[1][word] = append(ltm_every_ngram_occurrence[1][word],s_idx)
 
 	return rank, rrbuffer
 }
