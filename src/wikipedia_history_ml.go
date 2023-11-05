@@ -1182,7 +1182,6 @@ func LinkSignalToUser(username,signal string) {
 func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 
 	difftext_2 := DiffPage(url)
-
 	difftext_1 := strings.ReplaceAll(difftext_2,"[[","")
 	difftext := strings.ReplaceAll(difftext_1,"]]","")
 
@@ -1191,12 +1190,9 @@ func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 	edits,ltm := TT.FractionateSentences(difftext)
 	concepts := TT.RankByIntent(edits,ltm)
 
-	fmt.Println("\nHERE ARE THE MAIN TOPICAL NGRAMS",concepts)
 	var count int = 0
 
 	for t := range concepts {
-
-		fmt.Println("DIFF...analysis")
 
 		if strings.Count(t," ") < 2 {
 			continue
@@ -1213,7 +1209,7 @@ func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 
 		LinkFragToFrag(n,key,n_from)
 
-		fmt.Println("NGRAMS",key,"-->",n_from)
+		fmt.Println("REACT AND LEARN EDIT CONCEPT EVENT...",t)
 	}
 }
 
@@ -1296,6 +1292,13 @@ func DiffPage(url string) string {
 		case html.StartTagToken:
 				
 		case html.EndTagToken:
+
+			switch token.Data {
+
+			case "td":
+			case "p":
+				total += "#"
+			}
 
 			if token.Data == "body" {
 

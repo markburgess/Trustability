@@ -1491,6 +1491,13 @@ func DiffPage(url string) string {
 				
 		case html.EndTagToken:
 
+			switch token.Data {
+
+			case "td":
+			case "p":
+				total += "#"
+			}
+
 			if token.Data == "body" {
 
 				return total
