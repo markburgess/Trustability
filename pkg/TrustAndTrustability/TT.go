@@ -392,12 +392,12 @@ func LearnLink(g Analytics, c1 Node, rel string, c2 Node, weight float64) {
 
 	var newlink Link
 
-//	oldlink :=
+	oldlink,_ := ReadLink(g, c1, rel, c2, weight)
 
 	newlink.From = c1.Prefix + strings.ReplaceAll(c1.Key," ","_")
 	newlink.To = c2.Prefix + strings.ReplaceAll(c2.Key," ","_")
 	newlink.SId = ASSOCIATIONS[rel].Key
-	newlink.Weight = weight
+	newlink.Weight = 0.5 * weight + 0.5 * oldlink.Weight
 	newlink.Negate = false
 
 	if newlink.SId != rel {
@@ -406,6 +406,30 @@ func LearnLink(g Analytics, c1 Node, rel string, c2 Node, weight float64) {
 	}
 
 	AddLink(g,newlink)
+}
+
+
+// ****************************************************************************
+
+func ReadLink(g Analytics, c1 Node, rel string, c2 Node, weight float64) (Link,bool) {
+
+	var look,checkedge Link
+
+	look.From = c1.Prefix + strings.ReplaceAll(c1.Key," ","_")
+	look.To = c2.Prefix + strings.ReplaceAll(c2.Key," ","_")
+	look.SId = ASSOCIATIONS[rel].Key
+
+	key := GetLinkKey(look)
+	coltype := GetCollectionType(look)
+	links := g.S_Links[GetLinkType(coltype)]
+
+	_,err := links.ReadDocument(nil,key,&checkedge)
+	
+	if err != nil {
+		return look, false
+	}
+	
+	return checkedge, true
 }
 
 // ****************************************************************************
@@ -1485,8 +1509,7 @@ func AddLink(g Analytics, link Link) {
 	// We have to make our own key to prevent multiple additions
         // - careful of possible collisions, but this should be overkill
 
-        description := link.From + link.SId + link.To
-	key := fnvhash([]byte(description))
+	key := GetLinkKey(link)
 
 	ass := ASSOCIATIONS[link.SId].Key
 
@@ -1506,8 +1529,6 @@ func AddLink(g Analytics, link Link) {
 
 	var links A.Collection
 	var coltype int
-
-	// clumsy abs()
 
 	coltype = GetCollectionType(link)
 	links = g.S_Links[GetLinkType(coltype)]
@@ -1558,14 +1579,22 @@ func AddLink(g Analytics, link Link) {
 
 // **************************************************
 
+func GetLinkKey(link Link) string {
+
+        description := link.From + link.SId + link.To
+	return fnvhash([]byte(description))
+
+}
+
+// **************************************************
+
 func IncrLink(g Analytics, link Link) {
 
 	// Don't add multiple edges that are identical! But allow types
 	// We have to make our own key to prevent multiple additions
         // - careful of possible collisions, but this should be overkill
 
-        description := link.From + link.SId + link.To
-	key := fnvhash([]byte(description))
+	key := GetLinkKey(link)
 
 	ass := ASSOCIATIONS[link.SId].Key
 
@@ -1584,8 +1613,6 @@ func IncrLink(g Analytics, link Link) {
 
 	var links A.Collection
 	var coltype int
-
-	// clumsy abs()
 
 	coltype = GetCollectionType(link)
 	links = g.S_Links[GetLinkType(coltype)]
