@@ -107,13 +107,9 @@ func main() {
 		fmt.Println(n,subjects[n],"...")
 
 		ngram_ctx := AnalyzeTopicContext(subjects[n])
-		ngram_prc := AnalyzeTopicProcess(subjects[n])
+		
+		AnalyzeTopicProcess(subjects[n],ngram_ctx)
 
-		o := FindOverlap(ngram_ctx,ngram_prc)
-
-		for i := range o {
-			fmt.Println("overlap:",o[i])
-		}
 	}
 }
 
@@ -147,7 +143,7 @@ func AnalyzeTopicContext(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 }
 // ***********************************************************
 
-func AnalyzeTopicProcess(subject string) [TT.MAXCLUSTERS]map[string]float64 {
+func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]float64) {
 
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
@@ -164,7 +160,7 @@ func AnalyzeTopicProcess(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 
 	// Look at signals from text analysis
 
-	HistoryAssessment(subject,changelog)
+	HistoryAssessment(subject,changelog,ngram_ctx)
 
 	historypage := TotalText(changelog)
 
@@ -173,30 +169,35 @@ func AnalyzeTopicProcess(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
 	topics := TT.RankByIntent(remarks,ltm)
-
-	return TT.LongitudinalPersistentConcepts(topics)
+	
+//	inv := 
+TT.LongitudinalPersistentConcepts(topics)
 }
 
 // ***********************************************************
 
-func FindOverlap(a,b [TT.MAXCLUSTERS]map[string]float64) []string {
+func FindOverlap(a,b [TT.MAXCLUSTERS]map[string]float64) (map[string]bool,int) {
 
-	var overlap []string
+	var overlap = make(map[string]bool)
+	var tot int = 0
 
 	for n := 1; n < TT.MAXCLUSTERS; n++ {
 
 		for inv1 := range a[n] {
+
+			tot += len(b[n])
+
 			for inv2 := range b[n] {
 				
 				if inv1 == inv2 {
-					overlap = append(overlap,inv1)
+					overlap[inv1] = true
 					delete(b[n],inv2)
 				}
 			}
 		}
 	}
 
-	return overlap
+	return overlap, tot
 }
 
 // ***********************************************************
@@ -579,7 +580,7 @@ func HistoryPage(url string) []WikiProcess {
 
 // *******************************************************************************
 
-func HistoryAssessment(subject string, changelog []WikiProcess) {
+func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MAXCLUSTERS]map[string]float64) {
 
 	var users_changecount = make(map[string]int)
 	var users_revert = make(map[string]int)
@@ -609,19 +610,17 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 	var episode_user_start = make(map[string]int)
 	var episode_user_last = make(map[string]int)
 
-	TT.Println("\n==============================================\n")
-	TT.Println("HISTORY OF CHANGE ANALYSIS: Starting assessment of history for",subject)
-	TT.Println("\n==============================================\n")
+	var all_invariants [TT.MAXCLUSTERS]map[string]float64
+
+	for i := 1; i < TT.MAXCLUSTERS; i++ {
+		all_invariants[i] = make(map[string]float64)
+	} 
 
 	allepisodes[episode] = make(map[string]int)
 
 	burststart = changelog[0].Date.UnixNano()
 
 	for i := 0; i < len(changelog); i++ {
-
-		//fmt.Printf(">> %15s (%v)(%d), %s --> %s\n", changelog[i].User,changelog[i].Date,changelog[i].EditDelta,changelog[i].Message,changelog[i].DiffUrl)
-
-		// Setup lists of edits for each user
 
 		episode_users[changelog[i].User]++
 		allusers[changelog[i].User] = append(allusers[changelog[i].User],changelog[i].Date.UnixNano())
@@ -704,14 +703,16 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 
 			fmt.Println("\nCONTEXT subject_",subject)
 
-			//...LinkUsersToSubjectEpisodeContext(episode_users,ep)
-
 //We still need to define context as the sum of all these fragments "in vivo" 
 
 //the page topic is the context overlap
 
-			fmt.Println("\nCOMPUTE DIFF FRACTION and ngram content - check against ngram signal strength")
-			LinkDiffFractionsToEpisode(ep,changelog[i].DiffUrl)
+
+			ngram_prc := LinkDiffFractionsToEpisode(ep,changelog[i].DiffUrl)
+			
+			ov,tot := FindOverlap(ngram_ctx,ngram_prc)
+			
+			fmt.Println(episode,"overlap:",len(ov),"/",tot)
 
 			sum_burst_bytes = 0
 			burst_size = 0
@@ -877,14 +878,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 			users_revert_dt[users[s]]/MINUTE)
 	}
 
-	// If a users changes are ALL reversions, they are police
-
-	TT.Println("\n**************************")
-	TT.Println("> Infer user promise/intent")
-	TT.Println("> 100% changes are reversions, then they are police")
-	TT.Println("> 30% of changes are reversions contentious")
-	TT.Println("**************************\n")
-
 	for s := range users {
 
 		// If all the changes were reversions without additions, policing user, 
@@ -906,50 +899,18 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 				users_revert_dt[users[s]]/MINUTE)
 		}
 	}
-
-	//av_burst_size := float64(sum_burst_size + burst_size) / float64(episode)
-
-	//active_users := len(users_changecount)
-
-
 }
 
 // *******************************************************************************
 
-func PlotUserBursts(histogram map[int]int, filename string) {
-	
-	// sum the groups intoa histogram
+func Merge(delta,total [TT.MAXCLUSTERS]map[string]float64) {
 
-	f, err := os.OpenFile(filename,os.O_CREATE|os.O_WRONLY, 0644)
+	for n := 1; n < TT.MAXCLUSTERS; n++ {
 
-	if err != nil {
-		fmt.Println("Couldn't open for write/append to",filename,err)
-		return
-	}
-
-	var n_tot float64 = 0
-
-	for n := range histogram {
-		n_tot += float64(histogram[n])
-	}
-
-	for n := range histogram {
-
-		// Workgroup events from TT.Set: size of an aggregate associative cluster (potentially growing)
-		// size of cluster, frequency/how many, log size, log frequency
-
-		h := float64(histogram[n])
-
-		s := fmt.Sprintf("%f %f %f %f\n",float64(n),float64(h/n_tot),math.Log(float64(n)),math.Log(float64(h/n_tot)))
-
-		_, err = f.WriteString(s)
-
-		if err != nil {
-			fmt.Println("Couldn't write/append to",filename,err)
+		for ngram := range delta[n] {
+			total[n][ngram] = delta[n][ngram]
 		}
-	}
-
-	f.Close()
+	} 
 }
 
 // *******************************************************************************
@@ -1053,7 +1014,13 @@ return false
 
 // ***********************************************************
 
-func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
+func LinkDiffFractionsToEpisode(n_from TT.Node, url string) [TT.MAXCLUSTERS]map[string]float64 {
+
+	var ngrams [TT.MAXCLUSTERS]map[string]float64
+
+	for i := 1; i < TT.MAXCLUSTERS; i++ {
+		ngrams[i] = make(map[string]float64)
+	}
 
 	difftext_3 := DiffPage(url)
 	difftext_2 := strings.ReplaceAll(difftext_3,"\n","")
@@ -1075,10 +1042,13 @@ func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 			continue
 		}
 
-		fmt.Println("SUPPORT:: edit_content_invariant...\"",n,t,"\"")
-	}
-}
+		ngrams[n][t] = concepts[t]
 
+		//fmt.Println("SUPPORT:: edit_content_invariant...\"",n,t,"\"")
+	}
+
+	return ngrams
+}
 
 // ***********************************************************
 
