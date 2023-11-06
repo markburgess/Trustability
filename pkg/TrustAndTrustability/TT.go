@@ -388,6 +388,28 @@ func CreateLink(g Analytics, c1 Node, rel string, c2 Node, weight float64) {
 
 // ****************************************************************************
 
+func LearnLink(g Analytics, c1 Node, rel string, c2 Node, weight float64) {
+
+	var newlink Link
+
+//	oldlink :=
+
+	newlink.From = c1.Prefix + strings.ReplaceAll(c1.Key," ","_")
+	newlink.To = c2.Prefix + strings.ReplaceAll(c2.Key," ","_")
+	newlink.SId = ASSOCIATIONS[rel].Key
+	newlink.Weight = weight
+	newlink.Negate = false
+
+	if newlink.SId != rel {
+		fmt.Println("Associations not set up -- missing InitializeSmartSpacecTime?")
+		os.Exit(1)
+	}
+
+	AddLink(g,newlink)
+}
+
+// ****************************************************************************
+
 func BlockLink(g Analytics, c1 Node, rel string, c2 Node, weight float64) {
 
 	var link Link
@@ -1442,6 +1464,21 @@ func InsertNodeIntoCollection(g Analytics, node Node, coll A.Collection) {
 
 // **************************************************
 
+func GetCollectionType(link Link) int {
+
+	if ASSOCIATIONS[link.SId].STtype < 0 {
+		
+		return -ASSOCIATIONS[link.SId].STtype
+		
+	} else {
+		
+		return ASSOCIATIONS[link.SId].STtype
+
+	}
+}
+
+// **************************************************
+
 func AddLink(g Analytics, link Link) {
 
 	// Don't add multiple edges that are identical! But allow types
@@ -1472,16 +1509,7 @@ func AddLink(g Analytics, link Link) {
 
 	// clumsy abs()
 
-	if ASSOCIATIONS[link.SId].STtype < 0 {
-
-		coltype = -ASSOCIATIONS[link.SId].STtype
-
-	} else {
-
-		coltype = ASSOCIATIONS[link.SId].STtype
-
-	}
-
+	coltype = GetCollectionType(link)
 	links = g.S_Links[GetLinkType(coltype)]
 
 	exists,_ := links.DocumentExists(nil, key)
@@ -1559,23 +1587,8 @@ func IncrLink(g Analytics, link Link) {
 
 	// clumsy abs()
 
-	if ASSOCIATIONS[link.SId].STtype < 0 {
-
-		coltype = -ASSOCIATIONS[link.SId].STtype
-
-	} else {
-
-		coltype = ASSOCIATIONS[link.SId].STtype
-
-	}
-
-	switch coltype {
-
-	case GR_FOLLOWS:   links = g.S_Links["Follows"]
-	case GR_CONTAINS:  links = g.S_Links["Contains"]
-	case GR_EXPRESSES: links = g.S_Links["Expresses"]
-	case GR_NEAR:      links = g.S_Links["Near"]
-	}
+	coltype = GetCollectionType(link)
+	links = g.S_Links[GetLinkType(coltype)]
 
 	exists,_ := links.DocumentExists(nil, key)
 
