@@ -2752,7 +2752,7 @@ func SplitIntoSentences(text string) []string {
 //**************************************************************
 
 func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int,ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int) float64 {
-	
+
 	var rrbuffer [MAXCLUSTERS][]string
 	var sentence_meaning_rank float64 = 0
 	var rank float64

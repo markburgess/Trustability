@@ -650,22 +650,12 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 
 			episode_key := fmt.Sprintf("%s_ep_%d",subject,episode)
 
-			fmt.Println("\nlink users:",episode_users)
-			fmt.Println("\n..to average state context on scale of episode (contenious or cooperative)")
-			fmt.Println("\nlink message ngrams",changelog[i].Message)
+			fmt.Println("\nlink EPISODE users:",episode_users)
+			fmt.Println("\nlink message ngrams ((",changelog[i].Message,"))")
 
 			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,changelog[i].Message,int64(delta_t),burststart,burstend)
 
-			fmt.Println("\nsubject name and ngrams are part of state context",subject)
-
-			fmt.Println("\nLEARN grov context association to GOOD/BAD/UGLY")
-
-			//raather than good bad ugly: do, undo, (degree of text overlap)
-
-
-			if episode == 1 {
-				LinkEpisodeChainAndSpectrumToTopic(ep,subject,burststart,burstend)
-			}
+			fmt.Println("\nCONTEXT subject_",subject)
 
 			LinkUsersToEpisode(episode_users,ep)
 
@@ -704,12 +694,36 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 			users_revert[changelog[i].User] += changelog[i].Revert
 
 			if last_user != changelog[i].User {
-				fmt.Println("STATE .. Explicit undo of",last_user,"by",changelog[i].User)
-				fmt.Println("LEARN DIRECTED RELN",last_user,"by",changelog[i].User)
+
+				fmt.Println("    (STATE .. Explicit undo of",last_user,"by",changelog[i].User,")")
+
+				fmt.Println("CONTEXT:: contention")
+				fmt.Println("CONTEXT:: uncertainty_user_",last_user)
+				fmt.Println("CONTEXT:: contention_user_",changelog[i].User)
+
 				ARTICLE_ISSUES++
+
+				fmt.Println("CONTEXT:: uncertainty_subject_",subject)
+
+				// article trustworthiness, update Node context - if balanced high level of activity
+				/// if no activity, maybe untrustworthy..
+				// User trustworthiness
+				// How do we allocate trust?
+
 				CONTENTION_USER_PLUS[changelog[i].User]++
 				CONTENTION_USER_MINUS[last_user]++
 				CONTENTION_SUBJ[subject]++
+
+// Are we basing anomalous untrustiwrthiness on timeline consensus consistency or identity politics?
+
+				// If all a user does is undo, then probably hostile. If the fraction is small, then ok
+
+				// if edits are rare, then less important. Frequency gives weight to total effort
+
+				//TT.LearnNode(G,user, lesstrustworthy)
+				// User is part of contention
+				//TT.LearnLink(G, last,"LEADS_TO", this, 0)
+
 			}
 
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
@@ -721,21 +735,33 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
 
 			ARTICLE_ISSUES++
-			fmt.Println(" .. Effective undo of",last_user,"by",changelog[i].User)
-			fmt.Println("LEARN DIRECTED RELN",last_user,"by",changelog[i].User)
+
+			fmt.Println("  (.. Effective undo of",last_user,"by",changelog[i].User,")")
 			users_revert[changelog[i].User]++
+
 			CONTENTION_USER_PLUS[changelog[i].User]++
 			CONTENTION_USER_MINUS[last_user]++
 			CONTENTION_SUBJ[subject]++
+
+				fmt.Println("CONTEXT:: contention")
+				fmt.Println("CONTEXT:: uncertainty_user_",last_user)
+				fmt.Println("CONTEXT:: contention_user_",changelog[i].User)
+
+				ARTICLE_ISSUES++
+
+				fmt.Println("CONTEXT:: uncertainty_subject_",subject)
+
+			//TT.LearnNode(G,user, lesstrustworthy)
+			// User is part of contention
+			//TT.LearnLink(G, last,"LEADS_TO", this, 0)
+
 		}
 
-		fmt.Println("HIGH INTENTIONALITY NGRAMS ... associated with an attention level")
-		fmt.Println("DEFINE: a working set of context signals that we can return from a query")
-		fmt.Println("DEFINE:   - some instantaneous characters")
-		fmt.Println("DEFINE:   - some graph inferences based on agent ID and trigger words")
-
-		fmt.Println("UPDATE: weights/importance on nodes and links")
-		fmt.Println("------------------------------------------------")
+		//fmt.Println("HIGH INTENTIONALITY NGRAMS ... associated with an attention level")
+		//fmt.Println("DEFINE: a working set of context signals that we can return from a query")
+		//fmt.Println("DEFINE:   - some instantaneous characters")
+		//fmt.Println("DEFINE:   - some graph inferences based on agent ID and trigger words")
+		//fmt.Println("UPDATE: weights/importance on nodes and links")
 
 		last_delta = changelog[i].EditDelta
 		last_user = changelog[i].User
@@ -820,8 +846,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 				users_changecount[users[s]],
 				users_revert_dt[users[s]]/MINUTE)
 
-			LinkSignalToUser(users[s],"correctional")
-
 		} else if users_revert[users[s]] > 1 && float64(users_revert[users[s]]) / float64(users_changecount[users[s]]) > 0.3 {
 
 			TT.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",
@@ -829,9 +853,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 				users_revert[users[s]],
 				users_changecount[users[s]],
 				users_revert_dt[users[s]]/MINUTE)
-
-			LinkSignalToUser(users[s],"contentious")
-
 		}
 	}
 
@@ -985,11 +1006,7 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 	var count int = 0
 
-	n_from := TT.CreateNode(G,"topic",subject,subject,0.0,0,0,0)
-
 	// First add the story samples
-
-	var last TT.Node = n_from
 
 	fmt.Println(" - adding story selections x",len(TT.LEG_SELECTIONS))
 
@@ -997,20 +1014,7 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 		count++
 
-		key := TT.KeyName(subject+"_story",count)
-		
-		if len(key) < TT.MIN_LEGAL_KEYNAME {
-			continue
-		}
-
-		this := TT.CreateNode(G,"event",key,TT.LEG_SELECTIONS[event],0,0,0,0)
-
-		TT.CreateLink(G, last,"LEADS_TO", this, 0)
-		//Connect the concept to the episode it occurred in
-
-		LinkAllNgramsFromTo(TT.LEG_SELECTIONS[event],this)
-
-		last = this
+		LinkAllNgramsFromTo(TT.LEG_SELECTIONS[event])
 	}
 
 	// Link the longitudinal persistent concepts
@@ -1023,30 +1027,15 @@ func LinkPersistentToSubject(subject string, concepts map[string]float64) {
 
 	for frag := range concepts {
 
-		words := strings.Count(frag," ") + 1
-		collection := fmt.Sprintf("ngram%d",words)
-
 		// Put the concept fragment in its node collection
 
-		key := TT.KeyName(frag,0)
-
-		if len(key) < TT.MIN_LEGAL_KEYNAME {
-			continue
-		}
-
-		frag_node := TT.CreateNode(G,collection,key,frag,0,0,0,0)
-
-		// Make sure all concepts also take us to the topic subject
-
-		TT.CreateLink(G,n_from,"TALKSABOUT", frag_node, 0)
-
-		LinkAllNgramsFromTo(frag,frag_node)
+		LinkAllNgramsFromTo(frag)
 	}
 }
 
 // **************************************************************************
 
-func LinkAllNgramsFromTo(concept string,org_node TT.Node) {
+func LinkAllNgramsFromTo(concept string) {
 	
 	words := strings.Split(concept," ")
 
@@ -1062,19 +1051,21 @@ func LinkAllNgramsFromTo(concept string,org_node TT.Node) {
 		
 		// Shift all the rolling longitudinal Ngram rr-buffers by one word
 		
-		rrbuffer = NextWordAndUpdateNgrams(concept,org_node,words[word],rrbuffer)
+		rrbuffer = NextWordAndUpdateNgrams(concept,words[word],rrbuffer)
 	}
 }
 
 // **************************************************************************
 
-func NextWordAndUpdateNgrams(original string,org_node TT.Node,word string, rrbuffer [TT.MAXCLUSTERS][]string) [TT.MAXCLUSTERS][]string {
+func NextWordAndUpdateNgrams(original string,word string, rrbuffer [TT.MAXCLUSTERS][]string) [TT.MAXCLUSTERS][]string {
 
 	// Word by word, we form a superposition of scores from n-grams of different lengths
 	// as a simple sum. This means lower lengths will dominate as there are more of them
 	// so we define intentionality proportional to the length also as compensation
 
-	for n := 2; n < TT.MAXCLUSTERS; n++ {
+	fmt.Println("XXXXXx",word)
+
+	for n := 2; n < 4; n++ {
 		
 		// Pop from round-robin
 
@@ -1105,13 +1096,13 @@ func NextWordAndUpdateNgrams(original string,org_node TT.Node,word string, rrbuf
 			}
 
 			if partial != original {
-				LinkFragToFrag(n,partial,org_node)
+				LinkFragToFrag(n,partial)
 			}
 		}
 	}
 
 	if word != original {
-		LinkFragToFrag(1,word,org_node)
+		LinkFragToFrag(1,word)
 
 	}
 
@@ -1121,19 +1112,10 @@ func NextWordAndUpdateNgrams(original string,org_node TT.Node,word string, rrbuf
 
 // **************************************************************************
 
-func LinkFragToFrag(n int, part string,org_node TT.Node) {
+func LinkFragToFrag(n int, part string) {
 
-	part_key := TT.KeyName(part,0)
+	fmt.Println("SUPPORT:: edit_content_invariant...\"",n,part,"\"")
 
-	if len(part_key) < TT.MIN_LEGAL_KEYNAME {
-		return
-	}
-
-	coll := fmt.Sprintf("ngram%d",n)
-
-	part_node := TT.CreateNode(G,coll,part_key,part,TT.STM_NGRAM_RANK[n][part],0,0,0)
-
-	TT.CreateLink(G, org_node, "CONTAINS", part_node, 0)
 }
 
 // **************************************************************************
@@ -1161,55 +1143,31 @@ func LinkEpisodeChainAndSpectrumToTopic(ep TT.Node, subject string, begin,end in
 	TT.CreateLink(G, n_from, "THEN", ep,0)
 }
 
-// **************************************************************************
-
-func LinkSignalToUser(username,signal string) {
-
-	name := TT.KeyName(username,0)
-
-	if len(name) < TT.MIN_LEGAL_KEYNAME {
-		return
-	}
-
-	n_from := TT.CreateNode(G,"user",name,username,0.0,0,0,0)
-	n_to := TT.CreateNode(G,"signal",signal,signal,0.0,0,0,0)
-
-	TT.CreateLink(G, n_from, "EXPRESSES", n_to,0)
-}
-
 // ***********************************************************
 
 func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 
-	difftext_2 := DiffPage(url)
+	difftext_3 := DiffPage(url)
+	difftext_2 := strings.ReplaceAll(difftext_3,"\n","")
 	difftext_1 := strings.ReplaceAll(difftext_2,"[[","")
-	difftext := strings.ReplaceAll(difftext_1,"]]","")
-
-	// Strip [[..]]
+	difftext_0 := strings.ReplaceAll(difftext_1,"]]","")
+	search := "\\[[0-9]+"
+	r := regexp.MustCompile(search)
+	tmp := r.ReplaceAllString(difftext_0,"")
+	difftext := strings.TrimSpace(tmp)
 
 	edits,ltm := TT.FractionateSentences(difftext)
 	concepts := TT.RankByIntent(edits,ltm)
 
-	var count int = 0
-
 	for t := range concepts {
-
-		if strings.Count(t," ") < 2 {
-			continue
-		}
-
-		count++
-		key := TT.KeyName(t,count)
-
-		if len(key) < TT.MIN_LEGAL_KEYNAME {
-			continue
-		}
 
 		n := strings.Count(t," ") + 1
 
-		LinkFragToFrag(n,key,n_from)
+		if n < 3 && n > 5 {
+			continue
+		}
 
-		fmt.Println("REACT AND LEARN EDIT CONCEPT EVENT...",t)
+		LinkFragToFrag(n,t)
 	}
 }
 
