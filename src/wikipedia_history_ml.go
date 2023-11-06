@@ -106,7 +106,14 @@ func main() {
 
 		fmt.Println(n,subjects[n],"...")
 
-		AnalyzeTopic(subjects[n])
+		ngram_ctx := AnalyzeTopicContext(subjects[n])
+		ngram_prc := AnalyzeTopicProcess(subjects[n])
+
+		o := FindOverlap(ngram_ctx,ngram_prc)
+
+		for i := range o {
+			fmt.Println("overlap:",o[i])
+		}
 	}
 }
 
@@ -121,9 +128,27 @@ func usage() {
 
 // ***********************************************************
 
-func AnalyzeTopic(subject string) {
+func AnalyzeTopicContext(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 
-	//page_url := "https://en.wikipedia.org/wiki/" + subject
+	page_url := "https://en.wikipedia.org/wiki/" + subject
+
+	TT.LEG_WINDOW = 100           // Standard for narrative text
+	TT.LEG_SELECTIONS = make([]string,0)
+
+	mainpage := MainPage(page_url)
+
+	selected,ltm := TT.FractionateSentences(mainpage)
+
+	TT.ReviewAndSelectEvents(subject,selected)		
+
+	pagetopics := TT.RankByIntent(selected,ltm)
+
+	return TT.LongitudinalPersistentConcepts(pagetopics)
+}
+// ***********************************************************
+
+func AnalyzeTopicProcess(subject string) [TT.MAXCLUSTERS]map[string]float64 {
+
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
 
 	// Go straight to discussion (user behaviour)
@@ -148,8 +173,30 @@ func AnalyzeTopic(subject string) {
 	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
 	topics := TT.RankByIntent(remarks,ltm)
-	
-	TT.LongitudinalPersistentConcepts(topics)
+
+	return TT.LongitudinalPersistentConcepts(topics)
+}
+
+// ***********************************************************
+
+func FindOverlap(a,b [TT.MAXCLUSTERS]map[string]float64) []string {
+
+	var overlap []string
+
+	for n := 1; n < TT.MAXCLUSTERS; n++ {
+
+		for inv1 := range a[n] {
+			for inv2 := range b[n] {
+				
+				if inv1 == inv2 {
+					overlap = append(overlap,inv1)
+					delete(b[n],inv2)
+				}
+			}
+		}
+	}
+
+	return overlap
 }
 
 // ***********************************************************
@@ -657,7 +704,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess) {
 
 			fmt.Println("\nCONTEXT subject_",subject)
 
-			LinkUsersToEpisode(episode_users,ep)
+			//...LinkUsersToSubjectEpisodeContext(episode_users,ep)
+
+//We still need to define context as the sum of all these fragments "in vivo" 
+
+//the page topic is the context overlap
 
 			fmt.Println("\nCOMPUTE DIFF FRACTION and ngram content - check against ngram signal strength")
 			LinkDiffFractionsToEpisode(ep,changelog[i].DiffUrl)
@@ -1000,149 +1051,6 @@ func IsBot(s string) bool {
 return false
 }
 
-// **************************************************************************
-
-func LinkPersistentToSubject(subject string, concepts map[string]float64) {
-
-	var count int = 0
-
-	// First add the story samples
-
-	fmt.Println(" - adding story selections x",len(TT.LEG_SELECTIONS))
-
-	for event := range TT.LEG_SELECTIONS {
-
-		count++
-
-		LinkAllNgramsFromTo(TT.LEG_SELECTIONS[event])
-	}
-
-	// Link the longitudinal persistent concepts
-
-	count = 0
-
-	fmt.Println(" - adding story concepts x",len(concepts))
-
-	// These are the surviving ngrams that we need to further fractionate
-
-	for frag := range concepts {
-
-		// Put the concept fragment in its node collection
-
-		LinkAllNgramsFromTo(frag)
-	}
-}
-
-// **************************************************************************
-
-func LinkAllNgramsFromTo(concept string) {
-	
-	words := strings.Split(concept," ")
-
-	var rrbuffer [TT.MAXCLUSTERS][]string
-
-	for word := range words {
-		
-		// This will be too strong in general - ligatures and foreign languages etc
-		
-		if len(words[word]) == 0 {
-			continue
-		}
-		
-		// Shift all the rolling longitudinal Ngram rr-buffers by one word
-		
-		rrbuffer = NextWordAndUpdateNgrams(concept,words[word],rrbuffer)
-	}
-}
-
-// **************************************************************************
-
-func NextWordAndUpdateNgrams(original string,word string, rrbuffer [TT.MAXCLUSTERS][]string) [TT.MAXCLUSTERS][]string {
-
-	// Word by word, we form a superposition of scores from n-grams of different lengths
-	// as a simple sum. This means lower lengths will dominate as there are more of them
-	// so we define intentionality proportional to the length also as compensation
-
-	fmt.Println("XXXXXx",word)
-
-	for n := 2; n < 4; n++ {
-		
-		// Pop from round-robin
-
-		if (len(rrbuffer[n]) > n-1) {
-			rrbuffer[n] = rrbuffer[n][1:n]
-		}
-		
-		// Push new to maintain length
-
-		rrbuffer[n] = append(rrbuffer[n],word)
-
-		// Assemble the key, only if complete cluster
-		
-		if (len(rrbuffer[n]) > n-1) {
-			
-			var partial string
-			
-			for j := 0; j < n; j++ {
-				partial = partial + rrbuffer[n][j]
-				if j < n-1 {
-					partial = partial + " "
-				}
-			}
-
-			if TT.ExcludedByBindings(rrbuffer[n][0],rrbuffer[n][n-1]) {
-
-				continue
-			}
-
-			if partial != original {
-				LinkFragToFrag(n,partial)
-			}
-		}
-	}
-
-	if word != original {
-		LinkFragToFrag(1,word)
-
-	}
-
-	return rrbuffer
-}
-
-
-// **************************************************************************
-
-func LinkFragToFrag(n int, part string) {
-
-	fmt.Println("SUPPORT:: edit_content_invariant...\"",n,part,"\"")
-
-}
-
-// **************************************************************************
-
-func LinkUsersToEpisode(usernames map[string]int,ep TT.Node) {
-
-	for user := range usernames {
-
-		name := TT.CanonifyName(user)
-
-		if len(name) < TT.MIN_LEGAL_KEYNAME {
-			continue
-		}
-
-		n_from := TT.CreateNode(G,"user",name,name,0.0,0,0,0)
-		TT.CreateLink(G, n_from, "INFL", ep,0)
-	}
-}
-
-// **************************************************************************
-
-func LinkEpisodeChainAndSpectrumToTopic(ep TT.Node, subject string, begin,end int64) {
-
-	n_from := TT.CreateNode(G,"topic",subject,"",0.0,0,begin,end)
-	TT.CreateLink(G, n_from, "THEN", ep,0)
-}
-
 // ***********************************************************
 
 func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
@@ -1167,7 +1075,7 @@ func LinkDiffFractionsToEpisode(n_from TT.Node, url string) {
 			continue
 		}
 
-		LinkFragToFrag(n,t)
+		fmt.Println("SUPPORT:: edit_content_invariant...\"",n,t,"\"")
 	}
 }
 

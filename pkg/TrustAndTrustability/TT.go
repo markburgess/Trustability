@@ -2878,11 +2878,14 @@ return topics
 
 // *****************************************************************
 
-func LongitudinalPersistentConcepts(topics map[string]float64) {
-	
-	Println("----- Emergent Longitudinally Stable Concept Fragments ---------")
+func LongitudinalPersistentConcepts(topics map[string]float64) [MAXCLUSTERS]map[string]float64 {
 	
 	var sortable []Score
+	var invariants [MAXCLUSTERS]map[string]float64
+
+	for n := 1; n < MAXCLUSTERS; n++ {
+		invariants[n] = make(map[string]float64)
+	}
 	
 	for ngram := range topics {
 		
@@ -2900,10 +2903,18 @@ func LongitudinalPersistentConcepts(topics map[string]float64) {
 	// If this is very long, the focus is spurious, so we look at the
 	// shortest sample
 	
+	Println("----- Emergent Longitudinally Stable Concept Fragments ---------")	
+
 	for i := 0; i < len(sortable); i++ {
-		
+
+		n := strings.Count(sortable[i].Key," ") + 1
+
+		invariants[n][sortable[i].Key] = sortable[i].Score
+
 		Printf("Particular theme/topic \"%s\" (= %f)\n", sortable[i].Key, sortable[i].Score)
 	}
+
+	return invariants
 }
 
 // *****************************************************************
