@@ -87,7 +87,7 @@ func main() {
 
 	// subjects := ReadSubjects("wiki_samples_total.in")
 
-	subjects := []string{ "Laser" }
+	subjects := []string{ "Bergen" }
 
 	// ***********************************************************
 	
@@ -612,6 +612,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 	var all_invariants [TT.MAXCLUSTERS]map[string]float64
 
+	var context = make([]string,1)
+
+	var last_overlap int = 0
+
 	for i := 1; i < TT.MAXCLUSTERS; i++ {
 		all_invariants[i] = make(map[string]float64)
 	} 
@@ -690,29 +694,25 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			episode_duration[episode] = last_duration
 			episode_bytes[episode] = sum_burst_bytes
 
-			// Generate Adjacency Matrix for Group (range episode_users) and principal eigenvector
+			context = append(context,subject)
 
-			// Reset for next episode
+			// Check for adabatic focal change (symbol interferometry)
+			// This is overlap with subject material for context alignment
 
-			episode_key := fmt.Sprintf("%s_ep_%d",subject,episode)
+			ngram_prc := LinkDiffFractionsToEpisode(changelog[i].DiffUrl)
+			ov,_ := FindOverlap(ngram_ctx,ngram_prc)
+			overlap := len(ov)
+			interfer_rate := overlap - last_overlap
+			last_overlap = len(ov)
 
-			fmt.Println("\nlink EPISODE users:",episode_users)
-			fmt.Println("\nlink message ngrams ((",changelog[i].Message,"))")
+			const threshold = 10
 
-			ep := TT.NextDataEvent(&G,subject,"episode",episode_key,changelog[i].Message,int64(delta_t),burststart,burstend)
-
-			fmt.Println("\nCONTEXT subject_",subject)
-
-//We still need to define context as the sum of all these fragments "in vivo" 
-
-//the page topic is the context overlap
-
-
-			ngram_prc := LinkDiffFractionsToEpisode(ep,changelog[i].DiffUrl)
-			
-			ov,tot := FindOverlap(ngram_ctx,ngram_prc)
-			
-			fmt.Println(episode,"overlap:",len(ov),"/",tot)
+			if interfer_rate * interfer_rate > threshold {
+				fmt.Println("ATTENTION FOCAL CHANGE")
+				context = append(context,"attention_change")
+			} else {
+				context = append(context,"attention_constant")
+			}
 
 			sum_burst_bytes = 0
 			burst_size = 0
@@ -721,6 +721,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				burststart = changelog[i+1].Date.UnixNano()
 			}
 
+			fmt.Println("CONTEXT",context,"\n")
+			//fmt.Println("USERS:",episode_users)
+
+			context = make([]string,1)
 			episode++
 			allepisodes[episode] = make(map[string]int)
 			EPISODE_CLUSTER_FREQ[len(episode_users)]++
@@ -747,15 +751,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			if last_user != changelog[i].User {
 
-				fmt.Println("    (STATE .. Explicit undo of",last_user,"by",changelog[i].User,")")
-
-				fmt.Println("CONTEXT:: contention")
-				fmt.Println("CONTEXT:: uncertainty_user_",last_user)
-				fmt.Println("CONTEXT:: contention_user_",changelog[i].User)
-
-				ARTICLE_ISSUES++
-
-				fmt.Println("CONTEXT:: uncertainty_subject_",subject)
+				TT.Println("    (STATE .. Explicit undo of",last_user,"by",changelog[i].User,")")
+				context = append(context,"state_of_contention")
+				context = append(context,"explicit_undo")
+				context = append(context,last_user)
+				context = append(context,changelog[i].User)
 
 				// article trustworthiness, update Node context - if balanced high level of activity
 				/// if no activity, maybe untrustworthy..
@@ -772,10 +772,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 				// if edits are rare, then less important. Frequency gives weight to total effort
 
-				//TT.LearnNode(G,user, lesstrustworthy)
-				// User is part of contention
-				//TT.LearnLink(G, last,"LEADS_TO", this, 0)
-
 			}
 
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
@@ -788,38 +784,26 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			ARTICLE_ISSUES++
 
-			fmt.Println("  (.. Effective undo of",last_user,"by",changelog[i].User,")")
+			TT.Println("  (.. Effective undo of",last_user,"by",changelog[i].User,")")
+
 			users_revert[changelog[i].User]++
 
 			CONTENTION_USER_PLUS[changelog[i].User]++
 			CONTENTION_USER_MINUS[last_user]++
 			CONTENTION_SUBJ[subject]++
 
-				fmt.Println("CONTEXT:: contention")
-				fmt.Println("CONTEXT:: uncertainty_user_",last_user)
-				fmt.Println("CONTEXT:: contention_user_",changelog[i].User)
-
-				ARTICLE_ISSUES++
-
-				fmt.Println("CONTEXT:: uncertainty_subject_",subject)
-
-			//TT.LearnNode(G,user, lesstrustworthy)
-			// User is part of contention
-			//TT.LearnLink(G, last,"LEADS_TO", this, 0)
-
+			context = append(context,"effective_undo")
+			context = append(context,"state_of_contention")
+			context = append(context,"state_of_uncertainty_about_subject")
+			context = append(context,last_user)
+			context = append(context,changelog[i].User)
 		}
-
-		//fmt.Println("HIGH INTENTIONALITY NGRAMS ... associated with an attention level")
-		//fmt.Println("DEFINE: a working set of context signals that we can return from a query")
-		//fmt.Println("DEFINE:   - some instantaneous characters")
-		//fmt.Println("DEFINE:   - some graph inferences based on agent ID and trigger words")
-		//fmt.Println("UPDATE: weights/importance on nodes and links")
 
 		last_delta = changelog[i].EditDelta
 		last_user = changelog[i].User
 	}
 
-	TT.Println("\n----------- EDITS ANALYSIS --------------------")
+	TT.Println("\n----------- USER BEHAVIOUR ANALYSIS --------------------")
 
 	// Get an idempotent list of all users for this topic's history
 
@@ -1014,7 +998,7 @@ return false
 
 // ***********************************************************
 
-func LinkDiffFractionsToEpisode(n_from TT.Node, url string) [TT.MAXCLUSTERS]map[string]float64 {
+func LinkDiffFractionsToEpisode(url string) [TT.MAXCLUSTERS]map[string]float64 {
 
 	var ngrams [TT.MAXCLUSTERS]map[string]float64
 
