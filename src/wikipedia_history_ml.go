@@ -62,9 +62,18 @@ var ARTICLE_ISSUES int = 0
 var EPISODE_CLUSTER_FREQ = make(map[int]int)
 var NOBOTS bool = false
 
-var CONTENTION_USER_PLUS = make(map[string]int)
-var CONTENTION_USER_MINUS = make(map[string]int)
-var CONTENTION_SUBJ = make(map[string]int)
+type UserProfile struct {       // A list of all edit events
+	
+	Imposing int
+	Imposed  int
+	Edits    int
+	Topics   map[string]int
+}
+
+var CONTENTION_USER_IMPOSING = make(map[string]int)
+var CONTENTION_USER_IMPOSED = make(map[string]int)
+var CONTENTION_USER_EDITS = make(map[string]int)
+var CONTENTION_USER_TOPICS = make(map[string]map[string]int)
 
 // ***********************************************************
 
@@ -85,9 +94,9 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	// subjects := ReadSubjects("wiki_samples_total.in")
+	subjects := ReadSubjects("wiki_samples_short_test.in")
 
-	subjects := []string{ "Bergen" }
+	//subjects := []string{ "Laser" }
 
 	// ***********************************************************
 	
@@ -109,8 +118,15 @@ func main() {
 		ngram_ctx := AnalyzeTopicContext(subjects[n])
 		
 		AnalyzeTopicProcess(subjects[n],ngram_ctx)
-
 	}
+
+	//fmt.Println("\nContentious",CONTENTION_USER_IMPOSING)
+	//fmt.Println("\nNo confidence",CONTENTION_USER_IMPOSED)
+
+	ov,tot := FindOverlap(CONTENTION_USER_IMPOSING,CONTENTION_USER_IMPOSED)
+	Freq(CONTENTION_USER_IMPOSING,"imposing/attack")
+	Freq(CONTENTION_USER_IMPOSED,"imposed/no confidence")
+	fmt.Println("\nOverlap of contention",len(ov),"/",tot)
 }
 
 //**************************************************************
@@ -120,6 +136,32 @@ func usage() {
         fmt.Fprintf(os.Stderr, "usage: go run wikipedia_history.go [verbose]\n")
         flag.PrintDefaults()
         os.Exit(2)
+}
+
+// ***********************************************************
+
+func Freq(data map[string]int,title string){
+
+	var freq = make(map[int]float64)
+	var keys []int
+
+	for val := range data {
+		freq[data[val]]++
+	}
+
+	fmt.Println(title)
+
+	for class := range freq {
+		keys = append(keys,class)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+
+	for i := range keys {
+		fmt.Println(" -- freq[",i,"] = ",freq[keys[i]])
+	}
 }
 
 // ***********************************************************
@@ -176,7 +218,31 @@ TT.LongitudinalPersistentConcepts(topics)
 
 // ***********************************************************
 
-func FindOverlap(a,b [TT.MAXCLUSTERS]map[string]float64) (map[string]bool,int) {
+func FindOverlap(a,b map[string]int) (map[string]bool,int) {
+
+	var overlap = make(map[string]bool)
+	var tot int = 0
+
+	for inv1 := range a {
+		
+		tot += len(b)
+		
+		for inv2 := range b {
+			
+			if inv1 == inv2 {
+				overlap[inv1] = true
+				delete(b,inv2)
+			}
+		}
+	}
+
+	return overlap, tot
+}
+
+
+// ***********************************************************
+
+func FindNgramOverlap(a,b [TT.MAXCLUSTERS]map[string]float64) (map[string]bool,int) {
 
 	var overlap = make(map[string]bool)
 	var tot int = 0
@@ -612,7 +678,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 	var all_invariants [TT.MAXCLUSTERS]map[string]float64
 
-	var context = make([]string,1)
+	var context = make(map[string]int)
 
 	var last_overlap int = 0
 
@@ -694,13 +760,13 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			episode_duration[episode] = last_duration
 			episode_bytes[episode] = sum_burst_bytes
 
-			context = append(context,subject)
+			Extend(context,subject)
 
 			// Check for adabatic focal change (symbol interferometry)
 			// This is overlap with subject material for context alignment
 
 			ngram_prc := LinkDiffFractionsToEpisode(changelog[i].DiffUrl)
-			ov,_ := FindOverlap(ngram_ctx,ngram_prc)
+			ov,_ := FindNgramOverlap(ngram_ctx,ngram_prc)
 			overlap := len(ov)
 			interfer_rate := overlap - last_overlap
 			last_overlap = len(ov)
@@ -708,10 +774,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			const threshold = 10
 
 			if interfer_rate * interfer_rate > threshold {
-				fmt.Println("ATTENTION FOCAL CHANGE")
-				context = append(context,"attention_change")
-			} else {
-				context = append(context,"attention_constant")
+				Extend(context,"observed_attention_change")
 			}
 
 			sum_burst_bytes = 0
@@ -721,10 +784,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				burststart = changelog[i+1].Date.UnixNano()
 			}
 
-			fmt.Println("CONTEXT",context,"\n")
+			//fmt.Println("CONTEXT",context,"\n")
 			//fmt.Println("USERS:",episode_users)
 
-			context = make([]string,1)
+			context = make(map[string]int)
 			episode++
 			allepisodes[episode] = make(map[string]int)
 			EPISODE_CLUSTER_FREQ[len(episode_users)]++
@@ -745,33 +808,32 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 		users_changecount[changelog[i].User]++
 
+		if CONTENTION_USER_TOPICS[changelog[i].User] == nil {
+			CONTENTION_USER_TOPICS[changelog[i].User] = make(map[string]int)
+		}
+
 		if changelog[i].Revert > 0 && i > 1 {
 			
 			users_revert[changelog[i].User] += changelog[i].Revert
 
+			CONTENTION_USER_EDITS[changelog[i].User]++
+
 			if last_user != changelog[i].User {
 
 				TT.Println("    (STATE .. Explicit undo of",last_user,"by",changelog[i].User,")")
-				context = append(context,"state_of_contention")
-				context = append(context,"explicit_undo")
-				context = append(context,last_user)
-				context = append(context,changelog[i].User)
+				Extend(context,"state_of_contention")
+				Extend(context,"explicit_undo")
+				Extend(context,last_user)
+				Extend(context,changelog[i].User)
 
 				// article trustworthiness, update Node context - if balanced high level of activity
 				/// if no activity, maybe untrustworthy..
 				// User trustworthiness
 				// How do we allocate trust?
 
-				CONTENTION_USER_PLUS[changelog[i].User]++
-				CONTENTION_USER_MINUS[last_user]++
-				CONTENTION_SUBJ[subject]++
-
-// Are we basing anomalous untrustiwrthiness on timeline consensus consistency or identity politics?
-
-				// If all a user does is undo, then probably hostile. If the fraction is small, then ok
-
-				// if edits are rare, then less important. Frequency gives weight to total effort
-
+				CONTENTION_USER_IMPOSING[changelog[i].User]++
+				CONTENTION_USER_IMPOSED[last_user]++
+				CONTENTION_USER_TOPICS[changelog[i].User][subject]++
 			}
 
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
@@ -788,15 +850,15 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			users_revert[changelog[i].User]++
 
-			CONTENTION_USER_PLUS[changelog[i].User]++
-			CONTENTION_USER_MINUS[last_user]++
-			CONTENTION_SUBJ[subject]++
+			CONTENTION_USER_IMPOSING[changelog[i].User]++
+			CONTENTION_USER_IMPOSED[last_user]++
+			CONTENTION_USER_TOPICS[changelog[i].User][subject]++
 
-			context = append(context,"effective_undo")
-			context = append(context,"state_of_contention")
-			context = append(context,"state_of_uncertainty_about_subject")
-			context = append(context,last_user)
-			context = append(context,changelog[i].User)
+			Extend(context,"effective_undo")
+			Extend(context,"state_of_contention")
+			Extend(context,"state_of_uncertainty_about_article")
+			Extend(context,last_user)
+			Extend(context,TT.CanonifyName(changelog[i].User))
 		}
 
 		last_delta = changelog[i].EditDelta
@@ -895,6 +957,13 @@ func Merge(delta,total [TT.MAXCLUSTERS]map[string]float64) {
 			total[n][ngram] = delta[n][ngram]
 		}
 	} 
+}
+
+// *******************************************************************************
+
+func Extend(context map[string]int,s string) {
+
+	context[s]++
 }
 
 // *******************************************************************************
