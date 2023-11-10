@@ -829,10 +829,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 		users_changecount[changelog[i].User]++
 
-		const WEEK = 24 * 3600 * 7
-		const few = 3 // edit sustain limit
-		lastsaw := changelog[i].Date.UnixNano() - CONTENTION_LAST_USER_EDIT[changelog[i].User]
-		var toomuch bool = (lastsaw > TT.NANO * WEEK) && (CONTENTION_USER_IMPOSING[changelog[i].User] < few)
+		//const WEEK = 24 * 3600 * 7
+		//const few = 3 // edit sustain limit
+		//lastsaw := changelog[i].Date.UnixNano() - CONTENTION_LAST_USER_EDIT[changelog[i].User]
+		//var toomuch bool = (lastsaw > TT.NANO * WEEK) && (CONTENTION_USER_IMPOSING[changelog[i].User] < few)
 
 		if changelog[i].Revert > 0 && i > 1 {
 			
@@ -853,11 +853,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				// User trustworthiness
 				// How do we allocate trust?
 
-				if toomuch {
-					CONTENTION_USER_IMPOSING[changelog[i].User]++
-				} else {
-					delete(CONTENTION_USER_IMPOSING,changelog[i].User)
-				}
+				//if toomuch {
+				//	CONTENTION_USER_IMPOSING[changelog[i].User]++
+				//} else {
+				//	delete(CONTENTION_USER_IMPOSING,changelog[i].User)
+				//}
 			}
 
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
@@ -874,15 +874,15 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			users_revert[changelog[i].User]++
 
-			CONTENTION_USER_IMPOSED[last_user]++
+			//CONTENTION_USER_IMPOSED[last_user]++
 
 			// Only count impositions if they exceed 2 per week
 
-			if toomuch {
-				CONTENTION_USER_IMPOSING[changelog[i].User]++
-			} else {
-				delete(CONTENTION_USER_IMPOSING,changelog[i].User)
-			}
+			//if toomuch {
+			//	CONTENTION_USER_IMPOSING[changelog[i].User]++
+			//} else {
+			//	delete(CONTENTION_USER_IMPOSING,changelog[i].User)
+			//}
 
 			Extend(context,"effective_undo")
 			Extend(context,"state_of_contention")
@@ -893,7 +893,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 		last_delta = changelog[i].EditDelta
 		last_user = changelog[i].User
-		CONTENTION_LAST_USER_EDIT[changelog[i].User] = changelog[i].Date.UnixNano()
+		//CONTENTION_LAST_USER_EDIT[changelog[i].User] = changelog[i].Date.UnixNano()
 	}
 
 	TT.Println("\n----------- USER BEHAVIOUR ANALYSIS --------------------")
