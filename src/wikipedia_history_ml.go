@@ -805,7 +805,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				burststart = changelog[i+1].Date.UnixNano()
 			}
 
-			//fmt.Println("CONTEXT",context,"\n")
+			fmt.Println("CONTEXT",context,"\n")
 			//fmt.Println("BLACKLIST...USERS:",episode_users)
 
 			context = make(map[string]int)
@@ -845,8 +845,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				TT.Println("    (STATE .. Explicit undo of",last_user,"by",changelog[i].User,")")
 				Extend(context,"state_of_contention")
 				Extend(context,"explicit_undo")
-				Extend(context,last_user)
-				Extend(context,changelog[i].User)
+				//Extend(context,last_user)
+				//Extend(context,changelog[i].User)
 
 				// article trustworthiness, update Node context - if balanced high level of activity
 				/// if no activity, maybe untrustworthy..
