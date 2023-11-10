@@ -1,0 +1,27 @@
+
+# repeated impositions by users against other users
+
+set xlabel "log Contention received per user"
+set ylabel "log freq"
+set logscale x
+set logscale y
+set term pdf monochrome
+set output "imposed_no_confidence.pdf"
+plot "imposed_no_confidence.output" using 1:2 w line
+
+set xlabel "log Contention Imposed per user"
+set ylabel "log freq"
+set logscale x
+set logscale y
+set term pdf monochrome
+set output "imposing_attack.pdf"
+plot "imposing_attack.output" using 1:2 w line
+
+set xlabel "Contention Imposed per topic"
+set ylabel "Freq"
+set term pdf monochrome
+set output "topics.pdf"
+plot "topics.output" using 1:2 w line
+
+
+

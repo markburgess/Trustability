@@ -72,8 +72,8 @@ type UserProfile struct {       // A list of all edit events
 
 var CONTENTION_USER_IMPOSING = make(map[string]int)
 var CONTENTION_USER_IMPOSED = make(map[string]int)
-var CONTENTION_USER_EDITS = make(map[string]int)
-var CONTENTION_USER_TOPICS = make(map[string]map[string]int)
+var CONTENTION_LAST_USER_EDIT = make(map[string]int64)
+var CONTENTION_USER_TOPICS = make(map[string]int)
 
 // ***********************************************************
 
@@ -94,7 +94,8 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subjects := ReadSubjects("wiki_samples_short_test.in")
+	//subjects := ReadSubjects("wiki_samples_short_test.in")
+	subjects := ReadSubjects("wiki_samples.in")
 
 	//subjects := []string{ "Laser" }
 
@@ -118,15 +119,15 @@ func main() {
 		ngram_ctx := AnalyzeTopicContext(subjects[n])
 		
 		AnalyzeTopicProcess(subjects[n],ngram_ctx)
+		
+		//ov,tot := FindOverlap(CONTENTION_USER_IMPOSING,CONTENTION_USER_IMPOSED)
+		//fmt.Println("\nOverlap of contention",len(ov),"/",tot)
+
+		Freq(CONTENTION_USER_IMPOSING,"imposing_attack")
+		Freq(CONTENTION_USER_IMPOSED,"imposed_no_confidence")
+		Freq(CONTENTION_USER_TOPICS,"topics")
+
 	}
-
-	//fmt.Println("\nContentious",CONTENTION_USER_IMPOSING)
-	//fmt.Println("\nNo confidence",CONTENTION_USER_IMPOSED)
-
-	ov,tot := FindOverlap(CONTENTION_USER_IMPOSING,CONTENTION_USER_IMPOSED)
-	Freq(CONTENTION_USER_IMPOSING,"imposing/attack")
-	Freq(CONTENTION_USER_IMPOSED,"imposed/no confidence")
-	fmt.Println("\nOverlap of contention",len(ov),"/",tot)
 }
 
 //**************************************************************
@@ -149,8 +150,6 @@ func Freq(data map[string]int,title string){
 		freq[data[val]]++
 	}
 
-	fmt.Println(title)
-
 	for class := range freq {
 		keys = append(keys,class)
 	}
@@ -159,9 +158,28 @@ func Freq(data map[string]int,title string){
 		return keys[i] < keys[j]
 	})
 
-	for i := range keys {
-		fmt.Println(" -- freq[",i,"] = ",freq[keys[i]])
+	name := "../data/UserData/" + title + ".output"
+
+	f, err := os.OpenFile(name,os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		fmt.Println("Couldn't open for write/append to",name,err)
+		return
 	}
+
+	var s string
+
+	for i := range keys {
+		s = fmt.Sprintln(i,freq[keys[i]])
+		_, err = f.WriteString(s)
+
+		if err != nil {
+			fmt.Println("Couldn't write/append to",name,err)
+		}
+	}
+
+	f.Close()
+
 }
 
 // ***********************************************************
@@ -195,6 +213,10 @@ func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]fl
 	TT.LEG_SELECTIONS = make([]string,0)
 
 	changelog := HistoryPage(log_url)
+
+	if changelog == nil {
+		return
+	}
 
 	sort.Slice(changelog, func(i, j int) bool {
 		return changelog[i].Date.Before(changelog[j].Date)
@@ -238,7 +260,6 @@ func FindOverlap(a,b map[string]int) (map[string]bool,int) {
 
 	return overlap, tot
 }
-
 
 // ***********************************************************
 
@@ -785,7 +806,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			}
 
 			//fmt.Println("CONTEXT",context,"\n")
-			//fmt.Println("USERS:",episode_users)
+			//fmt.Println("BLACKLIST...USERS:",episode_users)
 
 			context = make(map[string]int)
 			episode++
@@ -808,15 +829,16 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 		users_changecount[changelog[i].User]++
 
-		if CONTENTION_USER_TOPICS[changelog[i].User] == nil {
-			CONTENTION_USER_TOPICS[changelog[i].User] = make(map[string]int)
-		}
+		const WEEK = 24 * 3600 * 7
+		const few = 3 // edit sustain limit
+		lastsaw := changelog[i].Date.UnixNano() - CONTENTION_LAST_USER_EDIT[changelog[i].User]
+		var toomuch bool = (lastsaw > TT.NANO * WEEK) && (CONTENTION_USER_IMPOSING[changelog[i].User] < few)
 
 		if changelog[i].Revert > 0 && i > 1 {
 			
 			users_revert[changelog[i].User] += changelog[i].Revert
 
-			CONTENTION_USER_EDITS[changelog[i].User]++
+			//CONTENTION_USER_TOPICS[subject]++
 
 			if last_user != changelog[i].User {
 
@@ -831,9 +853,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				// User trustworthiness
 				// How do we allocate trust?
 
-				CONTENTION_USER_IMPOSING[changelog[i].User]++
-				CONTENTION_USER_IMPOSED[last_user]++
-				CONTENTION_USER_TOPICS[changelog[i].User][subject]++
+				if toomuch {
+					CONTENTION_USER_IMPOSING[changelog[i].User]++
+				} else {
+					delete(CONTENTION_USER_IMPOSING,changelog[i].User)
+				}
 			}
 
 			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
@@ -850,9 +874,15 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			users_revert[changelog[i].User]++
 
-			CONTENTION_USER_IMPOSING[changelog[i].User]++
 			CONTENTION_USER_IMPOSED[last_user]++
-			CONTENTION_USER_TOPICS[changelog[i].User][subject]++
+
+			// Only count impositions if they exceed 2 per week
+
+			if toomuch {
+				CONTENTION_USER_IMPOSING[changelog[i].User]++
+			} else {
+				delete(CONTENTION_USER_IMPOSING,changelog[i].User)
+			}
 
 			Extend(context,"effective_undo")
 			Extend(context,"state_of_contention")
@@ -863,6 +893,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 		last_delta = changelog[i].EditDelta
 		last_user = changelog[i].User
+		CONTENTION_LAST_USER_EDIT[changelog[i].User] = changelog[i].Date.UnixNano()
 	}
 
 	TT.Println("\n----------- USER BEHAVIOUR ANALYSIS --------------------")
