@@ -59,9 +59,6 @@ const MINUTE = float64(60 * TT.NANO)
 var G TT.Analytics
 var ARTICLE_ISSUES int = 0
 
-var EPISODE_CLUSTER_FREQ = make(map[int]int)
-var NOBOTS bool = false
-
 type UserProfile struct {       // A list of all edit events
 	
 	Imposing int
@@ -94,8 +91,8 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	//subjects := ReadSubjects("wiki_samples_short_test.in")
-	subjects := ReadSubjects("wiki_samples.in")
+	subjects := ReadSubjects("wiki_samples_short_test.in")
+	//subjects := ReadSubjects("wiki_samples.in")
 
 	//subjects := []string{ "Laser" }
 
@@ -634,12 +631,7 @@ func HistoryPage(url string) []WikiProcess {
 
 				attend = false
 				entry.Message = strings.TrimSpace(message) + ". "
-
-				if NOBOTS && IsBot(entry.User) {
-					fmt.Println("Skipping",entry.User)
-				} else {
-					changelog = append(changelog,entry)
-				}
+				changelog = append(changelog,entry)
 			}
 
 		case html.StartTagToken:
@@ -786,8 +778,9 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			// Check for adabatic focal change (symbol interferometry)
 			// This is overlap with subject material for context alignment
 
-			ngram_prc := LinkDiffFractionsToEpisode(changelog[i].DiffUrl)
+			ngram_prc,add,rm := GetDiffFractionsForEpisode(changelog[i].DiffUrl)
 			ov,_ := FindNgramOverlap(ngram_ctx,ngram_prc)
+
 			overlap := len(ov)
 			interfer_rate := overlap - last_overlap
 			last_overlap = len(ov)
@@ -805,13 +798,15 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				burststart = changelog[i+1].Date.UnixNano()
 			}
 
-			fmt.Println("CONTEXT",context,"\n")
+			fmt.Println("\nCONTEXT",context)
+			fmt.Println("ADD",add)
+			fmt.Println("RM",rm)
+
 			//fmt.Println("BLACKLIST...USERS:",episode_users)
 
 			context = make(map[string]int)
 			episode++
 			allepisodes[episode] = make(map[string]int)
-			EPISODE_CLUSTER_FREQ[len(episode_users)]++
 			episode_users = make(map[string]int)
 
 			event = 1
@@ -1098,7 +1093,7 @@ return false
 
 // ***********************************************************
 
-func LinkDiffFractionsToEpisode(url string) [TT.MAXCLUSTERS]map[string]float64 {
+func GetDiffFractionsForEpisode(url string) ([TT.MAXCLUSTERS]map[string]float64,string,string) {
 
 	var ngrams [TT.MAXCLUSTERS]map[string]float64
 
@@ -1106,8 +1101,9 @@ func LinkDiffFractionsToEpisode(url string) [TT.MAXCLUSTERS]map[string]float64 {
 		ngrams[i] = make(map[string]float64)
 	}
 
-	difftext_3 := DiffPage(url)
-	difftext_2 := strings.ReplaceAll(difftext_3,"\n","")
+	text,additions,removals := DiffPage(url)
+
+	difftext_2 := strings.ReplaceAll(text,"\n","")
 	difftext_1 := strings.ReplaceAll(difftext_2,"[[","")
 	difftext_0 := strings.ReplaceAll(difftext_1,"]]","")
 	search := "\\[[0-9]+"
@@ -1115,28 +1111,33 @@ func LinkDiffFractionsToEpisode(url string) [TT.MAXCLUSTERS]map[string]float64 {
 	tmp := r.ReplaceAllString(difftext_0,"")
 	difftext := strings.TrimSpace(tmp)
 
+	// First get the context from the regions around changes
+
 	edits,ltm := TT.FractionateSentences(difftext)
 	concepts := TT.RankByIntent(edits,ltm)
 
 	for t := range concepts {
-
 		n := strings.Count(t," ") + 1
-
 		if n < 3 && n > 5 {
 			continue
 		}
-
 		ngrams[n][t] = concepts[t]
-
-		//fmt.Println("SUPPORT:: edit_content_invariant...\"",n,t,"\"")
 	}
 
-	return ngrams
+	// Now get the fragments that were changed (these might not be concepts in the textual sense)
+
+	//fmt.Println("TEXT:",text)
+	//fmt.Println("ADD:",additions)
+	//fmt.Println("REMOVE:",removals)
+
+// Typical size of additions and removals
+
+	return ngrams, additions, removals
 }
 
 // ***********************************************************
 
-func DiffPage(url string) string {
+func DiffPage(url string) (string,string,string) {
 
 	//test_url := "https://en.wikipedia.org/w/index.php?title=Promise_theory&diff=prev&oldid=1139754849"
 
@@ -1153,7 +1154,9 @@ func DiffPage(url string) string {
 	// Parse HTML
 
 	var attend bool = false
-	var total string 
+	var insert bool = false
+	var remove bool = false
+	var total,del,add string 
 
 	// Start parsing
 
@@ -1164,7 +1167,7 @@ func DiffPage(url string) string {
 		token := tokenizer.Token()
 
 		if tokenizer.Err() == io.EOF {
-			return ""
+			return "","",""
 		}
 
 		// Strip out junk characters
@@ -1201,7 +1204,7 @@ func DiffPage(url string) string {
 		case html.ErrorToken:
 			
 			fmt.Printf("Error: %v", tokenizer.Err())
-			return ""
+			return "","",""
 			
 		case html.TextToken:
 
@@ -1209,7 +1212,26 @@ func DiffPage(url string) string {
 				total += s + " "
 			}
 
+			if insert && len(s) > 0 {
+				// This is the sum of deletions/insertions
+				add += s + " "
+				insert = false
+			}
+
+			if remove && len(s) > 0 {
+				del += s + " "
+				remove = false
+			}
+
 		case html.StartTagToken:
+
+			switch token.Data {
+
+			case "ins":
+				insert = true
+			case "del":
+				remove = true
+			}
 				
 		case html.EndTagToken:
 
@@ -1222,7 +1244,7 @@ func DiffPage(url string) string {
 
 			if token.Data == "body" {
 
-				return total
+				return total,add,del
 			}
 		}
 	}
