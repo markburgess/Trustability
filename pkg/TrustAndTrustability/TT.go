@@ -160,6 +160,11 @@ type EpisodeSummary struct {
 
 // We want to standardize the representation of assessments to quantify as a potential
 
+const ASSESS_EXCELLENT_S = "trust_high"
+const ASSESS_PAR_S = "trust_ok"
+const ASSESS_WEAK_S = "trust_low"
+const ASSESS_SUBPART_S = "untrusted"
+
 const ASSESS_EXCELLENT = 1.0
 const ASSESS_PAR = 0.5
 const ASSESS_WEAK = 0.25

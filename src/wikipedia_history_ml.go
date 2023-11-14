@@ -713,6 +713,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 		// Bootstrap difference
 
+		if IsAnonymous(changelog[i].User) {
+			Extend(context,"anonymous_user")
+		}
+
 		if users_lasttime[changelog[i].User] == 0 {
 			user_delta_t = float64(MINUTE)
 			users_averagetime[changelog[i].User] = user_delta_t
@@ -798,11 +802,18 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				burststart = changelog[i+1].Date.UnixNano()
 			}
 
+			// Checks
+
+			trust_level := AssessChanges(add,rm)
+			Extend(context,trust_level)
+
+			//  Learn these and compare probability, we need a fixed vector
+
 			fmt.Println("\nCONTEXT",context)
 			fmt.Println("ADD",add)
 			fmt.Println("RM",rm)
 
-			//fmt.Println("BLACKLIST...USERS:",episode_users)
+			fmt.Println("WHITELIST...USERS:",episode_users)
 
 			context = make(map[string]int)
 			episode++
@@ -971,6 +982,54 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				users_revert_dt[users[s]]/MINUTE)
 		}
 	}
+}
+
+// *******************************************************************************
+
+func IsAnonymous(user string) bool {
+
+	// Is the userID probably an IP address?
+
+	if strings.Count(user,".") == 3 || strings.Count(user,":") > 2 {
+		return true
+	}
+
+	return false
+}
+
+// *******************************************************************************
+
+func AssessChanges(add,rm string) string {
+
+	add_len := len(add)
+	rm_len := len(rm)
+
+	// TT.ASSESS_EXCELLENT_S = "trust_high"
+	// TT.ASSESS_PAR_S = "trust_ok"
+	// TT.ASSESS_WEAK_S = "trust_low"
+	// TT.ASSESS_SUBPART_S = "untrusted"
+
+	if add_len == 0 && rm_len == 0 {
+		return TT.ASSESS_PAR_S
+	}
+
+//And previous history on this trhead?  many small pinpricks
+//LearnUpdateKeyValue(g Analytics, coll_name, key string, q float64, units string) PromiseHistory
+
+	const change_limit_bytes = 5000
+
+	delta := add_len - rm_len
+
+	if delta > change_limit_bytes || delta < -change_limit_bytes {
+		return TT.ASSESS_WEAK_S
+	}
+
+	if rm_len > add_len * 10 {
+		return TT.ASSESS_WEAK_S
+	}
+
+
+	return TT.ASSESS_PAR_S
 }
 
 // *******************************************************************************
