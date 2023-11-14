@@ -703,6 +703,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 	burststart = changelog[0].Date.UnixNano()
 
+	name := subject
+
+	ctx := TT.StampedPromiseContext_Begin(G, name, changelog[0].Date)
+
 	for i := 0; i < len(changelog); i++ {
 
 		episode_users[changelog[i].User]++
@@ -768,8 +772,15 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 		// Demarcate episode boundary *********************************************
 		// We need a minimum size for a burst to protect against average being zero
 
+		// Here we are measuring response times
+
+		TT.StampedPromiseContext_End(G,ctx,changelog[i].Date)
+		ctx = TT.StampedPromiseContext_Begin(G, name, changelog[i].Date)
+
 		burstend = changelog[i].Date.UnixNano()
 		last_duration := burstend - burststart
+
+		// Use the same criteria as before to detect new punctuated episodes
 
 		if (i == len(changelog)-1) || (delta_t > float64(min_episode_duration)) && (last_duration > min_episode_duration) && (delta_t > all_users_averagetime * punctuation_scale) {
 
