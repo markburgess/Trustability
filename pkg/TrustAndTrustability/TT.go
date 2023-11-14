@@ -1063,10 +1063,18 @@ func LoadPromiseHistoryKV2Map(g Analytics, coll_name string, extkv map[string]Pr
 
 func PromiseContext_Begin(g Analytics, name string) PromiseContext {
 
+	before := time.Now()
+	return StampedPromiseContext_Begin(g, name, before)
+}
+
+// **********************************************************************
+
+func StampedPromiseContext_Begin(g Analytics, name string, before time.Time) PromiseContext {
+
 	// Set up memory for history, register callbacks
 
 	var ctx PromiseContext
-	ctx.Time = time.Now()
+	ctx.Time = before
 	ctx.Name = KeyName(name,0)
 
 	// *** begin ANTI-SPAM/DOS PROTECTION ***********
@@ -1087,9 +1095,16 @@ func PromiseContext_Begin(g Analytics, name string) PromiseContext {
 
 func PromiseContext_End(g Analytics, ctx PromiseContext) PromiseHistory {
 
+	after := time.Now()
+	return StampedPromiseContext_End(g,ctx,after)
+}
+
+// **********************************************************************
+
+func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time) PromiseHistory {
+
 	promiseID := ctx.Name
 	before := ctx.Time
-	after := time.Now()
 
 	EndService(ctx.Plock)
 
