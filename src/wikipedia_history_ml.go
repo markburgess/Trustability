@@ -113,18 +113,12 @@ func main() {
 
 		fmt.Println(n,subjects[n],"...")
 
-		ngram_ctx := AnalyzeTopicContext(subjects[n])
-		
+		// Don't look at the whole text now
+		// ngram_ctx := AnalyzeTopicContext(subjects[n])
+
+		var ngram_ctx [TT.MAXCLUSTERS]map[string]float64
+ 		
 		AnalyzeTopicProcess(subjects[n],ngram_ctx)
-		
-		//ov,tot := FindOverlap(CONTENTION_USER_IMPOSING,CONTENTION_USER_IMPOSED)
-		//fmt.Println("\nOverlap of contention",len(ov),"/",tot)
-
-		// These generate the graphs for user behaviour analysis
-		//Freq(CONTENTION_USER_IMPOSING,"imposing_attack")
-		//Freq(CONTENTION_USER_IMPOSED,"imposed_no_confidence")
-		//Freq(CONTENTION_USER_TOPICS,"topics")
-
 	}
 }
 
@@ -232,8 +226,16 @@ func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]fl
 	
 	topics := TT.RankByIntent(remarks,ltm)
 	
-//	inv := 
-TT.LongitudinalPersistentConcepts(topics)
+	invariants := TT.LongitudinalPersistentConcepts(topics)
+
+	SaveProcessInvariants(invariants)
+}
+
+// ***********************************************************
+
+func SaveProcessInvariants(invariants [TT.MAXCLUSTERS]map[string]float64) {
+
+	TT.SaveNgrams(G,invariants)
 }
 
 // ***********************************************************
@@ -446,7 +448,7 @@ func MainPage(url string) string {
 			case "h2":
 			case "td":
 			case "p":
-				plaintext += "#"
+				plaintext += "# "
 			}
 
 			if token.Data == "body" {
@@ -571,7 +573,7 @@ func HistoryPage(url string) []WikiProcess {
 				t, err := time.Parse("15:04, 2 January 2006", s)
 
 				if err != nil{
-					fmt.Println("ERR",err)
+					TT.Println("Time parsing error",err)
 				}
 
 				entry.Date = t
@@ -647,7 +649,7 @@ func HistoryPage(url string) []WikiProcess {
 
 			case "td":
 			case "p":
-				entry.Message += "#"
+				entry.Message += "# "
 			}
 
 			if token.Data == "body" {
@@ -662,39 +664,24 @@ func HistoryPage(url string) []WikiProcess {
 
 func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MAXCLUSTERS]map[string]float64) {
 
-	var users_changecount = make(map[string]int)
-	var users_revert = make(map[string]int)
-	var users_lasttime = make(map[string]int64)
-	var users_averagetime = make(map[string]float64)	
-	var users_revert_dt = make(map[string]float64)
-	var users []string
 	var last_delta int = 0
-	var last_user string
-	var lasttime float64 = 0
-	var user_delta_t float64
 	var all_users_averagetime float64 = float64(MINUTE)
 	var delta_t float64 = float64(MINUTE)
 	var burst_size int = 0
 	var sum_burst_size int = 0
 	var sum_burst_bytes float64 = 0
 	var episode int = 1
-	var event int = 1
 	var burststart,burstend int64
 
-	var allusers = make(map[string][]int64)
 	var allepisodes = make(map[int]map[string]int)
 	var episode_duration = make(map[int]int64)
 	var episode_bytes = make(map[int]float64)
-	var episode_users = make(map[string]int)
-
-	var episode_user_start = make(map[string]int)
-	var episode_user_last = make(map[string]int)
 
 	var all_invariants [TT.MAXCLUSTERS]map[string]float64
 
 	var context = make(map[string]int)
 
-	var last_overlap int = 0
+	//var last_overlap int = 0
 
 	for i := 1; i < TT.MAXCLUSTERS; i++ {
 		all_invariants[i] = make(map[string]float64)
@@ -706,14 +693,12 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 	name := subject // this is really a context label. We could also derive  MTWTFSS from date
 
-	ctx := TT.StampedPromiseContext_Begin(G, name, changelog[0].Date)
+	ctx := TT.StampedPromiseContext_Begin(G, TT.KeyName(name,0), changelog[0].Date)
 
 	// Parse past timeline as Stamped History
 
 	for i := 0; i < len(changelog); i++ {
 
-		episode_users[changelog[i].User]++
-		allusers[changelog[i].User] = append(allusers[changelog[i].User],changelog[i].Date.UnixNano())
 		allepisodes[episode][changelog[i].User]++
 
 		sum_burst_bytes += math.Abs(float64(changelog[i].EditDelta))
@@ -724,51 +709,8 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			Extend(context,"anonymous_user")
 		}
 
-		if users_lasttime[changelog[i].User] == 0 {
-			user_delta_t = float64(MINUTE)
-			users_averagetime[changelog[i].User] = user_delta_t
-		}
-
-		// For each user independently
-
-		if users_lasttime[changelog[i].User] > 0 {
-
-			user_delta_t = float64(changelog[i].Date.UnixNano() - users_lasttime[changelog[i].User])
-
-			if user_delta_t < 0 {
-				user_delta_t = 0
-			}
-
-			// Update running average delta t per user
-			users_averagetime[changelog[i].User] = 0.4 * users_averagetime[changelog[i].User] + 0.6 * user_delta_t
-		}
-
-		// For all users collectively
-
-		delta_t = float64(changelog[i].Date.UnixNano()) - lasttime
-
-		if delta_t < 0 {
-			delta_t = 0
-		}
-
-		// Last time is running value to enable computing time interval since last (delta)
-
-		users_lasttime[changelog[i].User] = changelog[i].Date.UnixNano()
-		lasttime = float64(changelog[i].Date.UnixNano())
-
-		// Keep track of how many edits in this burst, before reset below
-		burst_size++
-
-		// End of burst
-
 		const punctuation_scale = 10.0
 		const min_episode_duration = int64(DAY)
-
-		if episode_user_start[changelog[i].User] == 0 {
-			episode_user_start[changelog[i].User] = event
-		}
-
-		episode_user_last[changelog[i].User] = event
 
 		// Episodes are a longer timescale variability of state
 
@@ -778,7 +720,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 		// Here we are measuring response times
 
 		TT.StampedPromiseContext_End(G,ctx,changelog[i].Date)
-		ctx = TT.StampedPromiseContext_Begin(G, name, changelog[i].Date)
+		ctx = TT.StampedPromiseContext_Begin(G, TT.KeyName(name,0), changelog[i].Date)
 
 		burstend = changelog[i].Date.UnixNano()
 		last_duration := burstend - burststart
@@ -796,9 +738,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			// Check for adabatic focal change (symbol interferometry)
 			// This is overlap with subject material for context alignment
 
-			ngram_prc,add,rm := GetDiffFractionsForEpisode(changelog[i].DiffUrl)
-			ov,_ := FindNgramOverlap(ngram_ctx,ngram_prc)
+			//ngram_prc
+			_,add,rm := GetDiffFractionsForEpisode(changelog[i].DiffUrl)
 
+			/* Let's assume this expensive check is not good investment...
+			ov,_ := FindNgramOverlap(ngram_ctx,ngram_prc)
 			overlap := len(ov)
 			interfer_rate := overlap - last_overlap
 			last_overlap = len(ov)
@@ -807,7 +751,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			if interfer_rate * interfer_rate > threshold {
 				Extend(context,"observed_attention_change")
-			}
+			}*/
 
 			sum_burst_bytes = 0
 			burst_size = 0
@@ -827,173 +771,20 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			fmt.Println("ADD",add)
 			fmt.Println("RM",rm)
 
-			fmt.Println("WHITELIST...USERS:",episode_users)
-
 			context = make(map[string]int)
 			episode++
 			allepisodes[episode] = make(map[string]int)
-			episode_users = make(map[string]int)
-
-			event = 1
-			episode_user_start = make(map[string]int)
-			episode_user_last = make(map[string]int)
 		}
 
 		// Demarcate episode boundary *********************************************
-
-		// Update running average for all users
-
-		all_users_averagetime = 0.4 * all_users_averagetime + 0.6 * delta_t
-
-		// Changes with reversions
-
-		users_changecount[changelog[i].User]++
-
-		//const WEEK = 24 * 3600 * 7
-		//const few = 3 // edit sustain limit
-		//lastsaw := changelog[i].Date.UnixNano() - CONTENTION_LAST_USER_EDIT[changelog[i].User]
-		//var toomuch bool = (lastsaw > TT.NANO * WEEK) && (CONTENTION_USER_IMPOSING[changelog[i].User] < few)
-
-		if changelog[i].Revert > 0 && i > 1 {
-			
-			users_revert[changelog[i].User] += changelog[i].Revert
-
-			//CONTENTION_USER_TOPICS[subject]++
-
-			if last_user != changelog[i].User {
-
-				TT.Println("    (STATE .. Explicit undo of",last_user,"by",changelog[i].User,")")
-				Extend(context,"state_of_contention")
-				Extend(context,"explicit_undo")
-				//Extend(context,last_user)
-				//Extend(context,changelog[i].User)
-
-				// article trustworthiness, update Node context - if balanced high level of activity
-				/// if no activity, maybe untrustworthy..
-				// User trustworthiness
-				// How do we allocate trust?
-
-				//if toomuch {
-				//	CONTENTION_USER_IMPOSING[changelog[i].User]++
-				//} else {
-				//	delete(CONTENTION_USER_IMPOSING,changelog[i].User)
-				//}
-			}
-
-			dt := float64(changelog[i].Date.UnixNano() - changelog[i-1].Date.UnixNano())
-			users_revert_dt[changelog[i].User] = 0.6 * dt + 0.4 * users_revert_dt[changelog[i].User]
-		}
-
-		// This is a real undo if the next change cancels 90% of the previous
 
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
 
 			ARTICLE_ISSUES++
 
-			TT.Println("  (.. Effective undo of",last_user,"by",changelog[i].User,")")
-
-			users_revert[changelog[i].User]++
-
-			//CONTENTION_USER_IMPOSED[last_user]++
-
-			// Only count impositions if they exceed 2 per week
-
-			//if toomuch {
-			//	CONTENTION_USER_IMPOSING[changelog[i].User]++
-			//} else {
-			//	delete(CONTENTION_USER_IMPOSING,changelog[i].User)
-			//}
-
 			Extend(context,"effective_undo")
 			Extend(context,"state_of_contention")
 			Extend(context,"state_of_uncertainty_about_article")
-			Extend(context,last_user)
-			Extend(context,TT.CanonifyName(changelog[i].User))
-		}
-
-		last_delta = changelog[i].EditDelta
-		last_user = changelog[i].User
-		//CONTENTION_LAST_USER_EDIT[changelog[i].User] = changelog[i].Date.UnixNano()
-	}
-
-	TT.Println("\n----------- USER BEHAVIOUR ANALYSIS --------------------")
-
-	// Get an idempotent list of all users for this topic's history
-
-	for username := range users_changecount {
-		users = append(users,username)
-	}
-
-	// Sort by number of changes
-
-	sort.Slice(users, func(i, j int) bool {
-		return users_changecount[users[i]] > users_changecount[users[j]]
-	})
-
-	TT.Println("\nRanked number of user changes: number and average time interval")
-
-	var bots,humans float64 = 0,0
-
-	for s := range users {
-
-		if IsBot(users[s]) {
-			bots++
-		} else {
-			humans++
-		}
-
-		if users_changecount[users[s]] > 1 {
-
-			TT.Printf("  > %20s  (%2d)   av_delta %-3.2f (days)\n",
-				users[s],
-				users_changecount[users[s]],
-				users_averagetime[users[s]]/float64(DAY))
-		} else {
-
-			TT.Print(users[s],", ")
-
-		}
-	}
-
-	TT.Println("\n\nReversions (agents exhibiting contentious behaviour)")
-
-	users = nil
-
-	for s := range users_revert {
-		users = append(users,s)
-	}
-
-	sort.Slice(users, func(i, j int) bool {
-		return users_revert[users[i]] > users_revert[users[j]]
-	})
-
-	for s := range users {
-		TT.Printf(" R  %20s (%d) of %d after average of %3.2f mins\n",
-			users[s],
-			users_revert[users[s]],
-			users_changecount[users[s]],
-			users_revert_dt[users[s]]/MINUTE)
-	}
-
-	for s := range users {
-
-		// If all the changes were reversions without additions, policing user, 
-		// if more than say a third then just contentious
-
-		if users_revert[users[s]] == users_changecount[users[s]] {
-
-			TT.Printf(" POLICING  %20s (%d) of %d after average of %3.2f mins\n",
-				users[s],users_revert[users[s]],
-				users_changecount[users[s]],
-				users_revert_dt[users[s]]/MINUTE)
-
-		} else if users_revert[users[s]] > 1 && float64(users_revert[users[s]]) / float64(users_changecount[users[s]]) > 0.3 {
-
-			TT.Printf(" CONTENTIOUS  %20s (%d) of %d after average of %3.2f mins\n",
-				users[s],
-				users_revert[users[s]],
-				users_changecount[users[s]],
-				users_revert_dt[users[s]]/MINUTE)
 		}
 	}
 }
@@ -1197,14 +988,6 @@ func GetDiffFractionsForEpisode(url string) ([TT.MAXCLUSTERS]map[string]float64,
 		ngrams[n][t] = concepts[t]
 	}
 
-	// Now get the fragments that were changed (these might not be concepts in the textual sense)
-
-	//fmt.Println("TEXT:",text)
-	//fmt.Println("ADD:",additions)
-	//fmt.Println("REMOVE:",removals)
-
-// Typical size of additions and removals
-
 	return ngrams, additions, removals
 }
 
@@ -1248,10 +1031,10 @@ func DiffPage(url string) (string,string,string) {
 		r := regexp.MustCompile("<.+>")
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
 		s = r.ReplaceAllString(s," ")
-		s = strings.ReplaceAll(s,"→","")
-		s = strings.ReplaceAll(s,"←","")
-		s = strings.ReplaceAll(s,"'","")
-		s = strings.ReplaceAll(s,"{{","")
+		s = strings.ReplaceAll(s,"→"," ")
+		s = strings.ReplaceAll(s,"←"," ")
+		s = strings.ReplaceAll(s,"'"," ")
+		s = strings.ReplaceAll(s,"{{"," ")
 		s = strings.ReplaceAll(s,"}}","")
 		s = strings.ReplaceAll(s,"("," ")
 		s = strings.ReplaceAll(s,")"," ")
@@ -1312,7 +1095,7 @@ func DiffPage(url string) (string,string,string) {
 
 			case "td":
 			case "p":
-				total += "#"
+				total += "# "
 			}
 
 			if token.Data == "body" {

@@ -37,6 +37,7 @@ import (
 	"math/rand"
 	"sort"
 	"io/ioutil"
+	"unicode"
 
 	A "github.com/arangodb/go-driver"
 	"github.com/arangodb/go-driver/http"
@@ -86,6 +87,7 @@ previous_event_key map[string]Node
 type KeyValue struct {
 
 	K  string  `json:"_key"`
+	R  string  `json:"raw_key"`
 	V  float64 `json:"value"`
 }
 
@@ -208,6 +210,10 @@ type Score struct {
 var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "be", "with", "using", "that", "who", "to" ,"no", "because","at","but","yes","no","yeah","yay", "in"}
 
 var FORBIDDEN_STARTER = []string{"and","or","of","the","it","because","in","that","these","those","is","are","was","were","but","yes","no","yeah","yay"}
+
+// Can try to pick out some well known trigger words for the process history (not the article text)
+
+var INTENT_SIGNALS = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice"}
 
 // ***************************************************************************
 
@@ -595,9 +601,17 @@ func KeyName(s string,n int) string {
 
 	var key string
 
-	s2 := strings.ReplaceAll(s," ","_")
-	m := regexp.MustCompile("[^a-zA-Z0-9_]*") 
-	str := m.ReplaceAllString(s2,"") 
+	runes := []rune(s)
+
+	for r := range runes {
+
+		if !unicode.IsPrint(runes[r]) {
+			runes[r] = 'x'
+		}
+	}
+
+	m := regexp.MustCompile("[^a-zA-Z0-9]") 
+	str := m.ReplaceAllString(string(runes),"-") 
 
 	if n > 0 {
 		key = fmt.Sprintf("%s_%d",str,n)
@@ -749,6 +763,7 @@ func OpenDatabase(name, url, user, pwd string) A.Database {
 // ****************************************************************************
 
 func fnvhash(b []byte) string { // Currently trusting this to have no collisions
+
         hash := fnv.New64a()
         hash.Write(b)
         h := hash.Sum64()
@@ -777,8 +792,10 @@ func AddKV(g Analytics, collname string, kv KeyValue) {
 		
 		if err != nil {
 			fmt.Printf("Failed to create non existent node in AddKV: %s %v",kv.K,err)
+			fmt.Println("KEY",kv)
 			os.Exit(1);
 		}
+
 	} else {
 
 		var checkkv KeyValue
@@ -788,6 +805,7 @@ func AddKV(g Analytics, collname string, kv KeyValue) {
 		if checkkv.V != kv.V {
 
 			_, err := coll.UpdateDocument(nil, kv.K, kv)
+
 			if err != nil {
 				fmt.Printf("Failed to update value: %s %v",kv.K,err)
 				os.Exit(1);
@@ -813,6 +831,85 @@ func GetKV(g Analytics, collname, key string) KeyValue {
 
 //****************************************************
 // FLOAT KV
+//****************************************************
+
+func SaveNgrams(g Analytics,invariants [MAXCLUSTERS]map[string]float64) {
+
+	// Create collection
+
+	for n := 1; n < MAXCLUSTERS; n++ {
+
+		SaveNgram(g,n,invariants)
+	}
+}
+
+//****************************************************
+
+func LoadNgrams(g Analytics) {
+
+	// Create collection
+
+	for n := 1; n < MAXCLUSTERS; n++ {
+
+		LoadNgram(g,n)
+	}
+}
+
+//****************************************************
+
+func SaveNgram(g Analytics,n int,invariants [MAXCLUSTERS]map[string]float64) {
+
+	var collname = fmt.Sprintf("ngram%d",n)
+
+	fmt.Println("Storing ngrams rank",n)
+
+	for k := range invariants[n] {
+
+		var kv KeyValue
+		kv.K = KeyName(k,0)
+		kv.R = k
+		kv.V = invariants[n][k]
+
+		AddKV(g, collname, kv)
+	}
+}
+
+//****************************************************
+
+func LoadNgram(g Analytics,n int) map[string]float64 {
+
+	var err error
+	var cursor A.Cursor
+	var collname = fmt.Sprintf("Ngram%d",n)
+	var ngrams = make(map[string]float64)
+
+	querystring := "FOR doc IN " + collname +" LIMIT 1000 RETURN doc"
+
+	cursor,err = g.S_db.Query(nil,querystring,nil)
+
+	if err != nil {
+		fmt.Printf("Query failed: %v", err)
+	}
+
+	defer cursor.Close()
+
+	for {
+		var kv KeyValue
+
+		_,err = cursor.ReadDocument(nil,&kv)
+
+		if A.IsNoMoreDocuments(err) {
+			break
+		} else if err != nil {
+			fmt.Printf("LoadNgram returned: %v", err)
+		} else {
+			ngrams[kv.K] = kv.V
+		}
+	}
+
+	return ngrams
+}
+
 //****************************************************
 
 func SavePromiseHistoryKVMap(g Analytics, collname string, kv []PromiseHistory) {
@@ -1153,24 +1250,24 @@ func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time)
 	lasttime.K = promiseID+"lastseen"
 	lasttime.V = float64(after.UnixNano())
 
-	fmt.Println("------- INSTRUMENTATION --------------")
+	Println("------- INSTRUMENTATION --------------")
 
 	AddKV(g,collname,lastlatency)
 	AddKV(g,collname,lasttime)
 
 	//AddKV(g,promiseID+collname,lasttime)
 
-	fmt.Println("   Location:", promiseID+collname)
-	fmt.Println("   Promise duration b (ms)", e.Q/MILLI,"=",b/MILLI)
-	fmt.Println("   Running average 50/50", e.Q_av/NANO)
+	Println("   Location:", promiseID+collname)
+	Println("   Promise duration b (ms)", e.Q/MILLI,"=",b/MILLI)
+	Println("   Running average 50/50", e.Q_av/NANO)
 
-	fmt.Println("   Change in promise since last sample",db)
-	fmt.Println("   Promise derivative b/s", db/dt)
-	fmt.Println("")
-	fmt.Println("   Time since last sample (s) phase",dt/NANO)
-	fmt.Println("   Time signal uncertainty dtau (s) group",dtau/NANO)
-	fmt.Println("   Running average sampling interval",e.Dt_av/NANO)
-	fmt.Println("------- INSTRUMENTATION --------------")
+	Println("   Change in promise since last sample",db)
+	Println("   Promise derivative b/s", db/dt)
+	Println("")
+	Println("   Time since last sample (s) phase",dt/NANO)
+	Println("   Time signal uncertainty dtau (s) group",dtau/NANO)
+	Println("   Running average sampling interval",e.Dt_av/NANO)
+	Println("------- INSTRUMENTATION --------------")
 	return e
 }
 
@@ -3384,22 +3481,22 @@ func BeginService(name string, ifelapsed,expireafter int64, now int64) Lock {
 
 	elapsedtime := (now - lastcompleted) / NANO // in seconds
 
-	fmt.Println("Check elapsed time...",elapsedtime,ifelapsed)
+	Println("Check elapsed time...",elapsedtime,ifelapsed)
 	
 	if (elapsedtime < ifelapsed) {
 
-		fmt.Println("Too soon since last",lock.Last,elapsedtime,"/",ifelapsed)
+		Println("Too soon since last",lock.Last,elapsedtime,"/",ifelapsed)
 		lock.Ready = false
 		return lock
 	}
 
 	starttime := GetLockTime(lock.This)
 
-	fmt.Println("Looking for current lock...")
+	Println("Looking for current lock...")
 
 	if (starttime == NEVER) {
 
-		fmt.Println("No running lock...")
+		Println("No running lock...")
 
 	} else {
 
@@ -3425,10 +3522,8 @@ func BeginService(name string, ifelapsed,expireafter int64, now int64) Lock {
 
 func EndService(lock Lock) {
 
-	fmt.Println("Removing ",lock.This)
 	RemoveLock(lock.This)
 	RemoveLock(lock.Last)
-	fmt.Println("Updating ",lock.Last)
 	AcquireLock(lock.Last)
 }
 
@@ -3473,7 +3568,7 @@ func RemoveLock(name string) {
 	err := os.Remove(name)
 
 	if err != nil {
-		fmt.Println("Unable to remove",name,err)
+		Println("Unable to remove",name,err)
 	}
 }
 
