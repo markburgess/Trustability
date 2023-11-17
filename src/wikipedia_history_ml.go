@@ -91,8 +91,8 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
+	// subjects := ReadSubjects("wiki_samples.in")
 	subjects := ReadSubjects("wiki_samples_short_test.in")
-	//subjects := ReadSubjects("wiki_samples.in")
 
 	//subjects := []string{ "Laser" }
 
@@ -120,9 +120,10 @@ func main() {
 		//ov,tot := FindOverlap(CONTENTION_USER_IMPOSING,CONTENTION_USER_IMPOSED)
 		//fmt.Println("\nOverlap of contention",len(ov),"/",tot)
 
-		Freq(CONTENTION_USER_IMPOSING,"imposing_attack")
-		Freq(CONTENTION_USER_IMPOSED,"imposed_no_confidence")
-		Freq(CONTENTION_USER_TOPICS,"topics")
+		// These generate the graphs for user behaviour analysis
+		//Freq(CONTENTION_USER_IMPOSING,"imposing_attack")
+		//Freq(CONTENTION_USER_IMPOSED,"imposed_no_confidence")
+		//Freq(CONTENTION_USER_TOPICS,"topics")
 
 	}
 }
@@ -703,9 +704,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 	burststart = changelog[0].Date.UnixNano()
 
-	name := subject
+	name := subject // this is really a context label. We could also derive  MTWTFSS from date
 
 	ctx := TT.StampedPromiseContext_Begin(G, name, changelog[0].Date)
+
+	// Parse past timeline as Stamped History
 
 	for i := 0; i < len(changelog); i++ {
 
