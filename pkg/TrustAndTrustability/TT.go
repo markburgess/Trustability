@@ -162,10 +162,10 @@ type EpisodeSummary struct {
 
 // We want to standardize the representation of assessments to quantify as a potential
 
-const ASSESS_EXCELLENT_S = "trust_high"
-const ASSESS_PAR_S = "trust_ok"
-const ASSESS_WEAK_S = "trust_low"
-const ASSESS_SUBPART_S = "untrusted"
+const ASSESS_EXCELLENT_S = "potential_trustworthiness_high"
+const ASSESS_PAR_S = "potential_trustworthiness_ok"
+const ASSESS_WEAK_S = "potential_trustworthinss_low"
+const ASSESS_SUBPAR_S = "potential_untrusted"
 
 const ASSESS_EXCELLENT = 1.0
 const ASSESS_PAR = 0.5
@@ -210,10 +210,6 @@ type Score struct {
 var FORBIDDEN_ENDING = []string{"but", "and", "the", "or", "a", "an", "its", "it's", "their", "your", "my", "of", "as", "are", "is", "be", "with", "using", "that", "who", "to" ,"no", "because","at","but","yes","no","yeah","yay", "in"}
 
 var FORBIDDEN_STARTER = []string{"and","or","of","the","it","because","in","that","these","those","is","are","was","were","but","yes","no","yeah","yay"}
-
-// Can try to pick out some well known trigger words for the process history (not the article text)
-
-var INTENT_SIGNALS = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice"}
 
 // ***************************************************************************
 
@@ -861,8 +857,6 @@ func SaveNgram(g Analytics,n int,invariants [MAXCLUSTERS]map[string]float64) {
 
 	var collname = fmt.Sprintf("ngram%d",n)
 
-	fmt.Println("Storing ngrams rank",n)
-
 	for k := range invariants[n] {
 
 		var kv KeyValue
@@ -876,14 +870,15 @@ func SaveNgram(g Analytics,n int,invariants [MAXCLUSTERS]map[string]float64) {
 
 //****************************************************
 
-func LoadNgram(g Analytics,n int) map[string]float64 {
+func LoadNgram(g Analytics,n int) {
+
+	// Load STM_NGRAM_RANK for Intentionality rank
 
 	var err error
 	var cursor A.Cursor
-	var collname = fmt.Sprintf("Ngram%d",n)
-	var ngrams = make(map[string]float64)
+	var collname = fmt.Sprintf("ngram%d",n)
 
-	querystring := "FOR doc IN " + collname +" LIMIT 1000 RETURN doc"
+	querystring := "FOR doc IN " + collname +" LIMIT 15000 RETURN doc"
 
 	cursor,err = g.S_db.Query(nil,querystring,nil)
 
@@ -903,11 +898,11 @@ func LoadNgram(g Analytics,n int) map[string]float64 {
 		} else if err != nil {
 			fmt.Printf("LoadNgram returned: %v", err)
 		} else {
-			ngrams[kv.K] = kv.V
+			STM_NGRAM_RANK[n][kv.K] = kv.V
 		}
 	}
 
-	return ngrams
+	fmt.Println("Loaded",n,"grams",len(STM_NGRAM_RANK[n]))
 }
 
 //****************************************************
@@ -2796,6 +2791,39 @@ func ReadAndCleanFile(filename string) string {
 	return cleaned
 }
 
+
+// ***********************************************************
+
+func FractionateText2Ngrams(text string) [MAXCLUSTERS]map[string]float64 {
+
+	var ngrams [MAXCLUSTERS]map[string]float64
+
+	difftext_2 := strings.ReplaceAll(text,"\n","")
+	difftext_1 := strings.ReplaceAll(difftext_2,"[","")
+	difftext_0 := strings.ReplaceAll(difftext_1,"]","")
+
+	search := "\\[[0-9]+"
+
+	r := regexp.MustCompile(search)
+	tmp := r.ReplaceAllString(difftext_0,"")
+	difftext := strings.TrimSpace(tmp)
+
+	// First get the context from the regions around changes
+
+	//edits
+	_,ltm := FractionateSentences(difftext)
+
+	for n := 1; n < MAXCLUSTERS; n++ {
+		ngrams[n] = make(map[string]float64)
+
+		for t := range ltm[n] {
+			ngrams[n][t] = STM_NGRAM_RANK[n][t]
+		}
+	}
+
+	return ngrams
+}
+
 //**************************************************************
 
 func FractionateSentences(text string) ([]Narrative,[MAXCLUSTERS]map[string][]int) {
@@ -3146,6 +3174,31 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 	Println("------------------------------------------")
 	Println("Notable events = ",KEPT,"of total ",ALL_SENTENCE_INDEX,"efficiency = ",100*float64(ALL_SENTENCE_INDEX)/float64(KEPT),"%")
 	Println("------------------------------------------\n")
+}
+
+//**************************************************************
+
+func StaticIntent(g Analytics,str string) float64 {
+
+	var total float64
+
+	if len(str) < 10 {
+		return 0
+	}
+ 
+	ngrams := FractionateText2Ngrams(str)
+
+	SaveNgrams(g,ngrams)
+
+	// Occurred here AND occurred before
+
+	for n := 1; n < MAXCLUSTERS; n++ {
+		for i := range ngrams[n] {
+			total += ngrams[n][i] * STM_NGRAM_RANK[n][i] * float64(len(i)) / float64(len(STM_NGRAM_RANK[n])) 
+		}
+	}
+
+	return total / float64(MAXCLUSTERS)
 }
 
 //**************************************************************

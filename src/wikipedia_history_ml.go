@@ -91,8 +91,8 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	// subjects := ReadSubjects("wiki_samples.in")
-	subjects := ReadSubjects("wiki_samples_short_test.in")
+	subjects := ReadSubjects("wiki_samples.in")
+	//subjects := ReadSubjects("wiki_samples_short_test.in")
 
 	//subjects := []string{ "Laser" }
 
@@ -106,6 +106,12 @@ func main() {
 	var pwd string = "mark"
 
 	G = TT.OpenAnalytics(dbname,dburl,user,pwd)
+
+	// Load any pretraining
+
+	for n := 1; n < TT.MAXCLUSTERS; n++ {
+		TT.LoadNgram(G,n)
+	}
 
 	// ***********************************************************
 
@@ -219,6 +225,8 @@ func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]fl
 	HistoryAssessment(subject,changelog,ngram_ctx)
 
 	historypage := TotalText(changelog)
+
+	// Keep learning
 
 	remarks,ltm := TT.FractionateSentences(historypage)
 	
@@ -665,81 +673,58 @@ func HistoryPage(url string) []WikiProcess {
 func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MAXCLUSTERS]map[string]float64) {
 
 	var last_delta int = 0
-	var all_users_averagetime float64 = float64(MINUTE)
-	var delta_t float64 = float64(MINUTE)
-	var burst_size int = 0
-	var sum_burst_size int = 0
-	var sum_burst_bytes float64 = 0
+	var all_users_averagetime float64 = 0
+	var delta_t float64 = 0
 	var episode int = 1
-	var burststart,burstend int64
-
-	var allepisodes = make(map[int]map[string]int)
-	var episode_duration = make(map[int]int64)
-	var episode_bytes = make(map[int]float64)
-
-	var all_invariants [TT.MAXCLUSTERS]map[string]float64
-
+	var burststart int64
+	var sum_burst_bytes float64 = 0
 	var context = make(map[string]int)
+	var lasttime float64
+	var cumulative_message string 
+	var add,rm string
+	const punctuation_scale = 5.0
+	const min_episode_duration = DAY
 
 	//var last_overlap int = 0
 
-	for i := 1; i < TT.MAXCLUSTERS; i++ {
-		all_invariants[i] = make(map[string]float64)
-	} 
-
-	allepisodes[episode] = make(map[string]int)
-
 	burststart = changelog[0].Date.UnixNano()
 
-	name := subject // this is really a context label. We could also derive  MTWTFSS from date
-
-	ctx := TT.StampedPromiseContext_Begin(G, TT.KeyName(name,0), changelog[0].Date)
+	//name := subject // this is really a context label. We could also derive  MTWTFSS from date
+	//ctx := TT.StampedPromiseContext_Begin(G, TT.KeyName(name,0), changelog[0].Date)
 
 	// Parse past timeline as Stamped History
 
 	for i := 0; i < len(changelog); i++ {
 
-		allepisodes[episode][changelog[i].User]++
-
 		sum_burst_bytes += math.Abs(float64(changelog[i].EditDelta))
 
-		// Bootstrap difference
+		delta_t = float64(changelog[i].Date.UnixNano()) - lasttime
+		all_users_averagetime = 0.4 * all_users_averagetime + 0.6 * delta_t
+		lasttime = float64(changelog[i].Date.UnixNano())
+		burst_duration := changelog[i].Date.UnixNano() - burststart
 
-		if IsAnonymous(changelog[i].User) {
-			Extend(context,"anonymous_user")
+		_,nadd,nrm := GetDiffFractionsForEpisode(changelog[i].DiffUrl)
+
+		add += nadd
+		rm += nrm
+		cumulative_message += changelog[i].Message + " "
+
+		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
+
+			ARTICLE_ISSUES++
+
+			Extend(context,"effective_undo")
+			Extend(context,"state_of_contention")
+			Extend(context,"state_of_uncertainty_about_article")
 		}
 
-		const punctuation_scale = 10.0
-		const min_episode_duration = int64(DAY)
+		// *****
 
-		// Episodes are a longer timescale variability of state
+		if (i == len(changelog)-1) || (burst_duration > int64(min_episode_duration)) && (delta_t > all_users_averagetime) && (delta_t > min_episode_duration) {
 
-		// Demarcate episode boundary *********************************************
-		// We need a minimum size for a burst to protect against average being zero
-
-		// Here we are measuring response times
-
-		TT.StampedPromiseContext_End(G,ctx,changelog[i].Date)
-		ctx = TT.StampedPromiseContext_Begin(G, TT.KeyName(name,0), changelog[i].Date)
-
-		burstend = changelog[i].Date.UnixNano()
-		last_duration := burstend - burststart
-
-		// Use the same criteria as before to detect new punctuated episodes
-
-		if (i == len(changelog)-1) || (delta_t > float64(min_episode_duration)) && (last_duration > min_episode_duration) && (delta_t > all_users_averagetime * punctuation_scale) {
-
-			sum_burst_size += burst_size
-			episode_duration[episode] = last_duration
-			episode_bytes[episode] = sum_burst_bytes
+			// The appropriate unit is the episode
 
 			Extend(context,subject)
-
-			// Check for adabatic focal change (symbol interferometry)
-			// This is overlap with subject material for context alignment
-
-			//ngram_prc
-			_,add,rm := GetDiffFractionsForEpisode(changelog[i].DiffUrl)
 
 			/* Let's assume this expensive check is not good investment...
 			ov,_ := FindNgramOverlap(ngram_ctx,ngram_prc)
@@ -754,7 +739,6 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			}*/
 
 			sum_burst_bytes = 0
-			burst_size = 0
 
 			if i < len(changelog)-1 {
 				burststart = changelog[i+1].Date.UnixNano()
@@ -762,29 +746,18 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			// Checks
 
-			trust_level := AssessChanges(add,rm)
+			trust_level := AssessChanges(context,add,rm,cumulative_message)
 			Extend(context,trust_level)
 
-			//  Learn these and compare probability, we need a fixed vector
-
-			fmt.Println("\nCONTEXT",context)
-			fmt.Println("ADD",add)
-			fmt.Println("RM",rm)
+			fmt.Println("CONTEXT tick",context)
 
 			context = make(map[string]int)
+
+			cumulative_message = ""
+			add = ""
+			rm = ""
+
 			episode++
-			allepisodes[episode] = make(map[string]int)
-		}
-
-		// Demarcate episode boundary *********************************************
-
-		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
-
-			ARTICLE_ISSUES++
-
-			Extend(context,"effective_undo")
-			Extend(context,"state_of_contention")
-			Extend(context,"state_of_uncertainty_about_article")
 		}
 	}
 }
@@ -804,37 +777,84 @@ func IsAnonymous(user string) bool {
 
 // *******************************************************************************
 
-func AssessChanges(add,rm string) string {
+func AssessChanges(context map[string]int,add,rm,message string) string {
 
 	add_len := len(add)
 	rm_len := len(rm)
 
-	// TT.ASSESS_EXCELLENT_S = "trust_high"
-	// TT.ASSESS_PAR_S = "trust_ok"
-	// TT.ASSESS_WEAK_S = "trust_low"
-	// TT.ASSESS_SUBPART_S = "untrusted"
+	//  Learn these and compare probability, we need a fixed vector
+	
+	// TT.ASSESS_EXCELLENT_S = "trust_high" 1.0
+	// TT.ASSESS_PAR_S = "trust_ok"   0.5
+	// TT.ASSESS_WEAK_S = "trust_low" 0.25
+	// TT.ASSESS_SUBPART_S = "untrusted" 0
 
 	if add_len == 0 && rm_len == 0 {
 		return TT.ASSESS_PAR_S
 	}
 
-//And previous history on this trhead?  many small pinpricks
-//LearnUpdateKeyValue(g Analytics, coll_name, key string, q float64, units string) PromiseHistory
+	// The following are all heuristics
 
-	const change_limit_bytes = 5000
+	const change_limit_bytes = 1000
+
+	var assess_s string = TT.ASSESS_PAR_S
+	var assess float64 = TT.ASSESS_PAR
 
 	delta := add_len - rm_len
 
 	if delta > change_limit_bytes || delta < -change_limit_bytes {
-		return TT.ASSESS_WEAK_S
+		assess_s = TT.ASSESS_WEAK_S
+		assess = TT.ASSESS_WEAK
+		Extend(context,"large_edit")
 	}
 
 	if rm_len > add_len * 10 {
-		return TT.ASSESS_WEAK_S
+		assess_s = TT.ASSESS_WEAK_S
+		assess = TT.ASSESS_WEAK
+		Extend(context,"large_deletion")
+	}
+
+	if rm_len > change_limit_bytes {
+		assess_s = TT.ASSESS_SUBPAR_S
+		assess = TT.ASSESS_SUBPAR
+		Extend(context,"large_deletion")
 	}
 
 
-	return TT.ASSESS_PAR_S
+	var bad_signals = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice","unsourced"}
+	// Pick some arbitrary signals
+
+	var bad_flag = false
+
+	for s := range bad_signals {
+		if strings.Contains(strings.ToLower(message),bad_signals[s]) {
+			bad_flag = true
+		}
+	}
+
+	intent := TT.StaticIntent(G,message)
+	
+	// How do we understand this threshold? We need to compare it to something similar, meta not subject
+
+	if intent > 20000 || bad_flag{
+		fmt.Printf("\n Anomalous message intent -- (%s) = %f\n\n",message,intent)
+		Extend(context,"anomalous_message")
+	}
+
+	if assess < TT.ASSESS_PAR {
+
+		if len(rm) > 100 {
+			fmt.Printf(" --> RM %.20s ...(len=%d)\n",rm,len(rm))
+		}
+
+		if strings.Contains(add,"http") {
+			Extend(context,"url_warning")
+		} else if len(add) > 100 {
+			fmt.Printf(" <-- ADD %.20s ...(len=%d)\n",add,len(add))
+		}
+	}
+
+	return assess_s
 }
 
 // *******************************************************************************
@@ -959,34 +979,9 @@ return false
 
 func GetDiffFractionsForEpisode(url string) ([TT.MAXCLUSTERS]map[string]float64,string,string) {
 
-	var ngrams [TT.MAXCLUSTERS]map[string]float64
-
-	for i := 1; i < TT.MAXCLUSTERS; i++ {
-		ngrams[i] = make(map[string]float64)
-	}
-
 	text,additions,removals := DiffPage(url)
 
-	difftext_2 := strings.ReplaceAll(text,"\n","")
-	difftext_1 := strings.ReplaceAll(difftext_2,"[[","")
-	difftext_0 := strings.ReplaceAll(difftext_1,"]]","")
-	search := "\\[[0-9]+"
-	r := regexp.MustCompile(search)
-	tmp := r.ReplaceAllString(difftext_0,"")
-	difftext := strings.TrimSpace(tmp)
-
-	// First get the context from the regions around changes
-
-	edits,ltm := TT.FractionateSentences(difftext)
-	concepts := TT.RankByIntent(edits,ltm)
-
-	for t := range concepts {
-		n := strings.Count(t," ") + 1
-		if n < 3 && n > 5 {
-			continue
-		}
-		ngrams[n][t] = concepts[t]
-	}
+	ngrams := TT.FractionateText2Ngrams(text)
 
 	return ngrams, additions, removals
 }
@@ -1028,14 +1023,14 @@ func DiffPage(url string) (string,string,string) {
 
 		// Strip out junk characters
 
-		r := regexp.MustCompile("<.+>")
+		r := regexp.MustCompile("(<.+>)|([0-9]+px)|([a-zA-Z0-9]+=[A-Z0-9a-z]+)|.+\\.png|.+\\.PNG|[0-9abcdef][0-9abcdef][0-9abcdef][0-9abcdef][0-9abcdef][0-9abcdef]|[^a-zA-Z0-9 ]+")
 		s := strings.TrimSpace(html.UnescapeString(token.String()))
 		s = r.ReplaceAllString(s," ")
 		s = strings.ReplaceAll(s,"→"," ")
 		s = strings.ReplaceAll(s,"←"," ")
 		s = strings.ReplaceAll(s,"'"," ")
-		s = strings.ReplaceAll(s,"{{"," ")
-		s = strings.ReplaceAll(s,"}}","")
+		s = strings.ReplaceAll(s,"{"," ")
+		s = strings.ReplaceAll(s,"}","")
 		s = strings.ReplaceAll(s,"("," ")
 		s = strings.ReplaceAll(s,")"," ")
 		s = strings.ReplaceAll(s,"|"," ")
