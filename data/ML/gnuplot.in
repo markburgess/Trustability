@@ -1,0 +1,30 @@
+
+set xlabel "alignment"
+set ylabel "Frequency"
+#set logscale
+set term pdf monochrome
+set output "alignment_spectrum.pdf"
+plot "alignment_spectrum" using 1:2 w line
+
+# alignment, sigma-intent, episode_duration
+
+set xlabel "duration"
+set ylabel "alignment"
+#set logscale
+set term pdf monochrome
+set output "alignment_by_duration.pdf"
+plot "alignment_intent_delta_t" using 3:1 
+
+set xlabel "duration"
+set ylabel "fluct intentionality"
+#set logscale
+set term pdf monochrome
+set output "anomaly_by_duration.pdf"
+plot "alignment_intent_delta_t" using 3:2 
+
+set xlabel "duration"
+set ylabel "fluct intentionality"
+#set logscale
+set term pdf monochrome
+set output "anomaly_by_align.pdf"
+plot "alignment_intent_delta_t" using 1:2 

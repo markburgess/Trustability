@@ -89,7 +89,7 @@ func main() {
 
 	// Example pages, some familiar some notorious
 
-	subjects := ReadSubjects("wiki_samples.in")
+	subjects := ReadSubjects("wiki_samples_total.in")
 	//subjects := ReadSubjects("wiki_samples_short_test.in")
 
 	//subjects := []string{ "Laser" }
@@ -148,7 +148,7 @@ func Freq(data map[string]int,title string){
 		freq[data[val]]++
 	}
 
-	for class := range freq {
+	for class := range data {
 		keys = append(keys,class)
 	}
 
@@ -184,8 +184,18 @@ func Freq(data map[string]int,title string){
 
 func SaveAlignmentSpectrum(filename string) {
 
-	for a := range ALIGNMENT {
-		data := fmt.Sprintf("%d %d\n",a,ALIGNMENT[a])
+	var keys []int
+
+	for class := range ALIGNMENT {
+		keys = append(keys,class)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+
+	for a := range keys {
+		data := fmt.Sprintf("%d %d\n",a,ALIGNMENT[keys[a]])
 		TT.AppendStringToFile(filename,data)
 	}
 }
@@ -774,8 +784,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			// Checks
 
-			trust_level := AssessChanges(context,add,rm,cumulative_message,episode_len,edit_balance/sum_burst_bytes,burst_duration)
-			Extend(context,trust_level)
+			if sum_burst_bytes != 0 {
+				trust_level := AssessChanges(context,add,rm,cumulative_message,episode_len,edit_balance/sum_burst_bytes,burst_duration)
+				Extend(context,trust_level)
+			}
+			
 
 			//fmt.Println("CONTEXT tick",episode,"/",i,context)
 
@@ -847,9 +860,9 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 		Extend(context,"large_deletion")
 	}
 
-	var bad_signals = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice","unsourced"}
-	// Pick some arbitrary signals
+	/* Pick some arbitrary signals
 
+	var bad_signals = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice","unsourced"}
 	var bad_flag = false
 	var sign string
 
@@ -861,9 +874,9 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 	}
 
 	if bad_flag {
-		fmt.Printf("\n Intentionally bad intent in messaging -- (%s)\n\n",sign)
+		fmt.Printf("\n Intentional heuristic in messaging -- (%s)\n",sign)
 		Extend(context,"counter_policy_message")
-	}
+	}*/
 
 	intent := TT.StaticIntent(G,message)
 
@@ -876,14 +889,15 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 	//fmt.Println("*",eplen,"ticks, Issues=", ARTICLE_ISSUES," WORK=(",balance,"/",total,")= align(",balance/total,")","intent variance=",intent,anomaly)
 
 	// Divide the alignment -1 < a < +1 of user intent into finite classes
-	align_class := int(align/0.1)
+
+	align_class := int(align/0.05)
 	ALIGNMENT[align_class]++
 	days := duration / DAY
 
 	// Save data
 
 	const filename = "../data/ML/alignment_intent_delta_t"
-	data := fmt.Sprintf("%f %f %f",align,sig,days)
+	data := fmt.Sprintf("%f %f %f\n",align,sig,days)
 	TT.AppendStringToFile(filename,data)
 
 	if sig > 1.5 {
