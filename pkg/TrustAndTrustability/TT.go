@@ -3194,11 +3194,11 @@ func StaticIntent(g Analytics,str string) float64 {
 
 	for n := 1; n < MAXCLUSTERS; n++ {
 		for i := range ngrams[n] {
-			total += ngrams[n][i] * STM_NGRAM_RANK[n][i] * float64(len(i)) / float64(len(STM_NGRAM_RANK[n])) 
+			total += ngrams[n][i] / float64(len(ngrams[n])) 
 		}
 	}
 
-	return total / float64(MAXCLUSTERS)
+	return total * float64(len(str)) / float64(MAXCLUSTERS)
 }
 
 //**************************************************************

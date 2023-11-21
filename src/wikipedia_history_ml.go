@@ -67,10 +67,8 @@ type UserProfile struct {       // A list of all edit events
 	Topics   map[string]int
 }
 
-var CONTENTION_USER_IMPOSING = make(map[string]int)
-var CONTENTION_USER_IMPOSED = make(map[string]int)
-var CONTENTION_LAST_USER_EDIT = make(map[string]int64)
-var CONTENTION_USER_TOPICS = make(map[string]int)
+var AVERAGE_INTENT float64
+var ALIGNMENT = make(map[int]int)
 
 // ***********************************************************
 
@@ -126,6 +124,8 @@ func main() {
  		
 		AnalyzeTopicProcess(subjects[n],ngram_ctx)
 	}
+
+	SaveAlignmentSpectrum("../data/ML/alignment_spectrum")
 }
 
 //**************************************************************
@@ -182,6 +182,16 @@ func Freq(data map[string]int,title string){
 
 // ***********************************************************
 
+func SaveAlignmentSpectrum(filename string) {
+
+	for a := range ALIGNMENT {
+		data := fmt.Sprintf("%d %d\n",a,ALIGNMENT[a])
+		TT.AppendStringToFile(filename,data)
+	}
+}
+
+// ***********************************************************
+
 func AnalyzeTopicContext(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 
 	page_url := "https://en.wikipedia.org/wiki/" + subject
@@ -209,6 +219,7 @@ func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]fl
 
 	TT.LEG_WINDOW = 10
 	TT.LEG_SELECTIONS = make([]string,0)
+	ARTICLE_ISSUES = 0
 
 	changelog := HistoryPage(log_url)
 
@@ -233,10 +244,9 @@ func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]fl
 	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
 	
 	topics := TT.RankByIntent(remarks,ltm)
-	
-	invariants := TT.LongitudinalPersistentConcepts(topics)
-
-	SaveProcessInvariants(invariants)
+	TT.Println("!!!!!!!!!!",topics)	
+//	invariants := TT.LongitudinalPersistentConcepts(topics)
+//	SaveProcessInvariants(invariants)
 }
 
 // ***********************************************************
@@ -676,14 +686,16 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 	var all_users_averagetime float64 = 0
 	var delta_t float64 = 0
 	var episode int = 1
+	var episode_len int = 0
 	var burststart int64
+	var edit_balance float64 = 0
 	var sum_burst_bytes float64 = 0
 	var context = make(map[string]int)
 	var lasttime float64
 	var cumulative_message string 
 	var add,rm string
 	const punctuation_scale = 5.0
-	const min_episode_duration = DAY
+	const min_episode_duration = 2*DAY
 
 	//var last_overlap int = 0
 
@@ -696,18 +708,36 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 	for i := 0; i < len(changelog); i++ {
 
+		// Measure the signal bandwidth
+		episode_len++
 		sum_burst_bytes += math.Abs(float64(changelog[i].EditDelta))
+		edit_balance += float64(changelog[i].EditDelta)
 
+		// Measure the signal rate
 		delta_t = float64(changelog[i].Date.UnixNano()) - lasttime
 		all_users_averagetime = 0.4 * all_users_averagetime + 0.6 * delta_t
 		lasttime = float64(changelog[i].Date.UnixNano())
-		burst_duration := changelog[i].Date.UnixNano() - burststart
+		burst_duration := float64(changelog[i].Date.UnixNano() - burststart)
 
-		_,nadd,nrm := GetDiffFractionsForEpisode(changelog[i].DiffUrl)
+		/* Ignore the content and try the WORK amounts only - trust the platform balance report in EdDelta
+
+                _,nadd,nrm := GetDiffFractionsForEpisode(changelog[i].DiffUrl)
 
 		add += nadd
-		rm += nrm
+		rm += nrm */
+
+		// Signal content
 		cumulative_message += changelog[i].Message + " "
+
+		if changelog[i].Revert > 0 && i > 1 {
+
+			ARTICLE_ISSUES++
+
+			Extend(context,"explicit_undo")
+			Extend(context,"state_of_contention")
+			Extend(context,"state_of_uncertainty_about_article")
+
+		}
 
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
 
@@ -720,7 +750,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 		// *****
 
-		if (i == len(changelog)-1) || (burst_duration > int64(min_episode_duration)) && (delta_t > all_users_averagetime) && (delta_t > min_episode_duration) {
+		if (i == len(changelog)-1) || (burst_duration > min_episode_duration) && (delta_t > all_users_averagetime) && (delta_t > min_episode_duration * punctuation_scale) {
 
 			// The appropriate unit is the episode
 
@@ -738,25 +768,27 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				Extend(context,"observed_attention_change")
 			}*/
 
-			sum_burst_bytes = 0
-
 			if i < len(changelog)-1 {
 				burststart = changelog[i+1].Date.UnixNano()
 			}
 
 			// Checks
 
-			trust_level := AssessChanges(context,add,rm,cumulative_message)
+			trust_level := AssessChanges(context,add,rm,cumulative_message,episode_len,edit_balance/sum_burst_bytes,burst_duration)
 			Extend(context,trust_level)
 
-			fmt.Println("CONTEXT tick",context)
+			//fmt.Println("CONTEXT tick",episode,"/",i,context)
 
 			context = make(map[string]int)
 
+
+			sum_burst_bytes = 0
+			edit_balance = 0
 			cumulative_message = ""
+			episode_len = 0
 			add = ""
 			rm = ""
-
+			ARTICLE_ISSUES = 0
 			episode++
 		}
 	}
@@ -777,7 +809,7 @@ func IsAnonymous(user string) bool {
 
 // *******************************************************************************
 
-func AssessChanges(context map[string]int,add,rm,message string) string {
+func AssessChanges(context map[string]int,add,rm,message string, eplen int, align,duration float64) string {
 
 	add_len := len(add)
 	rm_len := len(rm)
@@ -789,9 +821,10 @@ func AssessChanges(context map[string]int,add,rm,message string) string {
 	// TT.ASSESS_WEAK_S = "trust_low" 0.25
 	// TT.ASSESS_SUBPART_S = "untrusted" 0
 
-	if add_len == 0 && rm_len == 0 {
-		return TT.ASSESS_PAR_S
-	}
+
+// The number of contributions to the episode-....
+
+//	edits x rounds = flow rate
 
 	// The following are all heuristics
 
@@ -814,43 +847,60 @@ func AssessChanges(context map[string]int,add,rm,message string) string {
 		Extend(context,"large_deletion")
 	}
 
-	if rm_len > change_limit_bytes {
-		assess_s = TT.ASSESS_SUBPAR_S
-		assess = TT.ASSESS_SUBPAR
-		Extend(context,"large_deletion")
-	}
-
-
 	var bad_signals = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice","unsourced"}
 	// Pick some arbitrary signals
 
 	var bad_flag = false
+	var sign string
 
 	for s := range bad_signals {
 		if strings.Contains(strings.ToLower(message),bad_signals[s]) {
 			bad_flag = true
+			sign = bad_signals[s]
 		}
 	}
 
+	if bad_flag {
+		fmt.Printf("\n Intentionally bad intent in messaging -- (%s)\n\n",sign)
+		Extend(context,"counter_policy_message")
+	}
+
 	intent := TT.StaticIntent(G,message)
-	
+
 	// How do we understand this threshold? We need to compare it to something similar, meta not subject
 
-	if intent > 20000 || bad_flag{
-		fmt.Printf("\n Anomalous message intent -- (%s) = %f\n\n",message,intent)
+	AVERAGE_INTENT = 0.5 * AVERAGE_INTENT + 0.5 * intent
+
+	sig := math.Sqrt((intent-AVERAGE_INTENT)*(intent-AVERAGE_INTENT)/(AVERAGE_INTENT*AVERAGE_INTENT))
+
+	//fmt.Println("*",eplen,"ticks, Issues=", ARTICLE_ISSUES," WORK=(",balance,"/",total,")= align(",balance/total,")","intent variance=",intent,anomaly)
+
+	// Divide the alignment -1 < a < +1 of user intent into finite classes
+	align_class := int(align/0.1)
+	ALIGNMENT[align_class]++
+	days := duration / DAY
+
+	// Save data
+
+	const filename = "../data/ML/alignment_intent_delta_t"
+	data := fmt.Sprintf("%f %f %f",align,sig,days)
+	TT.AppendStringToFile(filename,data)
+
+	if sig > 1.5 {
+		fmt.Printf("\n Anomalous message intent -- (%s) = %f\n\n",message,sig)
 		Extend(context,"anomalous_message")
 	}
 
 	if assess < TT.ASSESS_PAR {
 
 		if len(rm) > 100 {
-			fmt.Printf(" --> RM %.20s ...(len=%d)\n",rm,len(rm))
+			fmt.Printf("\n --> RM %.100s ...(len=%d)\n\n",rm,len(rm))
 		}
 
 		if strings.Contains(add,"http") {
 			Extend(context,"url_warning")
 		} else if len(add) > 100 {
-			fmt.Printf(" <-- ADD %.20s ...(len=%d)\n",add,len(add))
+			fmt.Printf("\n <-- ADD %.100s ...(len=%d)\n\n",add,len(add))
 		}
 	}
 
@@ -1049,7 +1099,7 @@ func DiffPage(url string) (string,string,string) {
 				attend = true
 			}
 		}
-		
+
 		switch tokenType {
 			
 		case html.ErrorToken:
