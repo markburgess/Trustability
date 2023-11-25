@@ -148,7 +148,7 @@ func Freq(data map[string]int,title string){
 		freq[data[val]]++
 	}
 
-	for class := range data {
+	for class := range freq {
 		keys = append(keys,class)
 	}
 
@@ -790,7 +790,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			}
 			
 
-			//fmt.Println("CONTEXT tick",episode,"/",i,context)
+			fmt.Println("CONTEXT tick",episode,"/",i,context)
 
 			context = make(map[string]int)
 
@@ -860,7 +860,7 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 		Extend(context,"large_deletion")
 	}
 
-	/* Pick some arbitrary signals
+	// Pick some arbitrary signals
 
 	var bad_signals = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice","unsourced"}
 	var bad_flag = false
@@ -876,7 +876,7 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 	if bad_flag {
 		fmt.Printf("\n Intentional heuristic in messaging -- (%s)\n",sign)
 		Extend(context,"counter_policy_message")
-	}*/
+	}
 
 	intent := TT.StaticIntent(G,message)
 

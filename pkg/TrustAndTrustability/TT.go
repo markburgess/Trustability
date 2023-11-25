@@ -1049,15 +1049,15 @@ func GetPromiseHistory(g Analytics, collname, key string) (bool,PromiseHistory,A
 
 // **************************************************
 
-func LearnUpdateKeyValue(g Analytics, coll_name, key string, q float64, units string) PromiseHistory {
+func LearnUpdateKeyValue(g Analytics, coll_name, key string, now int64, q float64, units string) PromiseHistory {
+
+	// now should be time.Now().UnixNano()
 
 	var e PromiseHistory
 
 	e.PromiseId = key
 
 	// Slide derivative window
-
-	now := time.Now().UnixNano()
 
 	// time is weird in go. Duration is basically int64 in nanoseconds
 
@@ -1233,7 +1233,7 @@ func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time)
 
 	dtau := dt/db * b
 
-	e := LearnUpdateKeyValue(g,"observables",key,b,"ns")
+	e := LearnUpdateKeyValue(g,"observables",key,time.Now().UnixNano(),b,"ns")
 
 	var lastlatency,lasttime KeyValue
 
@@ -2757,6 +2757,8 @@ func GetUnixTimeKey(now int64) string {
 
 func GetAllWeekMemory(g Analytics, collname string) []float64 {
 
+	// Single key value returns
+
 	var now int64
 	var data []float64
 
@@ -2774,6 +2776,8 @@ func GetAllWeekMemory(g Analytics, collname string) []float64 {
 
 func AddUnixTimeToWeekMemory(g Analytics, collname string, t int64, value float64) {
 
+	// Single key value update by unix time key
+
 	var kv KeyValue
 	kv.K = GetUnixTimeKey(t)
 	kv.V = value
@@ -2783,6 +2787,8 @@ func AddUnixTimeToWeekMemory(g Analytics, collname string, t int64, value float6
 // ****************************************************************************
 
 func AddTimeToWeekMemory(g Analytics, collname string, t time.Time, value float64) {
+
+	// Single key value update by golang time key
 
 	var kv KeyValue
 	_,kv.K = DoughNowt(t)
