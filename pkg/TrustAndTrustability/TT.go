@@ -2745,16 +2745,37 @@ func DoughNowt(then time.Time) (string,string) {
 
 // ****************************************************************************
 
-func GetWeekMemory(name string) {
+func GetUnixTimeKey(t int64) string {
+
+	t := time.Unix(now, 0)
+	_,slot := DoughNowt(t)
+
+	return slot
+}
+
+// ****************************************************************************
+
+func GetWeekMemory(g, Analytics, collname string) []int64 {
 
 	var now int64
+	var data []int64
 
 	for now = CF_MONDAY_MORNING; now < CF_MONDAY_MORNING + SECONDS_PER_WEEK; now += CF_MEASURE_INTERVAL {
 
-		t := time.Unix(now, 0)
-		_,slot := DoughNowt(t)
-		fmt.Println(slot)
+		slot := GetUnixTimeKey(now)
+		kv := GetKV(g, collname, slot)
+		data = append(data,kv.Value)
 	}
+
+	return data
+}
+
+// ****************************************************************************
+
+func AddWeekMemory(g Analytics, collname, t int64, value float64) {
+
+	key := GetKeyName
+	AddKV(g,name,kv)
 }
 
 // ****************************************************************************
