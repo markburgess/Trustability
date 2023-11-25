@@ -1204,7 +1204,7 @@ func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time)
 
 	// Semantic donut time key ..
 
-	_, timeslot := DoughNowt()
+	_, timeslot := DoughNowt(time.Now())
 
 	key := ctx.Name+":"+timeslot
 
@@ -2690,15 +2690,32 @@ var GR_SHIFT_TEXT = []string{
         "Evening",
     }
 
+// For second resolution Unix time
+
+const CF_MONDAY_MORNING = 345200
+const CF_MEASURE_INTERVAL = 5*60
+const CF_SHIFT_INTERVAL = 6*3600
+
+const MINUTES_PER_HOUR = 60
+const SECONDS_PER_MINUTE = 60
+const SECONDS_PER_HOUR = (60 * SECONDS_PER_MINUTE)
+const SECONDS_PER_DAY = (24 * SECONDS_PER_HOUR)
+const SECONDS_PER_WEEK = (7 * SECONDS_PER_DAY)
+const SECONDS_PER_YEAR = (365 * SECONDS_PER_DAY)
+const HOURS_PER_SHIFT = 6
+const SECONDS_PER_SHIFT = (HOURS_PER_SHIFT * SECONDS_PER_HOUR)
+const SHIFTS_PER_DAY = 4
+const SHIFTS_PER_WEEK = (4*7)
+
 // ****************************************************************************
 // Semantic timeslots
 // ****************************************************************************
 
-func DoughNowt() (string,string) {
+func DoughNowt(then time.Time) (string,string) {
 
 	// Time on the torus
 
-	then := time.Now()
+	//then := time.Now()
 
 	year := fmt.Sprintf("Yr%d",then.Year())
 	month := GR_MONTH_TEXT[int(then.Month())-1]
@@ -2715,15 +2732,29 @@ func DoughNowt() (string,string) {
 	dow := fmt.Sprintf("%.3s",dayname)
 	daynum := fmt.Sprintf("Day%d",day)
 
+	// 5 minute resolution capture
         interval_start := (then.Minute() / 5) * 5
         interval_end := (interval_start + 5) % 60
         minD := fmt.Sprintf("Min%02d_%02d",interval_start,interval_end)
 
 	var when string = fmt.Sprintf("%s,%s,%s,%s,%s at %s %s %s %s",shift,dayname,daynum,month,year,hour,mins,quarter,minD)
-
 	var key string = fmt.Sprintf("%s:%s:%s",dow,hour,minD)
 
 	return when, key
+}
+
+// ****************************************************************************
+
+func GetWeekMemory(name string) {
+
+	var now int64
+
+	for now = CF_MONDAY_MORNING; now < CF_MONDAY_MORNING + SECONDS_PER_WEEK; now += CF_MEASURE_INTERVAL {
+
+		t := time.Unix(now, 0)
+		_,slot := DoughNowt(t)
+		fmt.Println(slot)
+	}
 }
 
 // ****************************************************************************
