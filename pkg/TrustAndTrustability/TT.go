@@ -2745,7 +2745,7 @@ func DoughNowt(then time.Time) (string,string) {
 
 // ****************************************************************************
 
-func GetUnixTimeKey(t int64) string {
+func GetUnixTimeKey(now int64) string {
 
 	t := time.Unix(now, 0)
 	_,slot := DoughNowt(t)
@@ -2755,16 +2755,16 @@ func GetUnixTimeKey(t int64) string {
 
 // ****************************************************************************
 
-func GetWeekMemory(g, Analytics, collname string) []int64 {
+func GetAllWeekMemory(g Analytics, collname string) []float64 {
 
 	var now int64
-	var data []int64
+	var data []float64
 
 	for now = CF_MONDAY_MORNING; now < CF_MONDAY_MORNING + SECONDS_PER_WEEK; now += CF_MEASURE_INTERVAL {
 
 		slot := GetUnixTimeKey(now)
 		kv := GetKV(g, collname, slot)
-		data = append(data,kv.Value)
+		data = append(data,kv.V)
 	}
 
 	return data
@@ -2772,10 +2772,22 @@ func GetWeekMemory(g, Analytics, collname string) []int64 {
 
 // ****************************************************************************
 
-func AddWeekMemory(g Analytics, collname, t int64, value float64) {
+func AddUnixTimeToWeekMemory(g Analytics, collname string, t int64, value float64) {
 
-	key := GetKeyName
-	AddKV(g,name,kv)
+	var kv KeyValue
+	kv.K = GetUnixTimeKey(t)
+	kv.V = value
+	AddKV(g,collname,kv)
+}
+
+// ****************************************************************************
+
+func AddTimeToWeekMemory(g Analytics, collname string, t time.Time, value float64) {
+
+	var kv KeyValue
+	_,kv.K = DoughNowt(t)
+	kv.V = value
+	AddKV(g,collname,kv)
 }
 
 // ****************************************************************************
