@@ -42,9 +42,262 @@ import (
 	"github.com/arangodb/go-driver/http"
 )
 
+
+// **********************************************************************
+// Promise Context
+// **********************************************************************
+
+func PromiseContext_Begin(g Analytics, name string) PromiseContext {
+
+	before := time.Now()
+	return StampedPromiseContext_Begin(g, name, before)
+}
+
+// **********************************************************************
+
+func StampedPromiseContext_Begin(g Analytics, name string, before time.Time) PromiseContext {
+
+	// Set up memory for history, register callbacks
+
+	var ctx PromiseContext
+	ctx.Time = before
+	ctx.Name = KeyName(name,0)
+
+	// *** begin ANTI-SPAM/DOS PROTECTION ***********
+
+	ifelapsed := int64(30)   // these params should be policy
+	expireafter := int64(60)
+
+	now := time.Now().UnixNano()
+
+	ctx.Plock = BeginService(name,ifelapsed,expireafter, now) 
+
+	// *** end ANTI-SPAM/DOS PROTECTION ***********
+
+	return ctx
+}
+
+// **********************************************************************
+
+func PromiseContext_End(g Analytics, ctx PromiseContext) PromiseHistory {
+
+	after := time.Now()
+	return StampedPromiseContext_End(g,ctx,after)
+}
+
+// **********************************************************************
+
+func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time) PromiseHistory {
+
+	before := ctx.Time
+
+	EndService(ctx.Plock)
+
+	const collname = "conn"
+	var key string
+
+	// Semantic donut time key ..
+
+	_, timeslot := DoughNowt(time.Now())
+	
+	if ctx.Name == "" {
+		key = timeslot
+	} else {
+		key = ctx.Name+":"+timeslot
+	}
+	
+	// make b = promise execution interval (latency) in this case
+
+	b := float64(after.Sub(before)) // time difference now-previous
+
+	// Direct db writes, these are separated from the time-based averaging
+
+	previous_value := GetKV(g,collname,ctx.Name+"latency")
+	previous_time := GetKV(g,collname,ctx.Name+"lasteen")
+
+	var dt,db float64
+
+	if previous_time.V == 0 {
+		dt = 300 * NANO  // default bootstrap
+	} else {
+		dt = float64(after.UnixNano()) - previous_time.V
+	}
+
+	if previous_value.V == 0 {
+		db = b/2         // default bootstrap
+	} else {
+ 		db = b - previous_value.V
+	}
+
+	dtau := dt/db * b
+
+	e := LearnUpdateKeyValue(g,"BeginEndLocks",key,time.Now().UnixNano(),b,"ns")
+
+	var lastlatency,lasttime KeyValue
+
+	// Make the values latency
+
+	lastlatency.K = ctx.Name+"latency"
+	lastlatency.V = b
+
+	lasttime.K = ctx.Name+"lastseen"
+	lasttime.V = float64(after.UnixNano())
+
+	Println("------- INSTRUMENTATION --------------")
+
+	AddKV(g,collname,lastlatency)
+	AddKV(g,collname,lasttime)
+
+	Println("   Location:", ctx.Name+collname)
+	Println("   Promise duration b (ms)", e.Q/MILLI,"=",b/MILLI)
+	Println("   Running average 50/50", e.Q_av/NANO)
+
+	Println("   Change in promise since last sample",db)
+	Println("   Promise derivative b/s", db/dt)
+	Println("")
+	Println("   Time since last sample (s) phase",dt/NANO)
+	Println("   Time signal uncertainty dtau (s) group",dtau/NANO)
+	Println("   Running average sampling interval",e.Dt_av/NANO)
+	Println("------- INSTRUMENTATION --------------")
+	return e
+}
+
+// **********************************************************************
+
+func AssessPromiseOutcome(g Analytics, e PromiseHistory, assessed_quality,promise_upper_bound,trust_interval float64) float64 {
+
+	promised_ns := promise_upper_bound * NANO
+	trust_ns := trust_interval * NANO
+
+	key := e.PromiseId
+
+	// This function decides the kinetic trust and adjusts the potential
+	// V based on real time promise keeping. It doesn't consider the initial
+	// determination of V -- i.e. whether we want to talk to the other agent
+	// at all (as in security)
+
+	var sig float64 = math.Sqrt(e.Q_var)
+
+	// Here we've measured the timing and we've looked at the content
+	// Now we need to determine the promise-kept assessment degree
+	// and adjust the long term history for this promise
+
+	// The trouble is that we don't usually know what was promised...
+
+	promise_level := 1/(1+math.Exp(3*(e.Q-promised_ns)/promised_ns))
+
+	fmt.Println("Promise level",promise_level,"+-",sig/promised_ns,"raw",e.Q/NANO,promise_upper_bound)
+
+	if e.Dt_av == 0 {
+		e.Dt_av = 1.0
+	}
+
+	fmt.Println("Assessing expected sampling interval",float64(e.T)/e.Dt_av)
+	fmt.Println("Assessing desired sampling interval",float64(e.T)/trust_ns)
+
+	// The assessed payload is the user defined arbitrary up or downvote
+	// How well did we keep our promise payload?
+
+	fmt.Println("Assessing expected Q level",float64(e.Q)/e.Q_av)
+	fmt.Println("Assessing desired Q level",float64(e.Q)/promised_ns)
+	fmt.Println("Assessing payload",assessed_quality)
+
+	fmt.Println("Assessing level change",(e.Q-e.Q1)/promised_ns)
+
+	// Get our previous estimate of reliability
+
+	reliability := GetKV(g,"PromiseKeeping",key)
+
+	if reliability.V == 0 {
+
+		reliability.V = 0.5 // Start evens
+	}
+
+	// Q is always positive (latency here...)
+ 	// Some assessments of the event's general timeliness
+	// A significant timescale for latency is 0.1 second?
+
+	delta := promise_level * assessed_quality
+
+	if math.Abs(e.Q_av) < sig {  // Down vote for noisy behaviour
+
+		fmt.Println("1.PENALTY!")
+		delta = delta / 1.5
+	}
+
+	// derivatives are possible signs of stress / coping (confidence)
+	// if first first second derivatives are growing, this is not good for latency
+
+	dqdt := FirstDerivative(e,promised_ns,trust_ns)
+	d2qdt2 := SecondDerivative(e,promised_ns,trust_ns)
+
+	const sensitivity = 0.01 // should this be the same for 1st and second?
+
+	if dqdt < -sensitivity {
+		fmt.Println("Gradient reducing (spot measure)")
+		delta = delta + 0.1
+	} else if dqdt > sensitivity {
+		fmt.Println("Gradient increasing (spot measure)")
+		delta = delta - 0.1
+		fmt.Println("2.PENALTY!")
+	}
+
+	if d2qdt2 < -sensitivity {
+		fmt.Println("Curvature decelerating (positive force)")
+		delta = delta + 0.1
+	} else if d2qdt2 > sensitivity {
+		fmt.Println("Curvature accelerating (negative force)")
+		delta = delta - 0.1
+		fmt.Println("3.PENALTY!")
+	}
+
+	//if math.Fabs(SecondDeriv(e)) > SCALE {
+	//	delta = delta - 0.5
+	//}
+
+	// Adjust reliability according to timing AND quality
+
+	fmt.Println("Old ML running reliability(delta)",reliability.V)
+
+	if delta < 0 {
+
+		delta = 0
+	}
+
+
+	reliability.K = key
+	reliability.V = reliability.V * 0.4 + delta * 0.6
+
+	fmt.Println("New ML running reliability(delta)",reliability.V,delta)
+
+	AddKV(g,"PromiseKeeping",reliability)
+
+	return reliability.V
+}
+
 // ***************************************************************************
+//
+//  DATA PRISM 
+//
+// ***************************************************************************
+
+func TextPrism(subject, mainpage string, paragraph_radius int) [MAXCLUSTERS]map[string]float64 {
+
+	LEG_WINDOW = paragraph_radius
+	LEG_SELECTIONS = make([]string,0)
+
+	selected,ltm := FractionateSentences(mainpage)
+
+	ReviewAndSelectEvents(subject,selected)		
+
+	pagetopics := RankByIntent(selected,ltm)
+
+	return LongitudinalPersistentConcepts(pagetopics)
+}
+
+// ***************************************************************************
+
 // Some datatypes
-// ***************************************************************************
 
 type Name string
 type List []string
@@ -77,26 +330,6 @@ S_Episodes A.Collection
 
 // Chain memory 
 previous_event_key map[string]Node
-}
-
-// ***************************************************************************
-// Example and for use as histograms
-// ***************************************************************************
-
-type KeyValue struct {
-
-	K  string  `json:"_key"`
-	R  string  `json:"raw_key"`
-	V  float64 `json:"value"`
-}
-
-// ***************************************************************************
-
-type Lock struct {
-
-	Ready bool
-	This  string
-	Last  string
 }
 
 // ***************************************************************************
@@ -765,7 +998,18 @@ func fnvhash(b []byte) string { // Currently trusting this to have no collisions
         return fmt.Sprintf("key_%d",h)
 }
 
-// **************************************************
+// ***************************************************************************
+// Key-Value storage
+// ***************************************************************************
+
+type KeyValue struct {
+
+	K  string  `json:"_key"`
+	R  string  `json:"raw_key"`
+	V  float64 `json:"value"`
+}
+
+// ***************************************************************************
 
 func AddKV(g Analytics, collname string, kv KeyValue) {
 
@@ -824,8 +1068,6 @@ func GetKV(g Analytics, collname, key string) KeyValue {
 	return kv
 }
 
-//****************************************************
-// FLOAT KV
 //****************************************************
 
 func SaveNgrams(g Analytics,invariants [MAXCLUSTERS]map[string]float64) {
@@ -1147,234 +1389,6 @@ func LoadPromiseHistoryKV2Map(g Analytics, coll_name string, extkv map[string]Pr
 		}
 	}
 }
-
-// **********************************************************************
-// Promise Context
-// **********************************************************************
-
-func PromiseContext_Begin(g Analytics, name string) PromiseContext {
-
-	before := time.Now()
-	return StampedPromiseContext_Begin(g, name, before)
-}
-
-// **********************************************************************
-
-func StampedPromiseContext_Begin(g Analytics, name string, before time.Time) PromiseContext {
-
-	// Set up memory for history, register callbacks
-
-	var ctx PromiseContext
-	ctx.Time = before
-	ctx.Name = KeyName(name,0)
-
-	// *** begin ANTI-SPAM/DOS PROTECTION ***********
-
-	ifelapsed := int64(30)   // these params should be policy
-	expireafter := int64(60)
-
-	now := time.Now().UnixNano()
-
-	ctx.Plock = BeginService(name,ifelapsed,expireafter, now) 
-
-	// *** end ANTI-SPAM/DOS PROTECTION ***********
-
-	return ctx
-}
-
-// **********************************************************************
-
-func PromiseContext_End(g Analytics, ctx PromiseContext) PromiseHistory {
-
-	after := time.Now()
-	return StampedPromiseContext_End(g,ctx,after)
-}
-
-// **********************************************************************
-
-func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time) PromiseHistory {
-
-	before := ctx.Time
-
-	EndService(ctx.Plock)
-
-	const collname = "conn"
-
-	// Semantic donut time key ..
-
-	_, timeslot := DoughNowt(time.Now())
-
-	key := ctx.Name+":"+timeslot
-
-	// make b = promise execution interval (latency) in this case
-
-	b := float64(after.Sub(before)) // time difference now-previous
-
-	// Direct db writes, these are separated from the time-based averaging
-
-	previous_value := GetKV(g,collname,ctx.Name+"latency")
-	previous_time := GetKV(g,collname,ctx.Name+"lasteen")
-
-	var dt,db float64
-
-	if previous_time.V == 0 {
-		dt = 300 * NANO  // default bootstrap
-	} else {
-		dt = float64(after.UnixNano()) - previous_time.V
-	}
-
-	if previous_value.V == 0 {
-		db = b/2         // default bootstrap
-	} else {
- 		db = b - previous_value.V
-	}
-
-	dtau := dt/db * b
-
-	e := LearnUpdateKeyValue(g,"BeginEndLocks",key,time.Now().UnixNano(),b,"ns")
-
-	var lastlatency,lasttime KeyValue
-
-	// Make the values latency
-
-	lastlatency.K = ctx.Name+"latency"
-	lastlatency.V = b
-
-	lasttime.K = ctx.Name+"lastseen"
-	lasttime.V = float64(after.UnixNano())
-
-	Println("------- INSTRUMENTATION --------------")
-
-	AddKV(g,collname,lastlatency)
-	AddKV(g,collname,lasttime)
-
-	Println("   Location:", ctx.Name+collname)
-	Println("   Promise duration b (ms)", e.Q/MILLI,"=",b/MILLI)
-	Println("   Running average 50/50", e.Q_av/NANO)
-
-	Println("   Change in promise since last sample",db)
-	Println("   Promise derivative b/s", db/dt)
-	Println("")
-	Println("   Time since last sample (s) phase",dt/NANO)
-	Println("   Time signal uncertainty dtau (s) group",dtau/NANO)
-	Println("   Running average sampling interval",e.Dt_av/NANO)
-	Println("------- INSTRUMENTATION --------------")
-	return e
-}
-
-// **********************************************************************
-
-func AssessPromiseOutcome(g Analytics, e PromiseHistory, assessed_quality,promise_upper_bound,trust_interval float64) float64 {
-
-	promised_ns := promise_upper_bound * NANO
-	trust_ns := trust_interval * NANO
-
-	key := e.PromiseId
-
-	// This function decides the kinetic trust and adjusts the potential
-	// V based on real time promise keeping. It doesn't consider the initial
-	// determination of V -- i.e. whether we want to talk to the other agent
-	// at all (as in security)
-
-	var sig float64 = math.Sqrt(e.Q_var)
-
-	// Here we've measured the timing and we've looked at the content
-	// Now we need to determine the promise-kept assessment degree
-	// and adjust the long term history for this promise
-
-	// The trouble is that we don't usually know what was promised...
-
-	promise_level := 1/(1+math.Exp(3*(e.Q-promised_ns)/promised_ns))
-
-	fmt.Println("Promise level",promise_level,"+-",sig/promised_ns,"raw",e.Q/NANO,promise_upper_bound)
-
-	if e.Dt_av == 0 {
-		e.Dt_av = 1.0
-	}
-
-	fmt.Println("Assessing expected sampling interval",float64(e.T)/e.Dt_av)
-	fmt.Println("Assessing desired sampling interval",float64(e.T)/trust_ns)
-
-	// The assessed payload is the user defined arbitrary up or downvote
-	// How well did we keep our promise payload?
-
-	fmt.Println("Assessing expected Q level",float64(e.Q)/e.Q_av)
-	fmt.Println("Assessing desired Q level",float64(e.Q)/promised_ns)
-	fmt.Println("Assessing payload",assessed_quality)
-
-	fmt.Println("Assessing level change",(e.Q-e.Q1)/promised_ns)
-
-	// Get our previous estimate of reliability
-
-	reliability := GetKV(g,"PromiseKeeping",key)
-
-	if reliability.V == 0 {
-
-		reliability.V = 0.5 // Start evens
-	}
-
-	// Q is always positive (latency here...)
- 	// Some assessments of the event's general timeliness
-	// A significant timescale for latency is 0.1 second?
-
-	delta := promise_level * assessed_quality
-
-	if math.Abs(e.Q_av) < sig {  // Down vote for noisy behaviour
-
-		fmt.Println("1.PENALTY!")
-		delta = delta / 1.5
-	}
-
-	// derivatives are possible signs of stress / coping (confidence)
-	// if first first second derivatives are growing, this is not good for latency
-
-	dqdt := FirstDerivative(e,promised_ns,trust_ns)
-	d2qdt2 := SecondDerivative(e,promised_ns,trust_ns)
-
-	const sensitivity = 0.01 // should this be the same for 1st and second?
-
-	if dqdt < -sensitivity {
-		fmt.Println("Gradient reducing (spot measure)")
-		delta = delta + 0.1
-	} else if dqdt > sensitivity {
-		fmt.Println("Gradient increasing (spot measure)")
-		delta = delta - 0.1
-		fmt.Println("2.PENALTY!")
-	}
-
-	if d2qdt2 < -sensitivity {
-		fmt.Println("Curvature decelerating (positive force)")
-		delta = delta + 0.1
-	} else if d2qdt2 > sensitivity {
-		fmt.Println("Curvature accelerating (negative force)")
-		delta = delta - 0.1
-		fmt.Println("3.PENALTY!")
-	}
-
-	//if math.Fabs(SecondDeriv(e)) > SCALE {
-	//	delta = delta - 0.5
-	//}
-
-	// Adjust reliability according to timing AND quality
-
-	fmt.Println("Old ML running reliability(delta)",reliability.V)
-
-	if delta < 0 {
-
-		delta = 0
-	}
-
-
-	reliability.K = key
-	reliability.V = reliability.V * 0.4 + delta * 0.6
-
-	fmt.Println("New ML running reliability(delta)",reliability.V,delta)
-
-	AddKV(g,"PromiseKeeping",reliability)
-
-	return reliability.V
-}
-
 // **********************************************************************
 // VARIOUS
 // **********************************************************************
@@ -2704,7 +2718,7 @@ const SHIFTS_PER_DAY = 4
 const SHIFTS_PER_WEEK = (4*7)
 
 // ****************************************************************************
-// Semantic timeslots
+// Semantic spacetime timeslots
 // ****************************************************************************
 
 func DoughNowt(then time.Time) (string,string) {
@@ -2805,7 +2819,7 @@ func LearnWeeklyKV(g Analytics, collname string, t int64, value float64){
 
 // ****************************************************************************
 
-func AddWeekMemory_Unix(g Analytics, collname string, t int64, value float64) {
+func AddWeeklyKV_Unix(g Analytics, collname string, t int64, value float64) {
 
 	// Add a single key value to a weekly periodogram, update by Unix() time key
 
@@ -2817,7 +2831,7 @@ func AddWeekMemory_Unix(g Analytics, collname string, t int64, value float64) {
 
 // ****************************************************************************
 
-func AddWeekMemory_Go(g Analytics, collname string, t time.Time, value float64) {
+func AddWeeklyKV_Go(g Analytics, collname string, t time.Time, value float64) {
 
 	// Add a single key value to a weekly periodogram, update by Golang time.Time key
 
@@ -3614,6 +3628,13 @@ func Print(a ...any) (n int, err error) {
 
 const LOCKDIR = "/tmp" // this should REALLY be a private, secure location
 const NEVER = 0
+
+type Lock struct {
+
+	Ready bool
+	This  string
+	Last  string
+}
 
 // *****************************************************************
 

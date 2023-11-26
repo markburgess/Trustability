@@ -206,19 +206,12 @@ func AnalyzeTopicContext(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 
 	page_url := "https://en.wikipedia.org/wiki/" + subject
 
-	TT.LEG_WINDOW = 100           // Standard for narrative text
-	TT.LEG_SELECTIONS = make([]string,0)
-
 	mainpage := MainPage(page_url)
 
-	selected,ltm := TT.FractionateSentences(mainpage)
-
-	TT.ReviewAndSelectEvents(subject,selected)		
-
-	pagetopics := TT.RankByIntent(selected,ltm)
-
-	return TT.LongitudinalPersistentConcepts(pagetopics)
+	const paragraph_radius = 100
+	return TT.TextPrism(subject, mainpage, paragraph_radius)
 }
+
 // ***********************************************************
 
 func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]float64) {
