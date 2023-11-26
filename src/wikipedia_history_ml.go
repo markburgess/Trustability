@@ -711,7 +711,10 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 	burststart = changelog[0].Date.UnixNano()
 
-	ctx := TT.StampedPromiseContext_Begin(G, TT.KeyName(subject,0), changelog[0].Date)
+	// Set name to null string to collapse all subjects into (n)one
+	name := ""
+
+	ctx := TT.StampedPromiseContext_Begin(G, name, changelog[0].Date)
 
 	// Parse past timeline as Stamped History
 
@@ -799,7 +802,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			TT.StampedPromiseContext_End(G, ctx,changelog[i].Date)
 
 			if i+1 < len(changelog) {
-				ctx = TT.StampedPromiseContext_Begin(G, TT.KeyName(subject,0), changelog[i+1].Date)
+				ctx = TT.StampedPromiseContext_Begin(G, name, changelog[i+1].Date)
 			}
 
 			sum_burst_bytes = 0

@@ -1248,8 +1248,6 @@ func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time)
 	AddKV(g,collname,lastlatency)
 	AddKV(g,collname,lasttime)
 
-	//AddKV(g,ctx.Name+collname,lasttime)
-
 	Println("   Location:", ctx.Name+collname)
 	Println("   Promise duration b (ms)", e.Q/MILLI,"=",b/MILLI)
 	Println("   Running average 50/50", e.Q_av/NANO)
