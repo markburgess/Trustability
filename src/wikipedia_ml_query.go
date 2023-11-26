@@ -15,6 +15,8 @@
 //
 // e.g.
 //      go run wikipedia_ml_query.go
+//
+// Generates graph data based on machine learning analysis of wiki corpus
 // ***********************************************************
 
 package main
