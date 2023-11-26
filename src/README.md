@@ -5,23 +5,28 @@ These programs are proof of concept stubs and research tools associated with the
 
 (DISCLAIMER: these programs worked at the time of writing, but may cease to work as dependencies fail to keep the same promises.)
 
+Usage: 
  - `chatgpt_client.go`
  - `ngrams.go`
  - `ngrams-chinese.go`
- - `wikipedia_history.go` <verbose>
- - `wikipedia_history_db.go` <verbose>
- - `wikipedia_history_query.go` <topic>
- - `wikipedia_topic_query.go` <topic>
+ - `wikipedia_history.go <verbose>`
+ - `wikipedia_history_db.go <verbose>`
+ - `wikipedia_history_ml.go <verbose>`
+ - `wikipedia_history_query.go <topic>`
+ - `wikipedia_topic_query.go <topic>`
+ - `wikipedia_ml_query.go`
 
 The files:
 
 - `pkg/TrustAndTrustability` contains library code employing the Semantic Spacetime model
 
+Data plot generation:
+
 - `data/GeneratePlots` - utilities to generate data plots
---`datafit.go`
---`hierarchy_calc.go`
---`Nav.go` - calculate the average episodic group sizes from the data for the formula fit
---`Nexpect.go`  
+-`   datafit.go`
+-`   hierarchy_calc.go`
+-`   Nav.go` - calculate the average episodic group sizes from the data for the formula fit
+-`   Nexpect.go` - calculate the average episodic group sizes from the data for the formula fit
 
 - `data/ML` - Machine learning outputs for generating plots
 - `data/UserData` - Output for generating plots of user statistics
