@@ -2774,9 +2774,24 @@ func GetAllWeekMemory(g Analytics, collname string) []float64 {
 
 // ****************************************************************************
 
+func LearnSimpleKV(g Analytics, collname string, t int64, value float64){
+
+	// the time should be in time.Unix() second resolution
+
+	key := GetUnixTimeKey(t)
+
+	kv := GetKV(g,collname,key)
+
+	kv.K = key
+	kv.V = value + kv.V
+	AddKV(g,collname,kv)
+}
+
+// ****************************************************************************
+
 func AddUnixTimeToWeekMemory(g Analytics, collname string, t int64, value float64) {
 
-	// Single key value update by unix time key
+	// Single key value update by Unix() time key
 
 	var kv KeyValue
 	kv.K = GetUnixTimeKey(t)

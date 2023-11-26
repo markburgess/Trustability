@@ -22,9 +22,26 @@ set term pdf monochrome
 set output "anomaly_by_duration.pdf"
 plot "alignment_intent_delta_t" using 3:2 
 
-set xlabel "alignment"
+set xlabel "alignment" 
 set ylabel "anomaly"
 #set logscale
 set term pdf monochrome
 set output "anomaly_by_align.pdf"
 plot "alignment_intent_delta_t" using 1:2 
+
+
+set xlabel "week day" 
+set ylabel "contention"
+#set logscale
+set term pdf monochrome
+set style data lines
+set output "weekly_contention.pdf"
+plot "contention.dat" using 1:2:3 with  yerrorbars
+
+set xlabel "week day" 
+set ylabel "interaction"
+#set logscale
+set style data lines
+set term pdf monochrome
+set output "weekly_interactions.pdf"
+plot "interactions.dat" using 1:2:3 with yerrorbars
