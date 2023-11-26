@@ -1194,7 +1194,6 @@ func PromiseContext_End(g Analytics, ctx PromiseContext) PromiseHistory {
 
 func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time) PromiseHistory {
 
-	promiseID := ctx.Name
 	before := ctx.Time
 
 	EndService(ctx.Plock)
@@ -1213,8 +1212,8 @@ func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time)
 
 	// Direct db writes, these are separated from the time-based averaging
 
-	previous_value := GetKV(g,collname,promiseID+"latency")
-	previous_time := GetKV(g,collname,promiseID+"lasteen")
+	previous_value := GetKV(g,collname,ctx.Name+"latency")
+	previous_time := GetKV(g,collname,ctx.Name+"lasteen")
 
 	var dt,db float64
 
@@ -1232,16 +1231,16 @@ func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time)
 
 	dtau := dt/db * b
 
-	e := LearnUpdateKeyValue(g,"observables",key,time.Now().UnixNano(),b,"ns")
+	e := LearnUpdateKeyValue(g,"BeginEndLocks",key,time.Now().UnixNano(),b,"ns")
 
 	var lastlatency,lasttime KeyValue
 
 	// Make the values latency
 
-	lastlatency.K = promiseID+"latency"
+	lastlatency.K = ctx.Name+"latency"
 	lastlatency.V = b
 
-	lasttime.K = promiseID+"lastseen"
+	lasttime.K = ctx.Name+"lastseen"
 	lasttime.V = float64(after.UnixNano())
 
 	Println("------- INSTRUMENTATION --------------")
@@ -1249,9 +1248,9 @@ func StampedPromiseContext_End(g Analytics, ctx PromiseContext, after time.Time)
 	AddKV(g,collname,lastlatency)
 	AddKV(g,collname,lasttime)
 
-	//AddKV(g,promiseID+collname,lasttime)
+	//AddKV(g,ctx.Name+collname,lasttime)
 
-	Println("   Location:", promiseID+collname)
+	Println("   Location:", ctx.Name+collname)
 	Println("   Promise duration b (ms)", e.Q/MILLI,"=",b/MILLI)
 	Println("   Running average 50/50", e.Q_av/NANO)
 
