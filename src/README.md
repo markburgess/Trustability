@@ -28,6 +28,12 @@ Data plot generation:
 -`   Nav.go` - calculate the average episodic group sizes from the data for the formula fit
 -`   Nexpect.go` - calculate the average episodic group sizes from the data for the formula fit
 
+GNUplot files `gnuplot.in` are placed in relevant directories and are used to generate plots from data files:
+
+```
+  gnuplot < gnuplot.in
+```
+
 - `data/ML` - Machine learning outputs for generating plots
 - `data/UserData` - Output for generating plots of user statistics
 - `data/Wikipedia` - Output of wikipedia analysis
@@ -54,5 +60,12 @@ Data plot generation:
  - `wikipedia_history_query.go` - prints out the episodic process history from a database once created
  - `wikipedia_topic_query.go` - prints out the sampled storyline for a topic from the database once created
  - `wikipedia_ml_query.go` - generate some graph output of the machine learning profles using the API
+
+Data inputs:
+
+- `wiki_samples.in` - initial test set
+- `wiki_samples_control.in` - control set 
+- `wiki_samples_total.in` - full data set
+- `wiki_samples_short_test.in` - short test run
 
 For specifics about how to run each program see the top notes in the source code.
