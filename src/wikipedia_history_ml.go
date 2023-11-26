@@ -242,14 +242,9 @@ func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]fl
 
 	// Keep learning
 
-	remarks,ltm := TT.FractionateSentences(historypage)
+	remarks,_ := TT.FractionateSentences(historypage)
 	
-	TT.ReviewAndSelectEvents(subject + " edit history",remarks)		
-	
-	topics := TT.RankByIntent(remarks,ltm)
-	TT.Println("!!!!!!!!!!",topics)	
-//	invariants := TT.LongitudinalPersistentConcepts(topics)
-//	SaveProcessInvariants(invariants)
+	TT.ReviewAndSelectEvents(subject + " edit history",remarks)
 }
 
 // ***********************************************************
@@ -867,17 +862,15 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 
 	var bad_signals = []string{"fuck","cunt","bastard","unhelpful","unfair","too","deceiv","deceptive","terrorism","justice","unsourced"}
 	var bad_flag = false
-	var sign string
 
 	for s := range bad_signals {
 		if strings.Contains(strings.ToLower(message),bad_signals[s]) {
 			bad_flag = true
-			sign = bad_signals[s]
+			//fmt.Printf("\n Intentional heuristic in messaging -- (%s)\n",bad_signals[s])
 		}
 	}
 
 	if bad_flag {
-		fmt.Printf("\n Intentional heuristic in messaging -- (%s)\n",sign)
 		Extend(context,"counter_policy_message")
 	}
 
