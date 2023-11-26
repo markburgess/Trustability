@@ -723,7 +723,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 		// Signal content
 		cumulative_message += changelog[i].Message + " "
 
-		TT.LearnWeeklyKV(G, "interactions", changelog[i].Date.Unix(), 1.0)
+		TT.SumWeeklyKV(G, "interactions", changelog[i].Date.Unix(), 1.0)
 
 		if changelog[i].Revert > 0 && i > 1 {
 
@@ -732,7 +732,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			Extend(context,"explicit_undo")
 			Extend(context,"state_of_contention")
 			Extend(context,"state_of_uncertainty_about_article")
-			TT.LearnWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
+			TT.SumWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
 		}
 
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
@@ -742,7 +742,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			Extend(context,"effective_undo")
 			Extend(context,"state_of_contention")
 			Extend(context,"state_of_uncertainty_about_article")
-			TT.LearnWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
+			TT.SumWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
 		}
 
 		// *****
@@ -780,13 +780,13 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				fmt.Println("CONTEXT tick",episode,"/",i,context)
 			}
 
-			context = make(map[string]int)
 			TT.StampedPromiseContext_End(G, ctx,changelog[i].Date)
 
 			if i+1 < len(changelog) {
 				ctx = TT.StampedPromiseContext_Begin(G, name, changelog[i+1].Date)
 			}
 
+			context = make(map[string]int)
 			sum_burst_bytes = 0
 			edit_balance = 0
 			cumulative_message = ""
