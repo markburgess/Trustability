@@ -738,7 +738,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 		// Signal content
 		cumulative_message += changelog[i].Message + " "
 
-		TT.LearnSimpleKV(G, "interactions", changelog[i].Date.Unix(), 1.0)
+		TT.LearnWeeklyKV(G, "interactions", changelog[i].Date.Unix(), 1.0)
 
 		if changelog[i].Revert > 0 && i > 1 {
 
@@ -747,7 +747,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			Extend(context,"explicit_undo")
 			Extend(context,"state_of_contention")
 			Extend(context,"state_of_uncertainty_about_article")
-			TT.LearnSimpleKV(G, "contention", changelog[i].Date.Unix(), 1.0)
+			TT.LearnWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
 		}
 
 		if math.Abs(float64(changelog[i].EditDelta + last_delta)) < float64(last_delta)/10.0  {
@@ -757,7 +757,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			Extend(context,"effective_undo")
 			Extend(context,"state_of_contention")
 			Extend(context,"state_of_uncertainty_about_article")
-			TT.LearnSimpleKV(G, "contention", changelog[i].Date.Unix(), 1.0)
+			TT.LearnWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
 		}
 
 		// *****
@@ -789,8 +789,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			if sum_burst_bytes != 0 {
 				trust_level := AssessChanges(context,add,rm,cumulative_message,episode_len,edit_balance/sum_burst_bytes,burst_duration)
 				Extend(context,trust_level)
-			}
-			
+			}	
 
 			if TT.VERBOSE {
 				fmt.Println("CONTEXT tick",episode,"/",i,context)
