@@ -30,7 +30,6 @@ import (
 	"regexp"
 	"path"
 	"os"
-	"runtime"
 	"hash/fnv"
 	"time"
 	"math"
@@ -2713,9 +2712,10 @@ const SHIFTS_PER_WEEK = (4*7)
 
 func DoughNowt(then time.Time) (string,string) {
 
-	// Time on the torus
-
-	//then := time.Now()
+	// Time on the torus (donut/doughnut) (CFEngine style)
+	// The argument is a Golang time unit e.g. then := time.Now()
+	// Return a db-suitable keyname reflecting the coarse-grained SST time
+	// The function also returns a printable summary of the time
 
 	year := fmt.Sprintf("Yr%d",then.Year())
 	month := GR_MONTH_TEXT[int(then.Month())-1]
@@ -2747,6 +2747,10 @@ func DoughNowt(then time.Time) (string,string) {
 
 func GetUnixTimeKey(now int64) string {
 
+	// Time on the torus (donut/doughnut) (CFEngine style)
+	// The argument is in traditional UNIX "time_t" unit e.g. then := time.Unix()
+	// This is a simple wrapper to DoughNowt() returning only a db-suitable keyname
+
 	t := time.Unix(now, 0)
 	_,slot := DoughNowt(t)
 
@@ -2757,7 +2761,9 @@ func GetUnixTimeKey(now int64) string {
 
 func GetAllWeekMemory(g Analytics, collname string) []float64 {
 
-	// Single key value returns
+	// Used in Machine Learning of weekly patterns, keys labelled with DoughNowt()
+	// Returns a vector from Monday morning 00:00 to Sunday evening 11:55 in 5 min grains
+	// The collection name is assumed to point to an Arango KeyValue database collection
 
 	var now int64
 	var data []float64
@@ -2774,14 +2780,13 @@ func GetAllWeekMemory(g Analytics, collname string) []float64 {
 
 // ****************************************************************************
 
-func LearnSimpleKV(g Analytics, collname string, t int64, value float64){
+func SumWeeklyKV(g Analytics, collname string, t int64, value float64){
 
-	// the time should be in time.Unix() second resolution
+	// Create a cumuluative weekly periodogram database KeyValue store
+	// the time t should be in time.Unix() second resolution
 
 	key := GetUnixTimeKey(t)
-
 	kv := GetKV(g,collname,key)
-
 	kv.K = key
 	kv.V = value + kv.V
 	AddKV(g,collname,kv)
@@ -2789,9 +2794,23 @@ func LearnSimpleKV(g Analytics, collname string, t int64, value float64){
 
 // ****************************************************************************
 
-func AddUnixTimeToWeekMemory(g Analytics, collname string, t int64, value float64) {
+func LearnWeeklyKV(g Analytics, collname string, t int64, value float64){
 
-	// Single key value update by Unix() time key
+	// Create an averaging weekly periodogram database KeyValue store
+	// the time t should be in time.Unix() second resolution
+
+	key := GetUnixTimeKey(t)
+	kv := GetKV(g,collname,key)
+	kv.K = key
+	kv.V = 0.5 * value + 0.5 * kv.V
+	AddKV(g,collname,kv)
+}
+
+// ****************************************************************************
+
+func AddWeekMemory_Unix(g Analytics, collname string, t int64, value float64) {
+
+	// Add a single key value to a weekly periodogram, update by Unix() time key
 
 	var kv KeyValue
 	kv.K = GetUnixTimeKey(t)
@@ -2801,9 +2820,9 @@ func AddUnixTimeToWeekMemory(g Analytics, collname string, t int64, value float6
 
 // ****************************************************************************
 
-func AddTimeToWeekMemory(g Analytics, collname string, t time.Time, value float64) {
+func AddWeekMemory_Go(g Analytics, collname string, t time.Time, value float64) {
 
-	// Single key value update by golang time key
+	// Add a single key value to a weekly periodogram, update by Golang time.Time key
 
 	var kv KeyValue
 	_,kv.K = DoughNowt(t)
@@ -2812,33 +2831,16 @@ func AddTimeToWeekMemory(g Analytics, collname string, t time.Time, value float6
 }
 
 // ****************************************************************************
-
-func Here(depth int) string {
-
-        // Interal usage
-	p,fname,line, ok := runtime.Caller(depth)
-	
-	var location string
-
-	if ok {
-		var funcname = runtime.FuncForPC(p).Name()
-		fn := "function "+funcname
-		file := "file "+fname
-		lnr := fmt.Sprintf("line %d",line)
-		location = fmt.Sprintf(" in %s of %s at %s",fn,file,lnr)
-		
-	} else {
-		location = "unknown origin"
-	}
-	
-	return location
-}
-
-// ****************************************************************************
-// FRACTIONATION
+// 
+// FRACTIONATION tools for text into n-grams 
+// 
 // ****************************************************************************
 
 func ReadAndCleanFile(filename string) string {
+
+	// Read a string and strip out characters that can't be used in kenames
+	// to yield a "pure" text for n-gram classification, with fewer special chars
+	// The text marks end of sentence with a # for later splitting
 
 	content, _ := ioutil.ReadFile(filename)
 
@@ -2867,6 +2869,8 @@ func ReadAndCleanFile(filename string) string {
 	m6 := regexp.MustCompile("[^- a-zA-ZåøæÅØÆ.:,()!?\n]*")
 	stripped6 := m6.ReplaceAllString(stripped5,"")
 
+	// Encode end of sentence markers with a # for later splitting
+
 	m7 := regexp.MustCompile("[?!.]+")
 	mark := m7.ReplaceAllString(stripped6,"$0#")
 
@@ -2876,10 +2880,45 @@ func ReadAndCleanFile(filename string) string {
 	return cleaned
 }
 
+// *****************************************************************
+
+func HashcodeSentenceSplit(str string) string {
+
+	// Helper function for encoding end of sentence punctuation
+	// with hash markers. This is extracted from and duplicated 
+	// in ReadAndCleanFile() which preceded this helper.
+
+	var new string = ""
+
+	for i := 0; i < len(str); i++ {
+
+		new += string(str[i])
+
+		switch str[i] {
+		case '.':
+		case '!':
+		case '?':
+			if (i < len(str)-1 && str[i+1] == ' ') {
+				new += "#"
+			}
+
+		default:
+
+		}
+	}
+
+	new += " "
+
+	return new
+}
 
 // ***********************************************************
 
 func FractionateText2Ngrams(text string) [MAXCLUSTERS]map[string]float64 {
+
+	// Wrapper around simple text fractionator to return ngram map structure
+	// taking n-gram intentionality measures from the STM_NGRAM_RANK
+	// cumulative cross learning map. Raw, no sub-selection of text.
 
 	var ngrams [MAXCLUSTERS]map[string]float64
 
@@ -2891,12 +2930,8 @@ func FractionateText2Ngrams(text string) [MAXCLUSTERS]map[string]float64 {
 
 	r := regexp.MustCompile(search)
 	tmp := r.ReplaceAllString(difftext_0,"")
-	difftext := strings.TrimSpace(tmp)
-
-	// First get the context from the regions around changes
-
-	//edits
-	_,ltm := FractionateSentences(difftext)
+	cleantext := strings.TrimSpace(tmp)
+	_,ltm := FractionateSentences(cleantext)
 
 	for n := 1; n < MAXCLUSTERS; n++ {
 		ngrams[n] = make(map[string]float64)
@@ -2913,6 +2948,12 @@ func FractionateText2Ngrams(text string) [MAXCLUSTERS]map[string]float64 {
 
 func FractionateSentences(text string) ([]Narrative,[MAXCLUSTERS]map[string][]int) {
 
+	// Take a text as a single string and break into sentences.
+	// Return a time series of sub-selected Narrative structures of the highest
+	// Intentionality sentences (most "suspicious" or highest effort)
+	// along with an ltm (long term memory) frequency map of every occurrence
+	// by sentence number
+
 	var sentences []string
 	var selected_sentences []Narrative
 	var ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int
@@ -2920,8 +2961,6 @@ func FractionateSentences(text string) ([]Narrative,[MAXCLUSTERS]map[string][]in
 	for i := 1; i < MAXCLUSTERS; i++ {
 		ltm_every_ngram_occurrence[i] = make(map[string][]int)
 	} 
-
-	// Coordinatize the non-trivial sentences in terms of their ngrams
 
 	if len(text) == 0 {
 		return selected_sentences, ltm_every_ngram_occurrence
@@ -2960,8 +2999,9 @@ func FractionateSentences(text string) ([]Narrative,[MAXCLUSTERS]map[string][]in
 
 func SplitIntoSentences(text string) []string {
 	
-	// Note this regex split has the effect of removing .?!
-	
+	// Text previously encoded with sentence breaks as # now
+	// split into an array for n-gram analysis
+
 	re := regexp.MustCompile(".#")
 	sentences := re.Split(text, -1)
 	
@@ -2983,13 +3023,16 @@ func SplitIntoSentences(text string) []string {
 
 func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int,ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int) float64 {
 
+	// A round robin cyclic buffer for taking fragments and extracting
+	// n-ngrams of 1,2,3,4,5,6 words separateed by whitespace, passing
+
 	var rrbuffer [MAXCLUSTERS][]string
 	var sentence_meaning_rank float64 = 0
 	var rank float64
 	
-	// split on any punctuation here, because punctuation cannot be in the middle
-	// of an n-gram by definition of punctuation's promises
-	// THIS IS A PT +/- constraint
+	// split sentence on any residual punctuation here, because punctuation cannot be in the middle
+	// of an n-gram by definition of punctuation's promises, and we are not interested in word groups
+	// that unintentionally straddle punctuation markers, since they are false signals
 	
 	re := regexp.MustCompile("[,.;:!?]")
 	sentence_frags := re.Split(sentence, -1)
@@ -3025,12 +3068,15 @@ func FractionateThenRankSentence(s_idx int, sentence string, total_sentences int
 //**************************************************************
 
 func RankByIntent(selected_sentences []Narrative,ltm_every_ngram_occurrence [MAXCLUSTERS]map[string][]int) map[string]float64 {
-	
+
+	// Analyse the sub-selected narrative array structure and select phrases with
+	// top ranking intentionality, looking for a radius of repetition in the text
+	// as a sign of longitudinal persistence of concept. This assumes that phrases
+	// that are repeated in clusters throughout a text will be associated with concepts
+	// important to the text, i.e. strongly intended meaning in terms of work done
+
 	var topics = make(map[string]float64)
-	
 	sentences := len(selected_sentences)
-	
-	//Println("--------- Summarize ngram Intentionality threshold selection ---------------------------")
 	
 	for n := 1; n < MAXCLUSTERS; n++ {
 		
@@ -3048,10 +3094,6 @@ func RankByIntent(selected_sentences []Narrative,ltm_every_ngram_occurrence [MAX
 			if intent < LOWEST_INTENT_CUTOFF  {
 				continue
 			}
-
-			// Println(n,ngram,occurrences,STM_NGRAM_RANK[n][ngram],"---------",intent)
-
-			// if ngram of occurrences exceeds an expectation threshold in terms of length
 
 			last = 0
 
@@ -3095,20 +3137,23 @@ func RankByIntent(selected_sentences []Narrative,ltm_every_ngram_occurrence [MAX
 			}
 
 			av_delta := float64(sum_delta)/float64(occurrences)
-
+			
 			if (av_delta > 3) && (av_delta < float64(LEG_WINDOW) * 4) {
-
+				
 				topics[ngram] = intent
 			}
 		}
 	}
-
-return topics
+	
+	return topics
 }
 
 // *****************************************************************
 
 func LongitudinalPersistentConcepts(topics map[string]float64) [MAXCLUSTERS]map[string]float64 {
+
+	// From the Ranked By Intent n-grams, look for the top ranking persistent
+	// strings presumably represenative of key concepts in the text
 	
 	var sortable []Score
 	var invariants [MAXCLUSTERS]map[string]float64
@@ -3141,7 +3186,7 @@ func LongitudinalPersistentConcepts(topics map[string]float64) [MAXCLUSTERS]map[
 
 		invariants[n][sortable[i].Key] = sortable[i].Score
 
-		Printf("Particular theme/topic \"%s\" (= %f)\n", sortable[i].Key, sortable[i].Score)
+		Printf("Theme/topic \"%s\" (= %f)\n", sortable[i].Key, sortable[i].Score)
 	}
 
 	return invariants
@@ -3265,6 +3310,12 @@ func ReviewAndSelectEvents(filename string, selected_sentences []Narrative) {
 
 func StaticIntent(g Analytics,str string) float64 {
 
+	// Helper function for finding the intent associated with a
+	// dissociated fragment of text. The algorithm for intent
+	// is slightly different than for a long text, since we can't
+	// learn much from the short text itself. However, it still
+	// looks for normalized frequency * length
+
 	var total float64
 
 	if len(str) < 10 {
@@ -3273,9 +3324,9 @@ func StaticIntent(g Analytics,str string) float64 {
  
 	ngrams := FractionateText2Ngrams(str)
 
-	SaveNgrams(g,ngrams)
+	// Commit the n-gram scores to db for future experience
 
-	// Occurred here AND occurred before
+	SaveNgrams(g,ngrams)
 
 	for n := 1; n < MAXCLUSTERS; n++ {
 		for i := range ngrams[n] {
@@ -3289,6 +3340,11 @@ func StaticIntent(g Analytics,str string) float64 {
 //**************************************************************
 
 func Intentionality(n int, s string, sentence_count int) float64 {
+
+	// Compute the effective intent of a string s at a position count
+	// within a document of many sentences. The weighting due to
+	// inband learning uses an exponential deprecation based on
+	// SST scales (see "leg" meaning).
 
 	occurrences := STM_NGRAM_RANK[n][s]
 	work := float64(len(s))
@@ -3320,6 +3376,13 @@ return meaning
 //**************************************************************
 
 func AnnotateLeg(filename string, selected_sentences []Narrative, leg int, sentence_id_by_rank map[float64]int, this_leg_av_rank, max float64) {
+
+	// For each quasi paragraph or "leg" of a document text, we expect a persistence
+	// of intent over the region (in other words, an inertia for talking about the same
+	// thing) analyse the Narrative subselections to skim off only the most important
+	// intentional sentences at a fixed rate per leg. This captures spacetime process at
+	// a fixed rate of reporting so that we don't hop over large parts of the text that
+	// are stylistcally different.
 
 	var sentence_ranks []float64
 	var ranks_in_order []int
@@ -3464,15 +3527,19 @@ func NextWordAndUpdateLTMNgrams(s_idx int, word string, rrbuffer [MAXCLUSTERS][]
 
 func NarrationMarker(text string, rank float64, index int) Narrative {
 
-	var n Narrative
+	// Encapsulate components in struct
 
+	var n Narrative
+	
 	n.text = text
 	n.rank = rank
 	n.index = index
 
-return n
+	return n
 }
 
+//**************************************************************
+// Heuristics
 //**************************************************************
 
 func ExcludedByBindings(firstword,lastword string) bool {
@@ -3491,44 +3558,18 @@ func ExcludedByBindings(firstword,lastword string) bool {
 			return true
 		}
 	}
-
+	
 	for s := range FORBIDDEN_STARTER {
 		if firstword == FORBIDDEN_STARTER[s] {
 			return true
 		}
 	}
 
-return false 
+	return false 
 }
 
 // *****************************************************************
-
-func HubUniqueName(cluster map[string]int) string {
-
-	// Create a unique name from a unique set of names
-	// in a map index by ordering, composing, and hashing
-
-	var sortnames []string
-
-	for name := range cluster {
-		sortnames = append(sortnames,name)
-	}
-
-	sort.Strings(sortnames)
-
-	var ordered_string string
-
-	for n := range sortnames {
-		ordered_string += sortnames[n]
-	}
-
-	key := fnvhash([]byte(ordered_string))
-	return key
-}
-
-
-// *****************************************************************
-// * OUTPUT control
+// * OUTPUT debug control
 // *****************************************************************
 
 func Printf(format string, args ...interface{}) (n int, err error) {
@@ -3560,34 +3601,6 @@ func Print(a ...any) (n int, err error) {
 	} else {
 		return fmt.Print("")
 	}
-}
-
-// *****************************************************************
-
-func HashcodeSentenceSplit(str string) string {
-
-	var new string = ""
-
-	for i := 0; i < len(str); i++ {
-
-		new += string(str[i])
-
-		switch str[i] {
-		case '.':
-		case '!':
-		case '?':
-			if (i < len(str)-1 && str[i+1] == ' ') {
-				new += "#"
-			}
-
-		default:
-
-		}
-	}
-
-	new += " "
-
-	return new
 }
 
 // *****************************************************************
