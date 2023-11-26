@@ -287,11 +287,8 @@ func TextPrism(subject, mainpage string, paragraph_radius int) [MAXCLUSTERS]map[
 	LEG_SELECTIONS = make([]string,0)
 
 	selected,ltm := FractionateSentences(mainpage)
-
 	ReviewAndSelectEvents(subject,selected)		
-
 	pagetopics := RankByIntent(selected,ltm)
-
 	return LongitudinalPersistentConcepts(pagetopics)
 }
 
