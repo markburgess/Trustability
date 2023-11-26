@@ -42,6 +42,7 @@ func main() {
 
 	interactions := TT.GetAllWeekMemory(g, "interactions") 
 	contention :=  TT.GetAllWeekMemory(g, "contention") 
+	episodes :=  TT.GetAllWeekMemory(g, "BeginEndLocks") 
 
 	var q_av,q_var float64 = 0,0
 
@@ -60,6 +61,16 @@ func main() {
 		q_var = 0.7 * (contention[t]-q_av)*(contention[t]-q_av) + 0.3 * q_var
 		s := fmt.Sprintf("%d %f %f\n",t,q_av,math.Sqrt(q_var))
 		TT.AppendStringToFile("../data/ML/contention.dat", s)
+	}
+
+	q_av = 0
+	q_var = 0
+
+	for t := range episodes {
+		q_av = 0.7 * episodes[t] + 0.3 * q_av
+		q_var = 0.7 * (episodes[t]-q_av)*(episodes[t]-q_av) + 0.3 * q_var
+		s := fmt.Sprintf("%d %f %f\n",t,q_av,math.Sqrt(q_var))
+		TT.AppendStringToFile("../data/ML/episodes.dat", s)
 	}
 }
 

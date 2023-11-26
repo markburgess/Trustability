@@ -3,7 +3,7 @@
 
 This is part of a project to formulate a practical Promise Theory model of trust for our Internet and machine enabled age. It is not related to blockchain or so-called trustless technologies, and is not specifically based on cryptographic techniques. Rather it addresses trustworthiness as an assessment of reliability in keeping specific promises and trust as a tendency to monitor or oversee these processes.
 
-The code presented here is free to use, but it is to be thought of as a proof of concept, since much of it is tailored to the specific use cases for which data could be obtained.
+The code presented here is free to use, but it is to be thought of as a proof of concept, since much of it is tailored to the specific use cases for which data could be obtained. Although the code has been made to be general and reusable, it isn't at the level where is can simply be plugged into any software with a beneficial result. Much of what has been learned from developing the code indicates a simple approach that agrees quite well with the state classification model used in the CFEngine configuration management software (an early AI/ML based system assessment engine), yet even after 25 years of experience we don't know how to use it yet. So, I reckon we're still at the learning stage.
 
 The goal here is to investigate how we might use trust as a guiding potential in human-information systems.  For the semantic elaboration, the specific example of users interacting with Wikipedia to read and to write contributions is used for concreteness.  They should be viewed in parallel with the papers and documents available at http://markburgess.org/trustproject.html
 

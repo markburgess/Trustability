@@ -50,17 +50,25 @@ minute intervals. Most system interactions have correlation times of up to 20 mi
 which are turned into 5 minute intervals.
 
 These functions fail silently with empty data rather than raising internal errors. The main reason for failure is incorrect naming.
-
+```
  SumWeeklyKV(g Analytics, collname string, t int64, value float64)
  LearnWeeklyKV(g Analytics, collname string, t int64, value float64)
 
  AddWeeklyKV_Unix(g Analytics, collname string, t int64, value float64)
  AddWeeklyKV_Go(g Analytics, collname string, t time.Time, value float64)
-
-
+```
 To retrieve data from the learning store ordered by the working week, 
 
 ```
  GetAllWeekMemory(g Analytics, collname string) []float64 
 ```
 
+## Text n-gram analysis
+
+To scan a body of text, we first have to strip is clear of any encoding. Examples for handling UNICODE UTF-8 are given in the Chinese language n-gram example. One first selects an appropriate paragraph size for the kind of text one is analysing. For book text or narrative, a value of 100 is okay; for short notes a value of 10 is more appropriate. The learning radius determines the approximate amount of text that one considers to be coherently about the same thing. It affects the amount of the whole that gets subsampled during summarization.
+
+```
+	const paragraph_radius = 100
+	return TT.TextPrism(subject, text, paragraph_radius)
+```
+In verbose mode, these generate a lot of helpful output to help understand the analysis.
