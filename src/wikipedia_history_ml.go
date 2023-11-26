@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// To run, edit the list of pages if necessary and simply run 
-// (takes a long time to complete and generates a lot of output)
-// It generates/appends to a file /tmp/trust.dat (should not exist in advance)
+// ***********************************************************
 //
+// This is an example analysis using Wikipedia as a source
+// as used to generate the research data
 //      go run wikipedia_history_ml.go
 // ***********************************************************
 
@@ -209,6 +209,7 @@ func AnalyzeTopicContext(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 	mainpage := MainPage(page_url)
 
 	const paragraph_radius = 100
+
 	return TT.TextPrism(subject, mainpage, paragraph_radius)
 }
 
@@ -217,12 +218,6 @@ func AnalyzeTopicContext(subject string) [TT.MAXCLUSTERS]map[string]float64 {
 func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]float64) {
 
 	log_url := "https://en.wikipedia.org/w/index.php?title="+subject+"&action=history&offset=&limit=1000"
-
-	// Go straight to discussion (user behaviour)
-
-	TT.LEG_WINDOW = 10
-	TT.LEG_SELECTIONS = make([]string,0)
-	ARTICLE_ISSUES = 0
 
 	changelog := HistoryPage(log_url)
 
@@ -236,15 +231,14 @@ func AnalyzeTopicProcess(subject string, ngram_ctx [TT.MAXCLUSTERS]map[string]fl
 
 	// Look at signals from text analysis
 
+	ARTICLE_ISSUES = 0
+
 	HistoryAssessment(subject,changelog,ngram_ctx)
 
 	historypage := TotalText(changelog)
 
-	// Keep learning
-
-	remarks,_ := TT.FractionateSentences(historypage)
-	
-	TT.ReviewAndSelectEvents(subject + " edit history",remarks)
+	const paragraph_radius = 10
+	TT.TextPrism(subject, historypage, paragraph_radius)
 }
 
 // ***********************************************************
