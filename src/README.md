@@ -15,9 +15,20 @@ These programs are proof of concept stubs and research tools associated with the
 
 The files:
 
-- pkg/TrustAndTrustability contains library code employing the Semantic Spacetime model
+- `pkg/TrustAndTrustability` contains library code employing the Semantic Spacetime model
 
-- src/
+- `data/GeneratePlots` - utilities to generate data plots
+--`datafit.go`
+--`hierarchy_calc.go`
+--`Nav.go` - calculate the average episodic group sizes from the data for the formula fit
+--`Nexpect.go`  
+
+- `data/ML` - Machine learning outputs for generating plots
+- `data/UserData` - Output for generating plots of user statistics
+- `data/Wikipedia` - Output of wikipedia analysis
+- `data/WikipediaNoBots` - Output of wikipedia analysis without bots included
+
+- `src/`
 
  - `chatgpt_client.go` - POC interface to chatGPT
  - `chinese-strokes.dat` - datafile containing a histogram/database of chinese characters, frequency and number of strokes
