@@ -94,5 +94,9 @@ TT.InitializeContext()
 
 ContextAdd("busy")
 
+if TT.Context("busy || lazy && slow") {
+  // policy ...
+}
+
 fmt.Println("Context:",TT.ContextSet())
 ```
