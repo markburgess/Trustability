@@ -45,3 +45,11 @@ set style data lines
 set term pdf monochrome
 set output "weekly_interactions.pdf"
 plot "interactions.dat" using 1:2:3 with yerrorbars
+
+set xlabel "week day" 
+set ylabel "episode"
+#set logscale
+set style data lines
+set term pdf monochrome
+set output "weekly_episodes.pdf"
+plot "episodes.dat" using 1:2:3 with yerrorbars

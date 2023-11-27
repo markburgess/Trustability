@@ -1,5 +1,4 @@
 
-gnuplot
 set xlabel "Article length L"
 set ylabel "I/L"
 set title "0"
