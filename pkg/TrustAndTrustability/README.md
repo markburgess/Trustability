@@ -80,8 +80,11 @@ more powerful than several others, and does a similar job to Open Policy Agent, 
 y simple.
 
 -`InitializeContext()` - Reset and empty the set of active context classes
+
 -`ContextAdd(s string)` - Add a symbol idempotently to the context set
+
 -`ContextSet() []string` - Return an array of context symbols
+
 -`Context(expression string) bool` - Evaluate whether the expression is true or false in terms of its heuristic score
 
 Example:
