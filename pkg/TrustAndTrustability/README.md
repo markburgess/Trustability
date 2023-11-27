@@ -72,3 +72,24 @@ To scan a body of text, we first have to strip is clear of any encoding. Example
 	return TT.TextPrism(subject, text, paragraph_radius)
 ```
 In verbose mode, these generate a lot of helpful output to help understand the analysis.
+
+# Heuristics context
+
+The TT library also contains a heuristic symbol evaluator, CFEngine style. This remains a simple lightweight approach
+more powerful than several others, and does a similar job to Open Policy Agent, etc. The interface is deliberately
+y simple.
+
+-`InitializeContext()` - Reset and empty the set of active context classes
+-`ContextAdd(s string)` - Add a symbol idempotently to the context set
+-`ContextSet() []string` - Return an array of context symbols
+-`Context(expression string) bool` - Evaluate whether the expression is true or false in terms of its heuristic score
+
+Example:
+
+```
+TT.InitializeContext()
+
+ContextAdd("busy")
+
+fmt.Println("Context:",TT.ContextSet())
+```

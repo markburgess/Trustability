@@ -316,6 +316,56 @@ type ConnectionSemantics struct {
 type SemanticLinkSet map[string][]ConnectionSemantics
 
 // ****************************************************************************
+// Heuristic context, CFEngine style
+// ****************************************************************************
+
+var CONTEXT = make(map[string]int)
+
+// *******************************************************************************
+
+func ContextAdd(s string) {
+
+	CONTEXT[s]++
+}
+
+// *******************************************************************************
+
+func ContextSet() []string {
+
+	var result []string
+
+	for s := range CONTEXT {
+		if CONTEXT[s] > 0 {
+			result = append(result,s)
+		}
+	}
+
+	sort.Strings(result)
+
+	return result
+}
+
+// *******************************************************************************
+
+func InitializeContext() {
+
+	CONTEXT = make(map[string]int)
+}
+
+// *******************************************************************************
+
+func Context(s string) bool {
+
+	// Evalute general boolean expressions CFEngine style
+
+	if CONTEXT[s] > 0 {
+		return true
+	}
+
+	return false
+}
+
+// ****************************************************************************
 
 type Analytics struct {
 

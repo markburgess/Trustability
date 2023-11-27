@@ -682,12 +682,13 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 	var burststart int64
 	var edit_balance float64 = 0
 	var sum_burst_bytes float64 = 0
-	var context = make(map[string]int)
 	var lasttime float64
 	var cumulative_message string 
 	var add,rm string
 	const punctuation_scale = 5.0
 	const min_episode_duration = 2*DAY
+
+	TT.InitializeContext()
 
 	//var last_overlap int = 0
 
@@ -729,9 +730,9 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			ARTICLE_ISSUES++
 
-			Extend(context,"explicit_undo")
-			Extend(context,"state_of_contention")
-			Extend(context,"state_of_uncertainty_about_article")
+			TT.ContextAdd("explicit_undo")
+			TT.ContextAdd("state_of_contention")
+			TT.ContextAdd("state_of_uncertainty_about_article")
 			TT.SumWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
 		}
 
@@ -739,9 +740,9 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			ARTICLE_ISSUES++
 
-			Extend(context,"effective_undo")
-			Extend(context,"state_of_contention")
-			Extend(context,"state_of_uncertainty_about_article")
+			TT.ContextAdd("effective_undo")
+			TT.ContextAdd("state_of_contention")
+			TT.ContextAdd("state_of_uncertainty_about_article")
 			TT.SumWeeklyKV(G, "contention", changelog[i].Date.Unix(), 1.0)
 		}
 
@@ -751,7 +752,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 
 			// The appropriate unit is the episode
 
-			Extend(context,subject)
+			TT.ContextAdd(subject)
 
 			/* Let's assume this expensive check is not good investment...
 			ov,_ := FindNgramOverlap(ngram_ctx,ngram_prc)
@@ -762,7 +763,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			const threshold = 10
 
 			if interfer_rate * interfer_rate > threshold {
-				Extend(context,"observed_attention_change")
+				TT.ContextAdd("observed_attention_change")
 			}*/
 
 			if i < len(changelog)-1 {
@@ -772,13 +773,11 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 			// Checks
 
 			if sum_burst_bytes != 0 {
-				trust_level := AssessChanges(context,add,rm,cumulative_message,episode_len,edit_balance/sum_burst_bytes,burst_duration)
-				Extend(context,trust_level)
+				trust_level := AssessChanges(add,rm,cumulative_message,episode_len,edit_balance/sum_burst_bytes,burst_duration)
+				TT.ContextAdd(trust_level)
 			}	
 
-			if TT.VERBOSE {
-				fmt.Println("CONTEXT tick",episode,"/",i,context)
-			}
+			fmt.Println("CONTEXT tick",TT.ContextSet())
 
 			TT.StampedPromiseContext_End(G, ctx,changelog[i].Date)
 
@@ -786,7 +785,7 @@ func HistoryAssessment(subject string, changelog []WikiProcess, ngram_ctx [TT.MA
 				ctx = TT.StampedPromiseContext_Begin(G, name, changelog[i+1].Date)
 			}
 
-			context = make(map[string]int)
+			TT.InitializeContext()
 			sum_burst_bytes = 0
 			edit_balance = 0
 			cumulative_message = ""
@@ -814,7 +813,7 @@ func IsAnonymous(user string) bool {
 
 // *******************************************************************************
 
-func AssessChanges(context map[string]int,add,rm,message string, eplen int, align,duration float64) string {
+func AssessChanges(add,rm,message string, eplen int, align,duration float64) string {
 
 	add_len := len(add)
 	rm_len := len(rm)
@@ -843,13 +842,13 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 	if delta > change_limit_bytes || delta < -change_limit_bytes {
 		assess_s = TT.ASSESS_WEAK_S
 		assess = TT.ASSESS_WEAK
-		Extend(context,"large_edit")
+		TT.ContextAdd("large_edit")
 	}
 
 	if rm_len > add_len * 10 {
 		assess_s = TT.ASSESS_WEAK_S
 		assess = TT.ASSESS_WEAK
-		Extend(context,"large_deletion")
+		TT.ContextAdd("large_deletion")
 	}
 
 	// Pick some arbitrary signals
@@ -865,7 +864,7 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 	}
 
 	if bad_flag {
-		Extend(context,"counter_policy_message")
+		TT.ContextAdd("counter_policy_message")
 	}
 
 	intent := TT.StaticIntent(G,message)
@@ -892,7 +891,7 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 
 	if sig > 1.5 {
 		fmt.Printf("\n Anomalous message intent -- (%s) = %f\n\n",message,sig)
-		Extend(context,"anomalous_message")
+		TT.ContextAdd("anomalous_message")
 	}
 
 	if assess < TT.ASSESS_PAR {
@@ -902,7 +901,7 @@ func AssessChanges(context map[string]int,add,rm,message string, eplen int, alig
 		}
 
 		if strings.Contains(add,"http") {
-			Extend(context,"url_warning")
+			TT.ContextAdd("url_warning")
 		} else if len(add) > 100 {
 			fmt.Printf("\n <-- ADD %.100s ...(len=%d)\n\n",add,len(add))
 		}
@@ -921,13 +920,6 @@ func Merge(delta,total [TT.MAXCLUSTERS]map[string]float64) {
 			total[n][ngram] = delta[n][ngram]
 		}
 	} 
-}
-
-// *******************************************************************************
-
-func Extend(context map[string]int,s string) {
-
-	context[s]++
 }
 
 // *******************************************************************************
