@@ -358,7 +358,7 @@ func Context(s string) bool {
 
 	// Evalute general boolean expressions CFEngine style
 
-	if CONTEXT[s] > 0 {
+	if ContextEva(s) > 0 {
 		return true
 	}
 
@@ -3788,3 +3788,216 @@ func RemoveLock(name string) {
 	}
 }
 
+// ***********************************************************************
+
+func TestContextEval() {
+
+	a := 0.1
+	b := 0.2
+	c := 0.3
+	d := 0.4
+	e := 0.5
+	f := 0.6
+	g := 0.7
+	test := 0.0
+
+	CONTEXT["a"] = 0.1
+	CONTEXT["b"] = 0.2
+	CONTEXT["c"] = 0.3
+	CONTEXT["d"] = 0.4
+	CONTEXT["e"] = 0.5
+	CONTEXT["f"] = 0.6
+	CONTEXT["g"] = 0.7
+	
+	str1 := "test & ( a | b)"
+	cmp1 := test * (a+b)
+	expr1,res1 := ContextEval(str1)
+	fmt.Println(str1,"---->",expr1,res1,"CMP",cmp1,"\n")
+
+	str2 := "(test2 & ( a | b))|(e.f.g)"
+	cmp2 := (test * (a+b)) + (e*f*g)
+	expr2,res2 := ContextEval(str2)
+	fmt.Println(str2,"---->",expr2,res2,"CMP",cmp2,"\n")
+
+	str3 := "(test3 & ( c | d))"
+	cmp3 := (test * (c+d))
+	expr3,res3 := ContextEval(str3)
+	fmt.Println(str3,"---->",expr3,res3,"CMP",cmp3,"\n")
+
+	str3a := "(test3a) (& ( c | d))"
+	cmp3a := (test * (c+d))
+	expr3a,res3a := ContextEval(str3a)
+	fmt.Println(str3a,"---->",expr3a,res3a,"CMP",cmp3a,"\n")
+
+	str3b := "(test3b) & (( c | d))"
+	cmp3b := (test * (c+d))
+	expr3b,res3b := Eval(str3b)
+	fmt.Println(str3b,"---->",expr3b,res3b,"CMP",cmp3b,"\n")
+
+
+}
+
+// ***********************************************************************
+
+func ContextEval(s string) (string,float64) {
+
+	// Return an estimated confidence in the quasi-Boolean expression s
+
+	expr := CleanExpression(s)
+
+	or_parts := SplitWithParensIntact(expr,'|')
+
+	or_result := 0.0
+
+	for or_frag := range or_parts {
+
+		and_parts := SplitWithParensIntact(or_parts[or_frag],'.') 
+
+		and_result := 1.0
+
+		for and_frag := range and_parts {
+
+			if and_parts[and_frag] == s {
+				fmt.Println("\nIrreducible context expression: ",s,"\n")
+				return "bad expression", -1.0
+			}
+
+			var res float64
+			token := strings.TrimSpace(and_parts[and_frag])
+
+			switch token[0] {
+			case '(': 
+				_,res = Eval(token)
+			default:
+				res = CONTEXT[token]
+			}
+
+			and_result *= res
+		}
+
+		or_result += and_result
+	}
+
+	return expr,or_result
+}
+
+// ***********************************************************************
+
+func CleanExpression(s string) string {
+
+	s = TrimParen(s)
+
+	r1 := regexp.MustCompile("[|]+") 
+	s = r1.ReplaceAllString(s,"|") 
+	r2 := regexp.MustCompile("[&]+") 
+	s = r2.ReplaceAllString(s,".") 
+	r3 := regexp.MustCompile("[.]+") 
+	s = r3.ReplaceAllString(s,".") 
+	return s
+}
+
+// ***********************************************************************
+
+func SplitWithParensIntact(expr string,split_ch byte) []string {
+
+	var token string = ""
+	var set []string
+
+	for c := 0; c < len(expr); c++ {
+
+		switch expr[c] {
+
+		case split_ch:
+			set = append(set,token)
+			token = ""
+
+		case '(':
+			subtoken,offset := Paren(expr,c)
+			token += subtoken
+			c = offset-1
+
+		default:
+			token += string(expr[c])
+		}
+	}
+
+	if len(token) > 0 {
+		set = append(set,token)
+	}
+
+	return set
+} 
+
+// ***********************************************************************
+
+func Paren(s string, offset int) (string,int) {
+
+	var level int = 0
+
+	for c := offset; c < len(s); c++ {
+
+		if s[c] == '(' {
+			level++
+			continue
+		}
+
+		if s[c] == ')' {
+			level--
+			if level == 0 {
+				token := s[offset:c+1]
+				return token, c+1
+			}
+		}
+	}
+
+	return "bad expression", -1
+}
+
+
+// ***********************************************************************
+
+func TrimParen(s string) string {
+
+	var level int = 0
+	var trim = true
+
+	if len(s) == 0 {
+		return s
+	}
+
+	s = strings.TrimSpace(s)
+
+	if s[0] != '(' {
+		return s
+	}
+
+	for c := 0; c < len(s); c++ {
+
+		if s[c] == '(' {
+			level++
+			continue
+		}
+
+		if level == 0 && c < len(s)-1 {
+			trim = false
+		}
+		
+		if s[c] == ')' {
+			level--
+
+			if level == 0 && c == len(s)-1 {
+				
+				var token string
+				
+				if trim {
+					token = s[1:len(s)-1]
+				} else {
+					token = s
+				}
+				return token
+			}
+		}
+	}
+	
+	return "bad expression"
+}
