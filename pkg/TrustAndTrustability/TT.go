@@ -319,7 +319,7 @@ type SemanticLinkSet map[string][]ConnectionSemantics
 // Heuristic context, CFEngine style
 // ****************************************************************************
 
-var CONTEXT = make(map[string]int)
+var CONTEXT map[string]float64
 
 // *******************************************************************************
 
@@ -349,20 +349,18 @@ func ContextSet() []string {
 
 func InitializeContext() {
 
-	CONTEXT = make(map[string]int)
+	CONTEXT = make(map[string]float64)
 }
 
 // *******************************************************************************
 
-func Context(s string) bool {
+func Context(s string) float64 {
 
 	// Evalute general boolean expressions CFEngine style
 
-	if ContextEva(s) > 0 {
-		return true
-	}
+	_,confidence := ContextEval(s)
 
-	return false
+	return confidence
 }
 
 // ****************************************************************************
@@ -3831,7 +3829,7 @@ func TestContextEval() {
 
 	str3b := "(test3b) & (( c | d))"
 	cmp3b := (test * (c+d))
-	expr3b,res3b := Eval(str3b)
+	expr3b,res3b := ContextEval(str3b)
 	fmt.Println(str3b,"---->",expr3b,res3b,"CMP",cmp3b,"\n")
 
 
@@ -3867,7 +3865,7 @@ func ContextEval(s string) (string,float64) {
 
 			switch token[0] {
 			case '(': 
-				_,res = Eval(token)
+				_,res = ContextEval(token)
 			default:
 				res = CONTEXT[token]
 			}
