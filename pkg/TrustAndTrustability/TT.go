@@ -3788,55 +3788,6 @@ func RemoveLock(name string) {
 
 // ***********************************************************************
 
-func TestContextEval() {
-
-	a := 0.1
-	b := 0.2
-	c := 0.3
-	d := 0.4
-	e := 0.5
-	f := 0.6
-	g := 0.7
-	test := 0.0
-
-	CONTEXT["a"] = 0.1
-	CONTEXT["b"] = 0.2
-	CONTEXT["c"] = 0.3
-	CONTEXT["d"] = 0.4
-	CONTEXT["e"] = 0.5
-	CONTEXT["f"] = 0.6
-	CONTEXT["g"] = 0.7
-	
-	str1 := "test & ( a | b)"
-	cmp1 := test * (a+b)
-	expr1,res1 := ContextEval(str1)
-	fmt.Println(str1,"---->",expr1,res1,"CMP",cmp1,"\n")
-
-	str2 := "(test2 & ( a | b))|(e.f.g)"
-	cmp2 := (test * (a+b)) + (e*f*g)
-	expr2,res2 := ContextEval(str2)
-	fmt.Println(str2,"---->",expr2,res2,"CMP",cmp2,"\n")
-
-	str3 := "(test3 & ( c | d))"
-	cmp3 := (test * (c+d))
-	expr3,res3 := ContextEval(str3)
-	fmt.Println(str3,"---->",expr3,res3,"CMP",cmp3,"\n")
-
-	str3a := "(test3a) (& ( c | d))"
-	cmp3a := (test * (c+d))
-	expr3a,res3a := ContextEval(str3a)
-	fmt.Println(str3a,"---->",expr3a,res3a,"CMP",cmp3a,"\n")
-
-	str3b := "(test3b) & (( c | d))"
-	cmp3b := (test * (c+d))
-	expr3b,res3b := ContextEval(str3b)
-	fmt.Println(str3b,"---->",expr3b,res3b,"CMP",cmp3b,"\n")
-
-
-}
-
-// ***********************************************************************
-
 func ContextEval(s string) (string,float64) {
 
 	// Return an estimated confidence in the quasi-Boolean expression s
@@ -3855,15 +3806,30 @@ func ContextEval(s string) (string,float64) {
 
 		for and_frag := range and_parts {
 
-			if and_parts[and_frag] == s {
+			if s[0] == '(' && and_parts[and_frag] == s {
 				fmt.Println("\nIrreducible context expression: ",s,"\n")
 				return "bad expression", -1.0
 			}
 
 			var res float64
 			token := strings.TrimSpace(and_parts[and_frag])
-
+			
 			switch token[0] {
+
+			case '!':
+				switch token[1] {
+				case '(': 
+					_,res = ContextEval(token[1:])
+				default:
+					res = CONTEXT[token[1:]]
+				}
+
+				if res > 0 {
+					res = 0
+				} else {
+					res = 1
+				}
+
 			case '(': 
 				_,res = ContextEval(token)
 			default:
