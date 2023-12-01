@@ -3,18 +3,21 @@ Trust, semantic learning, and monitoring
 
 These programs are proof of concept stubs and research tools associated with the project Trust semantic learning and monitoring with NLnet. Some of the code is duplicated to preserve the history of development. As the research and development progresses, some versions will become of mainly pedagogical interest, and only a few programs will be of interest to execute:
 
-(DISCLAIMER: these programs worked at the time of writing, but may cease to work as dependencies fail to keep the same promises.)
+(DISCLAIMER: these programs worked at the time of writing, but may cease to work as dependencies fail to keep the same promises. I had the suggestion to offer a Makefile, but I've not yet decided to try this as building is trivial, while execution is long and tortuous.)
 
 Usage: 
- - `chatgpt_client.go`
- - `ngrams.go`
- - `ngrams-chinese.go`
- - `wikipedia_history.go <verbose>`
- - `wikipedia_history_db.go <verbose>`
- - `wikipedia_history_ml.go <verbose>`
- - `wikipedia_history_query.go <topic>`
- - `wikipedia_topic_query.go <topic>`
- - `wikipedia_ml_query.go`
+ - `go run chatgpt_client.go`
+ - `go run ngrams.go`
+ - `go run ngrams-chinese.go`
+ - `go run wikipedia_history.go <verbose>`
+ - `go run wikipedia_history_db.go <verbose>`
+ - `go run wikipedia_history_ml.go <verbose>`
+ - `go run wikipedia_history_query.go <topic>`
+ - `go run wikipedia_topic_query.go <topic>`
+ - `go run wikipedia_ml_query.go`
+Also
+ - `go run tcp_server.go`
+ - `go run tcp_client.go`
 
 The files:
 
