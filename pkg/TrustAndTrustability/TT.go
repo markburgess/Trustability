@@ -3963,5 +3963,5 @@ func TrimParen(s string) string {
 		}
 	}
 	
-	return "bad expression"
+	return s
 }
