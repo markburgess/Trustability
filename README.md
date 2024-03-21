@@ -13,8 +13,6 @@ The goal here is to investigate how we might use trust as a guiding potential in
 
 This can be found on the summary page http://markburgess.org/trustproject.html, which refers to methodology and data sets. All data sets can be generated at any time, though of course the data changes gradually over weeks and months.
 
-
-
 ## Code and data
 
 The code consists of a directory of stubs and analysis tools, that make of the Go package library called TT, which is built from the earlier Semantic Spacetime library code and new methods developed in the test cases here.
