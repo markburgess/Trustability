@@ -13,6 +13,18 @@ The goal here is to investigate how we might use trust as a guiding potential in
 
 This can be found on the summary page http://markburgess.org/trustproject.html, which refers to methodology and data sets. All data sets can be generated at any time, though of course the data changes gradually over weeks and months.
 
+1. [Literature summary] (https://www.researchgate.net/publication/369185404_Background_Notes_on_The_Literature_of_Trust_Bridging_The_Perspectives_of_Socio-Economics_and_Technology)
+2. [Notes on Incorporating Operational Trust Design into Automation (Companion to code examples)](https://www.researchgate.net/publication/371292051_Notes_on_Incorporating_Operational_Trust_Design_into_Automation_Companion_to_code_examples)
+3. [Promise Theory model of trust and trustworthiness (complete draft for peer review)](https://www.researchgate.net/publication/370303770_Trust_and_Trustability_-v01_An_idealized_operational_theory_of_economic_attentiveness)
+4. [Narrative Attentiveness Notes on Analysis and Assessment of Semantic Trustworthiness](https://www.researchgate.net/publication/372110659_Narrative_Attentiveness_Notes_on_Analysis_and_Assessment_of_Semantic_Trustworthiness_v01_Companion_notes_to_the_ngram_code_examples)
+5. [Trust assessment examples (Notes accompanying examples and code](https://www.researchgate.net/publication/372589267_Trust_assessment_examples_Notes_accompanying_examples_and_code)
+6. [Group collaboration of users on Wikipedia A data study of trust dynamics (Notes accompanying examples and code)](https://www.researchgate.net/publication/373237181_6_Group_collaboration_of_users_on_Wikipedia_A_data_study_of_trust_dynamics_Notes_accompanying_examples_and_code)
+7. [Studying attack resilience in human-machine processes using (mis)trust(worthiness) as a predictor (The security angle)](https://www.researchgate.net/publication/374030005_7_Studying_attack_resilience_in_human-machine_processes_using_mistrustworthiness_as_a_predictor_The_security_angle)
+8. [Code consolidation](https://www.researchgate.net/publication/375074930_8_Consolidate_code_from_Semantic_Spacetime_Model_Put_data_into_queryable_database)
+
+9. [Machine Learning Model for simplifying trust allocation: the role of heuristics](https://www.researchgate.net/publication/375927262_Can_we_learn_when_to_trust_New_research_on_relating_trust_machine_learning_and_heuristics)
+10. [Summary of the project: A Trust User Guide](https://www.researchgate.net/publication/376271829_A_Trust_User_Guide)
+
 ## Code and data
 
 The code consists of a directory of stubs and analysis tools, that make of the Go package library called TT, which is built from the earlier Semantic Spacetime library code and new methods developed in the test cases here.

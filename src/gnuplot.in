@@ -510,11 +510,13 @@ plot [0:15] "trust.dat" using 3:13
 
 set xlabel "N"
 set ylabel "I(N)"
-set title "3 zoom - Contention"
+set title "Contention Intensity"
+set key off
+set pointsize .5
+set linewidth 2
 set term pdf monochrome
 set output "grtot_3_zoom.pdf"
-plot [0:15] "trust.dat" using 3:7 
-
+plot [0:15] "trust.dat" using 3:7 lc "#aaaaaa", "Nspectrum.dat" w line lw 6
 
 # Bot fractions
 
