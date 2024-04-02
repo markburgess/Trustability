@@ -13,7 +13,7 @@ The goal here is to investigate how we might use trust as a guiding potential in
 
 This can be found on the summary page http://markburgess.org/trustproject.html, which refers to methodology and data sets. All data sets can be generated at any time, though of course the data changes gradually over weeks and months.
 
-1. [Literature summary] (https://www.researchgate.net/publication/369185404_Background_Notes_on_The_Literature_of_Trust_Bridging_The_Perspectives_of_Socio-Economics_and_Technology)
+1. [Literature summary](https://www.researchgate.net/publication/369185404_Background_Notes_on_The_Literature_of_Trust_Bridging_The_Perspectives_of_Socio-Economics_and_Technology)
 2. [Notes on Incorporating Operational Trust Design into Automation (Companion to code examples)](https://www.researchgate.net/publication/371292051_Notes_on_Incorporating_Operational_Trust_Design_into_Automation_Companion_to_code_examples)
 3. [Promise Theory model of trust and trustworthiness (complete draft for peer review)](https://www.researchgate.net/publication/370303770_Trust_and_Trustability_-v01_An_idealized_operational_theory_of_economic_attentiveness)
 4. [Narrative Attentiveness Notes on Analysis and Assessment of Semantic Trustworthiness](https://www.researchgate.net/publication/372110659_Narrative_Attentiveness_Notes_on_Analysis_and_Assessment_of_Semantic_Trustworthiness_v01_Companion_notes_to_the_ngram_code_examples)
